@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Product {
+  id                Int              @id @default(autoincrement())
+  code              String?          @unique
+  name              String           @unique
+  category          String
+  purchasePrice     Float
+  sellPrice         Float
+  quantity          Int              @default(0)
+  minQuantity       Int              @default(5)
+  unit              String           @default("قطعة")
+  avgPurchasePrice  Float?
+  hasBatches        Boolean          @default(false)
+  hasExpiryDate     Boolean          @default(true)
+  nearestExpiryDate DateTime?
+  supplierId        Int?
+  isArchived        Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  damagedProducts   DamagedProduct[]
+  orderItems        OrderItem[]      @relation("ProductToOrderItem")
+  supplier          Supplier?        @relation(fields: [supplierId], references: [id])
+  batches           ProductBatch[]
+  stockMovements    StockMovement[]
+}
+
+model Supplier {
+  id              Int              @id @default(autoincrement())
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  balanceDue      Float            @default(0)
+  isArchived      Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  damagedProducts DamagedProduct[]
+  orders          Order[]          @relation("SupplierToOrder")
+  products        Product[]
+  batches         ProductBatch[]
+}
+
+model Customer {
+  id                Int       @id @default(autoincrement())
+  name              String
+  type              String    @default("REGULAR")
+  phone             String?
+  email             String?
+  creditLimit       Float     @default(0)
+  balanceDue        Float     @default(0)
+  createdAt         DateTime  @default(now())
+  lastPaymentAmount Float?    @default(0)
+  lastPaymentDate   DateTime?
+  invoices          Invoice[] @relation("CustomerToInvoice")
+  orders            Order[]   @relation("CustomerToOrder")
+  payments          Payment[] @relation("CustomerToPayment")
+  projects          Project[] @relation("CustomerToProject")
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  customerId  Int
+  name        String
+  description String?
+  status      String    @default("ACTIVE")
+  totalAmount Float     @default(0)
+  paidAmount  Float     @default(0)
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  orders      Order[]   @relation("ProjectToOrder")
+  customer    Customer  @relation("CustomerToProject", fields: [customerId], references: [id])
+}
+
+model Order {
+  id             Int             @id @default(autoincrement())
+  customerId     Int?
+  supplierId     Int?
+  projectId      Int?
+  orderNumber    String          @unique
+  type           String
+  status         String          @default("PENDING")
+  total          Float           @default(0)
+  orderDate      DateTime        @default(now())
+  notes          String?
+  customerName   String?
+  customerPhone  String?
+  invoice        Invoice?        @relation("OrderToInvoice")
+  project        Project?        @relation("ProjectToOrder", fields: [projectId], references: [id])
+  supplier       Supplier?       @relation("SupplierToOrder", fields: [supplierId], references: [id])
+  customer       Customer?       @relation("CustomerToOrder", fields: [customerId], references: [id])
+  items          OrderItem[]     @relation("OrderToOrderItem")
+  stockMovements StockMovement[]
+}
+
+model OrderItem {
+  id               Int              @id @default(autoincrement())
+  orderId          Int
+  productId        Int
+  quantity         Int
+  returnedQuantity Int              @default(0)
+  unitPrice        Float
+  total            Float
+  product          Product          @relation("ProductToOrderItem", fields: [productId], references: [id])
+  order            Order            @relation("OrderToOrderItem", fields: [orderId], references: [id])
+  batchAllocations OrderItemBatch[]
+}
+
+model Invoice {
+  id            Int       @id @default(autoincrement())
+  orderId       Int       @unique
+  customerId    Int?
+  invoiceNumber String    @unique
+  type          String    @default("INVOICE")
+  total         Float
+  paid          Float     @default(0)
+  remaining     Float
+  date          DateTime  @default(now())
+  customerName  String?
+  customerPhone String?
+  status        String    @default("UNPAID")
+  dueDate       DateTime?
+  customer      Customer? @relation("CustomerToInvoice", fields: [customerId], references: [id])
+  order         Order     @relation("OrderToInvoice", fields: [orderId], references: [id])
+  payments      Payment[] @relation("InvoiceToPayment")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  invoiceId     Int
+  customerId    Int
+  amount        Float
+  paymentMethod String   @default("CASH")
+  chequeNumber  String?
+  bankName      String?
+  paymentDate   DateTime @default(now())
+  notes         String?
+  createdAt     DateTime @default(now())
+  customer      Customer @relation("CustomerToPayment", fields: [customerId], references: [id])
+  invoice       Invoice  @relation("InvoiceToPayment", fields: [invoiceId], references: [id])
+}
+
+model StockMovement {
+  id             Int      @id @default(autoincrement())
+  productId      Int
+  orderId        Int?
+  movementType   String
+  quantity       Int
+  quantityBefore Int
+  quantityAfter  Int
+  supplierId     Int?
+  unitCost       Float?
+  totalCost      Float?
+  reason         String?
+  createdAt      DateTime @default(now())
+  order          Order?   @relation(fields: [orderId], references: [id])
+  product        Product  @relation(fields: [productId], references: [id])
+}
+
+model DamagedProduct {
+  id             Int           @id @default(autoincrement())
+  productId      Int
+  batchId        Int?
+  quantity       Int
+  reason         String
+  damageType     String
+  unitCost       Float
+  totalLoss      Float
+  reportedBy     String?
+  status         String        @default("PENDING")
+  supplierRefund Boolean       @default(false)
+  refundAmount   Float?
+  supplierId     Int?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
+  product        Product       @relation(fields: [productId], references: [id])
+  batch          ProductBatch? @relation(fields: [batchId], references: [id])
+}
+
+model ProductBatch {
+  id               Int              @id @default(autoincrement())
+  productId        Int
+  supplierId       Int?
+  batchNumber      String           @unique
+  purchaseOrderId  Int?
+  initialQty       Int
+  remainingQty     Int
+  unitCost         Float
+  totalCost        Float
+  expiryDate       DateTime?
+  manufactureDate  DateTime?
+  status           String           @default("ACTIVE")
+  purchaseDate     DateTime         @default(now())
+  notes            String?
+  orderItemBatches OrderItemBatch[]
+  damagedProducts  DamagedProduct[]
+  supplier         Supplier?        @relation(fields: [supplierId], references: [id])
+  product          Product          @relation(fields: [productId], references: [id])
+}
+
+model OrderItemBatch {
+  id          Int          @id @default(autoincrement())
+  orderItemId Int
+  batchId     Int
+  quantity    Int
+  unitCost    Float
+  batch       ProductBatch @relation(fields: [batchId], references: [id])
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id])
+}

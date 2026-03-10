@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Product {
+  id             Int             @id @default(autoincrement())
+  code           String?         @unique
+  name           String
+  category       String
+  purchasePrice  Float
+  sellPrice      Float
+  quantity       Int             @default(0)
+  minQuantity    Int             @default(5)
+  unit           String          @default("قطعة")
+  expiryDate     DateTime?
+  supplierId     Int?
+  createdAt      DateTime        @default(now())
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  orderItems     OrderItem[]
+  stockMovements StockMovement[]
+}
+
+model Supplier {
+  id         Int       @id @default(autoincrement())
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  balanceDue Float     @default(0)
+  createdAt  DateTime  @default(now())
+  products   Product[]
+  orders     Order[]
+}
+
+model Customer {
+  id          Int       @id @default(autoincrement())
+  name        String
+  type        String    @default("REGULAR")
+  phone       String?
+  email       String?
+  creditLimit Float     @default(0)
+  balanceDue  Float     @default(0)
+  createdAt   DateTime  @default(now())
+  projects    Project[]
+  orders      Order[]
+  invoices    Invoice[]
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  customerId  Int
+  name        String
+  description String?
+  status      String    @default("ACTIVE")
+  totalAmount Float     @default(0)
+  paidAmount  Float     @default(0)
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  orders      Order[]
+}
+
+model Order {
+  id             Int             @id @default(autoincrement())
+  customerId     Int?
+  supplierId     Int?
+  projectId      Int?
+  orderNumber    String          @unique
+  type           String
+  status         String          @default("PENDING")
+  total          Float           @default(0)
+  orderDate      DateTime        @default(now())
+  notes          String?
+  customer       Customer?       @relation(fields: [customerId], references: [id])
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  project        Project?        @relation(fields: [projectId], references: [id])
+  items          OrderItem[]
+  invoice        Invoice?
+  stockMovements StockMovement[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  unitPrice Float
+  total     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  orderId       Int      @unique
+  customerId    Int
+  invoiceNumber String   @unique
+  type          String   @default("INVOICE")
+  total         Float
+  paid          Float    @default(0)
+  remaining     Float
+  date          DateTime @default(now())
+  order         Order    @relation(fields: [orderId], references: [id])
+  customer      Customer @relation(fields: [customerId], references: [id])
+}
+
+model StockMovement {
+  id             Int      @id @default(autoincrement())
+  productId      Int
+  orderId        Int?
+  movementType   String
+  quantity       Int
+  quantityBefore Int
+  quantityAfter  Int
+  reason         String?
+  createdAt      DateTime @default(now())
+  product        Product  @relation(fields: [productId], references: [id])
+  order          Order?   @relation(fields: [orderId], references: [id])
+}

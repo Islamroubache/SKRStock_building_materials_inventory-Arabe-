@@ -1,0 +1,58 @@
+﻿.next/dev/types/validator.ts(225,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/damaged/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/damaged/[id]">'.
+  Types of property 'PUT' are incompatible.
+    Type '(request: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ id: number; quantity: number; supplierId: number | null; createdAt: Date; productId: number; unitCost: number; ... 7 more ...; notes: string | null; }> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/dev/types/validator.ts(288,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/invoices/[id]/payments/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/invoices/[id]/payments">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ id: number; createdAt: Date; notes: string | null; customerId: number; invoiceId: number; amount: number; paymentMethod: string; chequeNumber: string | null; bankName: string | null; paymentDate: Date; }[]> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/dev/types/validator.ts(315,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/payments/customer/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/payments/customer/[id]">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<({ invoice: { id: number; orderId: number; total: number; status: string; customerId: number | null; type: string; customerName: string | null; ... 5 more ...; dueDate: Date | null; }; } & { ...; })[]> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/dev/types/validator.ts(333,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/products/[id]/batches/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/products/[id]/batches">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ error: string; }> | NextResponse<{ id: number; supplierId: number | null; productId: number; unitCost: number; ... 9 more ...; purchaseDate: Date; }[]>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(225,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/damaged/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/damaged/[id]">'.
+  Types of property 'PUT' are incompatible.
+    Type '(request: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ id: number; quantity: number; supplierId: number | null; createdAt: Date; productId: number; unitCost: number; ... 7 more ...; notes: string | null; }> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(288,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/invoices/[id]/payments/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/invoices/[id]/payments">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ id: number; createdAt: Date; notes: string | null; customerId: number; invoiceId: number; amount: number; paymentMethod: string; chequeNumber: string | null; bankName: string | null; paymentDate: Date; }[]> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(315,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/payments/customer/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/payments/customer/[id]">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<({ invoice: { id: number; orderId: number; total: number; status: string; customerId: number | null; type: string; customerName: string | null; ... 5 more ...; dueDate: Date | null; }; } & { ...; })[]> | NextResponse<...>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(333,31): error TS2344: Type 'typeof import("C:/Users/iroub/OneDrive/Desktop/makhzoun/app/api/products/[id]/batches/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/products/[id]/batches">'.
+  Types of property 'GET' are incompatible.
+    Type '(request: Request, { params }: { params: { id: string; }; }) => Promise<NextResponse<{ error: string; }> | NextResponse<{ id: number; supplierId: number | null; productId: number; unitCost: number; ... 9 more ...; purchaseDate: Date; }[]>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+app/api/invoices/[id]/pay/route.ts(27,26): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.

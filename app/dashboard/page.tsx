@@ -1,0 +1,249 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+export default function Dashboard() {
+    const [stats, setStats] = useState<any>(null);
+    const [chartData, setChartData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Run expiry check once on mount
+        fetch('/api/batches/expiry-check', { method: 'POST' }).catch(console.error);
+
+        Promise.all([
+            fetch('/api/dashboard/stats').then(res => res.json()),
+            fetch('/api/dashboard/sales-chart?days=30').then(res => res.json())
+        ]).then(([statsData, chartResData]) => {
+            setStats(statsData);
+            setChartData(chartResData);
+            setLoading(false);
+        }).catch(err => {
+            console.error(err);
+            setLoading(false);
+        });
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="w-full h-[60vh] flex items-center justify-center">
+                <div className="animate-pulse flex flex-col items-center gap-4">
+                    <div className="h-12 w-12 rounded-full border-4 border-t-[#20b878] border-[#20b878]/20 animate-spin"></div>
+                    <p className="text-gray-500 font-medium font-tajawal">جاري تحميل البيانات...</p>
+                </div>
+            </div>
+        );
+    }
+
+    const COLORS = ['#20b878', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+    return (
+        <div className="space-y-6 font-tajawal">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
+                        <Package size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">المنتجات</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.totalProducts || 0}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-green-100 text-green-600 rounded-lg">
+                        <TrendingUp size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">مبيعات اليوم</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todaySales?.toLocaleString() || 0} دج</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-red-100 text-red-600 rounded-lg">
+                        <AlertTriangle size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">مخزون منخفض</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.lowStockCount || 0}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-cyan-100 text-cyan-600 rounded-lg">
+                        <Users size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">مبالغ مستحقة</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.outstandingDebts?.count || 0} عميل</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-red-100 text-red-600 rounded-lg">
+                        <ArrowDownLeft size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">إجمالي الديون</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{(stats?.totalDebt || 0).toLocaleString()} دج</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-amber-100 text-amber-600 rounded-lg">
+                        <Clock size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">فواتير متأخرة</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.overdueInvoicesCount || 0} </h3>
+                    </div>
+                </div>
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Line Chart */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">المبيعات والمشتريات — آخر 30 يوم</h3>
+                    <div className="h-80 w-full" dir="ltr">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                <XAxis dataKey="date" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}`} />
+                                <Tooltip
+                                    formatter={(value: any) => [`${value.toLocaleString()} دج`]}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', textAlign: 'right', fontFamily: 'inherit' }}
+                                />
+                                <Legend iconType="circle" />
+                                <Line type="monotone" dataKey="sales" name="المبيعات" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="purchases" name="المشتريات" stroke="#20b878" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Pie Chart */}
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">المنتجات الأكثر مبيعاً</h3>
+                    <div className="flex-1 w-full" dir="ltr">
+                        {stats?.topProducts?.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={stats.topProducts}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="sold"
+                                        nameKey="name"
+                                    >
+                                        {stats.topProducts.map((entry: any, index: number) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value: any) => [`${value} قطعة`]} contentStyle={{ fontFamily: 'inherit', textAlign: 'right' }} />
+                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '12px', fontFamily: 'inherit', marginTop: '10px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400 text-sm font-medium">لا توجد بيانات مبيعات بعد</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Recent Orders Table */}
+                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-gray-200">
+                        <h3 className="text-lg font-bold text-gray-900">آخر الطلبات</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600">رقم الطلب</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600">العميل</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-left">المبلغ</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-center">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {stats?.recentOrders?.length > 0 ? stats.recentOrders.map((order: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900" dir="ltr">{order.orderNumber}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">{order.customerName}</td>
+                                        <td className="px-6 py-4 text-sm font-bold text-gray-900 text-left" dir="ltr">{order.total.toLocaleString()} دج</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                        ${order.status === 'DONE' || order.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
+                                                {order.status === 'DONE' || order.status === 'COMPLETED' ? 'مكتمل' : 'معلق'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">لا توجد طلبات حديثة</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="bg-red-50/50 p-6 rounded-xl border border-red-100 shadow-sm h-full max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold text-red-800 flex items-center gap-2">
+                            <AlertTriangle size={20} />
+                            التنبيهات
+                        </h3>
+                    </div>
+
+                    <div className="space-y-3">
+                        {stats?.expiredList?.map((product: any, idx: number) => (
+                            <div key={`expired-${idx}`} className="p-3 bg-red-50 border border-red-300 rounded-lg flex items-center gap-3 shadow-sm">
+                                <div className="text-red-600 flex-shrink-0"><AlertTriangle size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-red-700 leading-tight">🔴 منتهي الصلاحية: {product.name}</p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {stats?.lowStockProducts?.map((product: any, idx: number) => (
+                            <div key={`low-stock-${idx}`} className="p-3 bg-white border border-red-200 rounded-lg flex items-center gap-3 shadow-sm">
+                                <div className="text-red-500 flex-shrink-0"><AlertTriangle size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-gray-900 leading-tight">🚨 {product.name} — باقي {product.quantity} {product.unit}</p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {stats?.creditAlerts?.map((alert: any, idx: number) => (
+                            <div key={`credit-${idx}`} className="p-3 bg-white border border-amber-200 rounded-lg flex items-center gap-3 shadow-sm">
+                                <div className="text-amber-500 flex-shrink-0"><AlertTriangle size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-gray-900 leading-tight">⚠️ الزبون {alert.name} تجاوز الائتمان</p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {(!stats?.lowStockProducts?.length && !stats?.creditAlerts?.length && !stats?.expiredList?.length) && (
+                            <div className="h-40 flex flex-col items-center justify-center text-center text-gray-500">
+                                <Package size={32} className="text-gray-300 mb-2" />
+                                <p className="text-sm font-medium">كل شيء على ما يرام.</p>
+                                <p className="text-xs mt-1">لا توجد تنبيهات حالياً.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
