@@ -79,7 +79,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                         <p className="text-sm font-medium text-gray-500">مبالغ مستحقة</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.outstandingDebts?.count || 0} عميل</h3>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.outstandingDebts?.count || 0} </h3>
                     </div>
                 </div>
 

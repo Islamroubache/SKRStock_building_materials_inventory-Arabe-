@@ -40,9 +40,10 @@ model Supplier {
   isArchived      Boolean          @default(false)
   createdAt       DateTime         @default(now())
   damagedProducts DamagedProduct[]
-  orders          Order[]          @relation("SupplierToOrder")
+  orders          Order[]           @relation("SupplierToOrder")
   products        Product[]
   batches         ProductBatch[]
+  payments        SupplierPayment[] @relation("SupplierToPayment")
 }
 
 model Customer {
@@ -130,18 +131,18 @@ model Invoice {
 }
 
 model Payment {
-  id            Int      @id @default(autoincrement())
-  invoiceId     Int
+  id            Int       @id @default(autoincrement())
+  invoiceId     Int?
   customerId    Int
   amount        Float
-  paymentMethod String   @default("CASH")
+  paymentMethod String    @default("CASH")
   chequeNumber  String?
   bankName      String?
-  paymentDate   DateTime @default(now())
+  paymentDate   DateTime  @default(now())
   notes         String?
-  createdAt     DateTime @default(now())
-  customer      Customer @relation("CustomerToPayment", fields: [customerId], references: [id])
-  invoice       Invoice  @relation("InvoiceToPayment", fields: [invoiceId], references: [id])
+  createdAt     DateTime  @default(now())
+  customer      Customer  @relation("CustomerToPayment", fields: [customerId], references: [id])
+  invoice       Invoice?  @relation("InvoiceToPayment", fields: [invoiceId], references: [id])
 }
 
 model StockMovement {
@@ -211,4 +212,17 @@ model OrderItemBatch {
   unitCost    Float
   batch       ProductBatch @relation(fields: [batchId], references: [id])
   orderItem   OrderItem    @relation(fields: [orderItemId], references: [id])
+}
+
+model SupplierPayment {
+  id            Int      @id @default(autoincrement())
+  supplierId    Int
+  amount        Float
+  paymentMethod String   @default("CASH")
+  chequeNumber  String?
+  bankName      String?
+  paymentDate   DateTime @default(now())
+  notes         String?
+  createdAt     DateTime @default(now())
+  supplier      Supplier @relation("SupplierToPayment", fields: [supplierId], references: [id])
 }

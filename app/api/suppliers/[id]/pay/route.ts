@@ -24,12 +24,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             );
         }
 
-        const updated = await prisma.supplier.update({
-            where: { id: supplierId },
-            data: { balanceDue: { decrement: amount } }
+        let updatedSupplier: any;
+        await prisma.$transaction(async (tx) => {
+            // 1. Create the payment record
+            await tx.supplierPayment.create({
+                data: {
+                    supplierId,
+                    amount,
+                    notes: `دفعة للمورد لتسوية الرصيد`
+                }
+            });
+
+            // 2. Reduce the supplier's balance due
+            updatedSupplier = await tx.supplier.update({
+                where: { id: supplierId },
+                data: { balanceDue: { decrement: amount } }
+            });
         });
 
-        return NextResponse.json({ success: true, newBalance: updated.balanceDue });
+        return NextResponse.json({ success: true, newBalance: updatedSupplier?.balanceDue });
     } catch (e) {
         console.error(e);
         return NextResponse.json({ error: 'فشلت عملية الدفع' }, { status: 500 });

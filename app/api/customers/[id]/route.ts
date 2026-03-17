@@ -9,8 +9,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             where: { id },
             include: {
                 projects: true,
-                orders: { orderBy: { orderDate: 'desc' }, take: 10 },
-                invoices: { orderBy: { date: 'desc' }, take: 10 }
+                orders: {
+                    orderBy: { orderDate: 'desc' },
+                    include: {
+                        items: {
+                            include: {
+                                product: { select: { id: true, name: true, unit: true, quantity: true } }
+                            }
+                        }
+                    }
+                },
+                invoices: { orderBy: { date: 'desc' }, take: 10 },
+                payments: { orderBy: { paymentDate: 'desc' } }
             }
         });
         if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
