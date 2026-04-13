@@ -16,7 +16,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                             include: {
                                 product: { select: { id: true, name: true, unit: true, quantity: true } }
                             }
-                        }
+                        },
+                        invoice: true
                     }
                 },
                 invoices: { orderBy: { date: 'desc' }, take: 10 },

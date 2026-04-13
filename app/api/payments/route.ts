@@ -7,28 +7,31 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { invoiceId, customerId, amount, paymentMethod, chequeNumber, bankName, notes } = body;
 
-        if (!invoiceId || !customerId || !amount) {
+        if (!invoiceId || !amount) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         const result = await prisma.$transaction(async (tx) => {
             // 1. Create the Payment record
+            const paymentData: any = {
+                invoiceId,
+                amount: parseFloat(amount),
+                paymentMethod,
+                chequeNumber,
+                bankName,
+                notes,
+                paymentDate: new Date()
+            };
+            if (customerId) paymentData.customerId = customerId;
+
             const payment = await tx.payment.create({
-                data: {
-                    invoiceId,
-                    customerId,
-                    amount: parseFloat(amount),
-                    paymentMethod,
-                    chequeNumber,
-                    bankName,
-                    notes,
-                    paymentDate: new Date()
-                }
+                data: paymentData
             });
 
             // 2. Update the Invoice
             const invoice = await tx.invoice.findUnique({
-                where: { id: invoiceId }
+                where: { id: invoiceId },
+                include: { order: true }
             });
 
             if (!invoice) throw new Error('Invoice not found');
@@ -46,15 +49,26 @@ export async function POST(req: Request) {
                 }
             });
 
-            // 3. Update the Customer balance
-            const updatedCustomer = await tx.customer.update({
-                where: { id: customerId },
-                data: {
-                    balanceDue: { decrement: parseFloat(amount) },
-                    lastPaymentDate: new Date(),
-                    lastPaymentAmount: parseFloat(amount)
-                }
-            });
+            // 3. Update the Customer balance if customerId exists
+            let updatedCustomer = null;
+            if (customerId) {
+                updatedCustomer = await tx.customer.update({
+                    where: { id: customerId },
+                    data: {
+                        balanceDue: { decrement: parseFloat(amount) },
+                        lastPaymentDate: new Date(),
+                        lastPaymentAmount: parseFloat(amount)
+                    }
+                });
+            }
+
+            // 4. Update the project logic if applicable
+            if (invoice.order?.projectId) {
+                await tx.project.update({
+                    where: { id: invoice.order.projectId },
+                    data: { paidAmount: { increment: parseFloat(amount) } }
+                });
+            }
 
             return { payment, invoice: updatedInvoice, customer: updatedCustomer };
         });

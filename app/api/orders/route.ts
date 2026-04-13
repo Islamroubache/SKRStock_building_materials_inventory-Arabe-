@@ -25,114 +25,167 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { customerId, projectId, type, items, notes, guestName, guestPhone, initialPayment, paymentMethod, dueDate } = body;
+        const { 
+            customerId, projectId, supplierId, type, items, notes, 
+            guestName, guestPhone, initialPayment, paymentMethod, 
+            externalNumber, isOfficial,
+            docType,
+            guestRC, guestNIF, guestAI, guestNIS, 
+            guestAddress, guestCommune, guestWilaya,
+            dueDate,
+            orderNumber: bodyOrderNumber
+        } = body;
 
-        if (type !== 'SALE') {
-            const orderNumber = "ORD-" + Date.now();
+        // 1. Fetch Store Settings for Tax Rates
+        const settings = await (prisma as any).storeSettings?.findUnique({ where: { id: 1 } });
+        const tvaRate = settings?.tvaRate ?? 19;
+        const timbreRate = settings?.timbreRate ?? 1;
+
+        // 2. Initial Totals
+        const subtotal = items.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
+        let taxTotal = 0;
+        let timbreAmount = 0;
+
+        if (isOfficial) {
+            taxTotal = subtotal * (tvaRate / 100);
+            // Timbre is 1% of TTC (capped at 10,000) only for official CASH invoices
+            if ((paymentMethod || 'CASH') === 'CASH') {
+                timbreAmount = Math.min((subtotal + taxTotal) * (timbreRate / 100), 10000);
+            }
+        }
+
+        const grandTotal = subtotal + taxTotal + timbreAmount;
+        const paidAmount = parseFloat(initialPayment || 0);
+        const remainingAmount = grandTotal - paidAmount;
+        
+        // --- PURCHASE ORDER LOGIC ---
+        if (type === 'PURCHASE') {
+            const orderNumber = bodyOrderNumber || ("ORD-" + Date.now());
             const result = await prisma.$transaction(async (tx) => {
+                const orderData: any = {
+                    type,
+                    orderNumber,
+                    externalNumber,
+                    notes,
+                    status: body.status || 'DONE',
+                    total: subtotal,
+                    taxRate: isOfficial ? tvaRate : 0,
+                    taxTotal,
+                    timbreAmount,
+                    grandTotal,
+                    isOfficial: !!isOfficial,
+                    items: {
+                        create: items.map((i: any) => ({
+                            productId: i.productId,
+                            quantity: i.quantity,
+                            unitPrice: i.unitPrice,
+                            total: i.quantity * i.unitPrice
+                        }))
+                    }
+                };
+                if (customerId) orderData.customerId = customerId;
+                if (projectId) orderData.projectId = projectId;
+                if (supplierId) orderData.supplierId = supplierId;
+                if (body.guestSupplierName) orderData.customerName = body.guestSupplierName;
+                
+                // Add Guest IDs for Purchases too (if applicable)
+                if (guestRC) orderData.customerRC = guestRC;
+                if (guestNIF) orderData.customerNIF = guestNIF;
+                if (guestAI) orderData.customerAI = guestAI;
+                if (guestNIS) orderData.customerNIS = guestNIS;
+                if (guestAddress) orderData.customerAddress = guestAddress;
+                if (guestCommune) orderData.customerCommune = guestCommune;
+                if (guestWilaya) orderData.customerWilaya = guestWilaya;
+
                 const order = await tx.order.create({
-                    data: {
-                        customerId,
-                        projectId,
-                        supplierId: body.supplierId,
-                        type,
-                        orderNumber,
-                        notes,
-                        status: 'DONE',
-                        total: body.total || 0,
-                        items: {
-                            create: items.map((i: any) => ({
-                                productId: i.productId,
-                                quantity: i.quantity,
-                                unitPrice: i.unitPrice,
-                                total: i.quantity * i.unitPrice
-                            }))
-                        }
-                    },
+                    data: orderData,
                     include: { supplier: true }
                 });
 
-                if (type === 'PURCHASE') {
-                    for (const item of items) {
-                        const product = await tx.product.findUnique({
-                            where: { id: item.productId }
+                for (const item of items) {
+                    const product = await tx.product.findUnique({
+                        where: { id: item.productId }
+                    });
+
+                    if (product) {
+                        const currentQty = product.quantity;
+                        const currentAvg = product.avgPurchasePrice ?? product.purchasePrice;
+                        const newQty = item.quantity;
+                        const newUnitCost = item.unitPrice;
+
+                        const newAvgPrice = calculateWeightedAverage(currentQty, currentAvg, newQty, newUnitCost);
+
+                        const shouldTrackBatch = product.hasBatches || (product as any).hasExpiryDate;
+
+                        await tx.product.update({
+                            where: { id: item.productId },
+                            data: {
+                                quantity: { increment: newQty },
+                                avgPurchasePrice: newAvgPrice,
+                                purchasePrice: newAvgPrice,
+                                hasBatches: shouldTrackBatch ? true : product.hasBatches
+                            }
                         });
 
-                        if (product) {
-                            const currentQty = product.quantity;
-                            const currentAvg = product.avgPurchasePrice ?? product.purchasePrice;
-                            const newQty = item.quantity;
-                            const newUnitCost = item.unitPrice;
+                        if (shouldTrackBatch) {
+                            const batchNumber = await generateBatchNumber(tx);
 
-                            const newAvgPrice = calculateWeightedAverage(currentQty, currentAvg, newQty, newUnitCost);
-
-                            const shouldTrackBatch = product.hasBatches || (product as any).hasExpiryDate;
-
-                            await tx.product.update({
-                                where: { id: item.productId },
-                                data: {
-                                    quantity: { increment: newQty },
-                                    avgPurchasePrice: newAvgPrice,
-                                    purchasePrice: newAvgPrice,
-                                    hasBatches: shouldTrackBatch ? true : product.hasBatches
-                                }
-                            });
-
-                            if (shouldTrackBatch) {
-                                const batchNumber = await generateBatchNumber(tx);
-
-                                await tx.productBatch.create({
-                                    data: {
-                                        productId: item.productId,
-                                        supplierId: body.supplierId || null,
-                                        batchNumber,
-                                        purchaseOrderId: order.id,
-                                        initialQty: newQty,
-                                        remainingQty: newQty,
-                                        unitCost: newUnitCost,
-                                        totalCost: newUnitCost * newQty,
-                                        expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
-                                        manufactureDate: item.manufactureDate ? new Date(item.manufactureDate) : null,
-                                        status: 'ACTIVE'
-                                    }
-                                });
-                                await updateNearestExpiry(item.productId, tx);
-                            }
-
-                            await tx.stockMovement.create({
+                            await tx.productBatch.create({
                                 data: {
                                     productId: item.productId,
-                                    orderId: order.id,
-                                    movementType: 'IN',
-                                    quantity: newQty,
-                                    quantityBefore: currentQty,
-                                    quantityAfter: currentQty + newQty,
-                                    supplierId: body.supplierId,
+                                    supplierId: body.supplierId || null,
+                                    batchNumber,
+                                    purchaseOrderId: order.id,
+                                    initialQty: newQty,
+                                    remainingQty: newQty,
                                     unitCost: newUnitCost,
                                     totalCost: newUnitCost * newQty,
-                                    reason: `شراء من المورد — ${order.supplier?.name || 'غير محدد'}`
+                                    expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
+                                    manufactureDate: item.manufactureDate ? new Date(item.manufactureDate) : null,
+                                    status: 'ACTIVE'
                                 }
                             });
+                            await updateNearestExpiry(item.productId, tx);
                         }
+
+                        await tx.stockMovement.create({
+                            data: {
+                                productId: item.productId,
+                                orderId: order.id,
+                                movementType: 'IN',
+                                quantity: newQty,
+                                quantityBefore: currentQty,
+                                quantityAfter: currentQty + newQty,
+                                supplierId: body.supplierId,
+                                unitCost: newUnitCost,
+                                totalCost: newUnitCost * newQty,
+                                reason: `شراء من المورد — ${order.supplier?.name || 'غير محدد'}${externalNumber ? ` (فاتورة: ${externalNumber})` : ''}`
+                            }
+                        });
                     }
                 }
+                
+                // Track supplier balance if not anonymous
+                if (supplierId) {
+                    await tx.supplier.update({
+                        where: { id: supplierId },
+                        data: { balanceDue: { increment: remainingAmount } }
+                    });
+                }
+
                 return order;
             });
             return NextResponse.json(result);
         }
 
-        // Logic for SALE
+        // --- SALE ORDER LOGIC ---
         if (!customerId && !guestName) {
             return NextResponse.json({ error: 'يجب تقديم معلومات العميل' }, { status: 400 });
         }
 
-        const orderTotal = items.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
-        const paidAmount = parseFloat(initialPayment || 0);
-        const remainingAmount = orderTotal - paidAmount;
-
         let customer: any = null;
         if (customerId) {
-            const creditCheck = await checkCreditLimit(customerId, orderTotal, paidAmount);
+            const creditCheck = await checkCreditLimit(customerId, grandTotal, paidAmount);
             if (!creditCheck.allowed) {
                 return NextResponse.json({
                     error: creditCheck.message,
@@ -153,31 +206,64 @@ export async function POST(request: Request) {
             }
         }
 
-        const timestamp = Date.now();
-        const orderNumber = `BC-${timestamp}`;
-        const invoiceNumber = `FC-${orderNumber}`;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const startOfMonth = new Date(year, now.getMonth(), 1);
+        
+        const orderCountThisMonth = await prisma.order.count({
+            where: {
+                type: 'SALE',
+                orderDate: { gte: startOfMonth }
+            }
+        });
+
+        const sequenceNumber = String(orderCountThisMonth + 1).padStart(6, '0');
+        const orderNumber = `${year}/${month}/${sequenceNumber}`;
+        const invoiceNumber = `INV/${orderNumber}`;
 
         const result = await prisma.$transaction(async (tx) => {
+            const orderData: any = {
+                orderNumber,
+                type: 'SALE',
+                status: body.status || 'DONE',
+                total: subtotal,
+                taxRate: isOfficial ? tvaRate : 0,
+                taxTotal,
+                timbreAmount,
+                grandTotal,
+                isOfficial: !!isOfficial,
+                notes,
+                items: {
+                    create: items.map((i: any) => ({
+                        productId: i.productId,
+                        quantity: i.quantity,
+                        unitPrice: i.unitPrice,
+                        total: i.quantity * i.unitPrice
+                    }))
+                }
+            };
+            if (customerId) orderData.customerId = customerId;
+            if (customerId && projectId) orderData.projectId = projectId;
+            if (guestName) orderData.customerName = guestName;
+            if (guestPhone) orderData.customerPhone = guestPhone;
+            if (guestRC) orderData.customerRC = guestRC;
+            if (guestNIF) orderData.customerNIF = guestNIF;
+            if (guestAI) orderData.customerAI = guestAI;
+            if (guestNIS) orderData.customerNIS = guestNIS;
+            if (guestAddress) orderData.customerAddress = guestAddress;
+            if (guestCommune) orderData.customerCommune = guestCommune;
+            if (guestWilaya) orderData.customerWilaya = guestWilaya;
+
+            // For registered customers, copy their address info if not provided
+            if (customerId && customer) {
+                if (!orderData.customerAddress) orderData.customerAddress = customer.address;
+                if (!orderData.customerCommune) orderData.customerCommune = customer.commune;
+                if (!orderData.customerWilaya) orderData.customerWilaya = customer.wilaya;
+            }
+
             const newOrder = await tx.order.create({
-                data: {
-                    customerId: customerId || null,
-                    projectId: (customerId && projectId) ? projectId : null,
-                    customerName: guestName || null,
-                    customerPhone: guestPhone || null,
-                    orderNumber,
-                    type: 'SALE',
-                    status: 'DONE',
-                    total: orderTotal,
-                    notes,
-                    items: {
-                        create: items.map((i: any) => ({
-                            productId: i.productId,
-                            quantity: i.quantity,
-                            unitPrice: i.unitPrice,
-                            total: i.quantity * i.unitPrice
-                        }))
-                    }
-                } as any,
+                data: orderData,
                 include: { items: true }
             });
 
@@ -191,9 +277,7 @@ export async function POST(request: Request) {
                     for (const alloc of allocations) {
                         await tx.productBatch.update({
                             where: { id: alloc.batchId },
-                            data: {
-                                remainingQty: { decrement: alloc.quantity }
-                            }
+                            data: { remainingQty: { decrement: alloc.quantity } }
                         });
 
                         const updatedBatch = await tx.productBatch.findUnique({ where: { id: alloc.batchId } });
@@ -227,7 +311,6 @@ export async function POST(request: Request) {
                             }
                         });
                     }
-
                     await updateNearestExpiry(p.id, tx);
                 }
 
@@ -260,34 +343,54 @@ export async function POST(request: Request) {
                 });
             }
 
-            const invoiceStatus = calculateInvoiceStatus(orderTotal, paidAmount);
+            const invoiceStatus = calculateInvoiceStatus(grandTotal, paidAmount);
+            const invoiceData: any = {
+                orderId: newOrder.id,
+                invoiceNumber,
+                type: isOfficial ? 'INVOICE' : 'PROVISIONAL',
+                taxTotal,
+                timbreAmount,
+                total: subtotal,
+                grandTotal,
+                paid: paidAmount,
+                remaining: remainingAmount,
+                status: invoiceStatus,
+                dueDate: dueDate ? new Date(dueDate) : null,
+                date: new Date()
+            };
+            if (customerId) invoiceData.customerId = customerId;
+            if (guestName) invoiceData.customerName = guestName;
+            if (guestPhone) invoiceData.customerPhone = guestPhone;
+            if (guestRC) invoiceData.customerRC = guestRC;
+            if (guestNIF) invoiceData.customerNIF = guestNIF;
+            if (guestAI) invoiceData.customerAI = guestAI;
+            if (guestNIS) invoiceData.customerNIS = guestNIS;
+            if (guestAddress) invoiceData.customerAddress = guestAddress;
+            if (guestCommune) invoiceData.customerCommune = guestCommune;
+            if (guestWilaya) invoiceData.customerWilaya = guestWilaya;
+
+            if (customerId && customer) {
+                if (!invoiceData.customerAddress) invoiceData.customerAddress = customer.address;
+                if (!invoiceData.customerCommune) invoiceData.customerCommune = customer.commune;
+                if (!invoiceData.customerWilaya) invoiceData.customerWilaya = customer.wilaya;
+            }
+
             const invoice = await tx.invoice.create({
-                data: {
-                    orderId: newOrder.id,
-                    customerId: customerId || null,
-                    customerName: guestName || null,
-                    customerPhone: guestPhone || null,
-                    invoiceNumber,
-                    type: 'INVOICE',
-                    total: orderTotal,
-                    paid: paidAmount,
-                    remaining: remainingAmount,
-                    status: invoiceStatus,
-                    dueDate: dueDate ? new Date(dueDate) : null,
-                    date: new Date()
-                }
+                data: invoiceData
             });
 
             if (paidAmount > 0) {
+                const paymentData: any = {
+                    invoiceId: invoice.id,
+                    amount: paidAmount,
+                    paymentMethod: paymentMethod || 'CASH',
+                    paymentDate: new Date(),
+                    notes: 'دفعة أولية عند الطلب'
+                };
+                if (customerId) paymentData.customerId = customerId;
+
                 await tx.payment.create({
-                    data: {
-                        invoiceId: invoice.id,
-                        customerId: customerId || 0, // 0 for guest if needed, or handle guest payments
-                        amount: paidAmount,
-                        paymentMethod: paymentMethod || 'CASH',
-                        paymentDate: new Date(),
-                        notes: 'دفعة أولية عند الطلب'
-                    }
+                    data: paymentData
                 });
             }
 
@@ -295,8 +398,11 @@ export async function POST(request: Request) {
         });
 
         return NextResponse.json(result);
-    } catch (error) {
+    } catch (error: any) {
         console.error(error);
-        return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+        return NextResponse.json({ 
+            error: error.message || 'Failed to create order',
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+        }, { status: 500 });
     }
 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink } from 'lucide-react';
+import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 
 interface Product {
     id: number;
@@ -21,6 +22,10 @@ interface Supplier {
     address: string | null;
     balanceDue: number;
     products: Product[];
+    rc: string | null;
+    nif: string | null;
+    ai: string | null;
+    nis: string | null;
     _count?: {
         products: number;
     }
@@ -35,8 +40,14 @@ export default function SuppliersPage() {
 
     // Sheet State
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [focusedField, setFocusedField] = useState<string | null>(null);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '', email: '', address: '' });
+    const [formData, setFormData] = useState({ 
+        name: '', phone: '', email: '', address: '', 
+        commune: 'المسيلة', 
+        wilaya: 'المسيلة',
+        rc: '', nif: '', ai: '', nis: ''
+    });
 
     // Dialog State
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean, id: number | null }>({ isOpen: false, id: null });
@@ -82,10 +93,20 @@ export default function SuppliersPage() {
     const handleOpenSheet = (sup?: Supplier) => {
         if (sup) {
             setEditingSupplier(sup);
-            setFormData({ name: sup.name, phone: sup.phone || '', email: sup.email || '', address: sup.address || '' });
+            setFormData({ 
+                name: sup.name, phone: sup.phone || '', email: sup.email || '', 
+                address: sup.address || '', commune: sup.commune || '', wilaya: sup.wilaya || '',
+                rc: sup.rc || '', nif: sup.nif || '', ai: sup.ai || '', nis: sup.nis || ''
+            });
         } else {
             setEditingSupplier(null);
-            setFormData({ name: '', phone: '', email: '', address: '' });
+            setFormData({ 
+                name: '', phone: '', email: '', 
+                address: '', 
+                commune: 'المسيلة', 
+                wilaya: 'المسيلة',
+                rc: '', nif: '', ai: '', nis: ''
+            });
         }
         setIsSheetOpen(true);
     };
@@ -110,6 +131,27 @@ export default function SuppliersPage() {
             }
         } catch (e) {
             alert('حدث خطأ');
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        const form = e.currentTarget;
+        const focusableElements = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea, button[type="submit"]'));
+        const index = focusableElements.indexOf(e.target as any);
+
+        if (e.key === 'Enter') {
+            if (index > -1 && index < focusableElements.length - 1) {
+                e.preventDefault();
+                (focusableElements[index + 1] as HTMLElement).focus();
+            }
+        } else if (e.key === 'ArrowRight') {
+            const target = e.target as HTMLInputElement;
+            const isTextAtStart = target.tagName !== 'INPUT' || (target.selectionStart === 0 && target.selectionEnd === 0);
+            
+            if (isTextAtStart && index > 0) {
+                e.preventDefault();
+                (focusableElements[index - 1] as HTMLElement).focus();
+            }
         }
     };
 
@@ -237,7 +279,7 @@ export default function SuppliersPage() {
                             {editingSupplier ? 'تعديل بيانات المورد' : 'إضافة مورد جديد'}
                         </h2>
 
-                        <div className="space-y-4 flex-1 overflow-y-auto">
+                        <div className="space-y-4 flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
                             <div>
                                 <label className="text-sm font-bold text-gray-700 mb-1 block">اسم المورد / الشركة <span className="text-red-500">*</span></label>
                                 <input
@@ -250,9 +292,21 @@ export default function SuppliersPage() {
                                 <label className="text-sm font-bold text-gray-700 mb-1 block">رقم الهاتف</label>
                                 <input
                                     type="tel" dir="ltr"
-                                    value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                    value={formData.phone} 
+                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                    onFocus={() => setFocusedField('phone')}
+                                    onBlur={() => setFocusedField(null)}
                                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                                 />
+                                {focusedField === 'phone' && (
+                                    <div className="flex gap-1 mt-1 font-mono text-xs" dir="ltr">
+                                        {[...Array(10)].map((_, i) => (
+                                            <div key={i} className={`flex-1 flex justify-center border-b-2 ${formData.phone[i] ? 'text-indigo-600 border-indigo-600' : (i === formData.phone.length ? 'text-amber-500 border-amber-500 font-bold scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                {formData.phone[i] || 'x'}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="text-sm font-bold text-gray-700 mb-1 block">البريد الإلكتروني</label>
@@ -262,12 +316,133 @@ export default function SuppliersPage() {
                                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                                 />
                             </div>
-                            <div>
-                                <label className="text-sm font-bold text-gray-700 mb-1 block">العنوان والتفاصيل</label>
-                                <textarea
-                                    value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px]"
-                                />
+                            <div className="space-y-3 pt-2">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-bold text-gray-700 block">العنوان (الشارع / الحي / Cité) <span className="text-red-500">*</span></label>
+                                    <input 
+                                        type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })} 
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-black text-sm uppercase" 
+                                        placeholder="Cité, Street, Ave..." required 
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-bold text-gray-700 block">الولاية <span className="text-red-500">*</span></label>
+                                        <select 
+                                            value={formData.wilaya} 
+                                            onChange={e => {
+                                                const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
+                                                setFormData({ ...formData, wilaya: e.target.value, commune: w?.communes[0] || '' });
+                                            }}
+                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
+                                        >
+                                            {ALGERIA_LOCATIONS.map(w => (
+                                                <option key={w.id} value={w.arabicName}>{w.id} - {w.arabicName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-sm font-bold text-gray-700 block">البلدية <span className="text-red-500">*</span></label>
+                                        <input 
+                                            type="text" value={formData.commune} onChange={e => setFormData({ ...formData, commune: e.target.value.toUpperCase() })} 
+                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white uppercase" 
+                                            placeholder="البلدية..." required 
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="pt-4 border-t border-gray-100 space-y-3">
+                                <h3 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">الهوية الجبائية والقانونية</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {/* RC - 10 chars */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500">سجل تجاري (RC)</label>
+                                        <div className="relative font-mono">
+                                            <input 
+                                                type="text" maxLength={10} value={formData.rc} 
+                                                onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} 
+                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                onFocus={() => setFocusedField('rc')}
+                                                onBlur={() => setFocusedField(null)}
+                                                dir="ltr"
+                                            />
+                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-2 z-10 text-[10px]" dir="ltr">
+                                                {[...Array(10)].map((_, i) => (
+                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.rc[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.rc.length && focusedField === 'rc' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                        {formData.rc[i] || 'x'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* NIF - 15 digits */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
+                                        <div className="relative font-mono">
+                                            <input 
+                                                type="text" maxLength={15} value={formData.nif} 
+                                                onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '') })} 
+                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                onFocus={() => setFocusedField('nif')}
+                                                onBlur={() => setFocusedField(null)}
+                                                dir="ltr"
+                                            />
+                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1.5 py-2.5 z-10 text-[9px]" dir="ltr">
+                                                {[...Array(15)].map((_, i) => (
+                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.nif[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.nif.length && focusedField === 'nif' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                        {formData.nif[i] || 'x'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* AI - 11 digits */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500">رقم المادة (AI)</label>
+                                        <div className="relative font-mono">
+                                            <input 
+                                                type="text" maxLength={11} value={formData.ai} 
+                                                onChange={e => setFormData({ ...formData, ai: e.target.value.replace(/\D/g, '') })} 
+                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                onFocus={() => setFocusedField('ai')}
+                                                onBlur={() => setFocusedField(null)}
+                                                dir="ltr"
+                                            />
+                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-2 z-10 text-[10px]" dir="ltr">
+                                                {[...Array(11)].map((_, i) => (
+                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.ai[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.ai.length && focusedField === 'ai' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                        {formData.ai[i] || 'x'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* NIS - 15 digits */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
+                                        <div className="relative font-mono">
+                                            <input 
+                                                type="text" maxLength={15} value={formData.nis} 
+                                                onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '') })} 
+                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                onFocus={() => setFocusedField('nis')}
+                                                onBlur={() => setFocusedField(null)}
+                                                dir="ltr"
+                                            />
+                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1.5 py-2.5 z-10 text-[9px]" dir="ltr">
+                                                {[...Array(15)].map((_, i) => (
+                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.nis[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.nis.length && focusedField === 'nis' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                        {formData.nis[i] || 'x'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

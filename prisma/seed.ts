@@ -219,6 +219,36 @@ async function main() {
                         });
                     }
                 }
+
+                // GENERATE SUPPLIER PAYMENTS
+                let paidToSupplier = 0;
+                let poStatus = 'UNPAID';
+                const p = Math.random();
+                if (p < 0.3) {
+                    paidToSupplier = totalOrderCost; // full pay
+                    poStatus = 'DONE';
+                } else if (p < 0.7) {
+                    paidToSupplier = totalOrderCost * randomFloat(0.3, 0.7); // partial
+                    poStatus = 'PENDING';
+                }
+
+                // Update Supplier Balance
+                await prisma.supplier.update({
+                    where: { id: supplier.id },
+                    data: { balanceDue: { increment: totalOrderCost - paidToSupplier } }
+                });
+
+                if (paidToSupplier > 0) {
+                    await prisma.supplierPayment.create({
+                        data: {
+                            supplierId: supplier.id,
+                            amount: paidToSupplier,
+                            paymentMethod: 'CASH',
+                            paymentDate: simulationDate,
+                            createdAt: simulationDate
+                        }
+                    });
+                }
             }
         }
 

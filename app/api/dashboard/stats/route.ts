@@ -22,6 +22,15 @@ export async function GET() {
         });
         const todaySales = todaySalesData._sum.total || 0;
 
+        // Today's Collections (Payments)
+        const todayPaymentsData = await prisma.payment.aggregate({
+            where: {
+                paymentDate: { gte: start, lte: end }
+            },
+            _sum: { amount: true }
+        });
+        const todayCollections = todayPaymentsData._sum.amount || 0;
+
         const pendingInvoices = await prisma.invoice.aggregate({
             _sum: { remaining: true }
         });
@@ -132,12 +141,37 @@ export async function GET() {
         });
         const totalLossThisMonth = damageRecords.reduce((sum, r) => sum + r.totalLoss, 0);
 
+        // Overdue Invoices
+        const overdueInvoicesQuery = await prisma.invoice.findMany({
+            where: {
+                status: { in: ['UNPAID', 'PARTIAL'] },
+                dueDate: { lt: startOfDay(now) }
+            },
+            include: {
+                order: {
+                    include: { customer: true }
+                }
+            }
+        });
+        
+        const overdueInvoices = overdueInvoicesQuery.map(inv => ({
+            invoiceNumber: inv.invoiceNumber,
+            customerName: inv.order?.customer?.name || inv.order?.guestName || 'عميل نقدي',
+            remaining: inv.remaining,
+            dueDate: inv.dueDate
+        }));
+        const overdueInvoicesCount = overdueInvoices.length;
+
+        // Total Debt Calculation (sum of all customer balanceDue)
+        const totalDebt = outstandingDebts.totalAmount;
+
         return NextResponse.json({
             totalProducts,
             todaySales,
             totalSuppliers,
             totalCustomers,
             outstandingDebts,
+            totalDebt,
             lowStockCount,
             lowStockProducts,
             creditAlerts,
@@ -147,7 +181,10 @@ export async function GET() {
             expiredCount,
             expiringSoonCount,
             expiredList,
-            totalLossThisMonth
+            totalLossThisMonth,
+            overdueInvoices,
+            overdueInvoicesCount,
+            todayCollections
         });
 
     } catch (error) {

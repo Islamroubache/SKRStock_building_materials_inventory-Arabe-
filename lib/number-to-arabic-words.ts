@@ -4,7 +4,7 @@
  */
 
 export function numberToArabicWords(n: number): string {
-    if (n === 0) return "صفر دينار جزائري";
+    if (n === 0) return "صفر";
 
     const ones = ["", "واحد", "اثنان", "ثلاثة", "أربعة", "خمسة", "ستة", "سبعة", "ثمانية", "تسعة", "عشرة", "أحد عشر", "اثنا عشر", "ثلاثة عشر", "أربعة عشر", "خمسة عشر", "ستة عشر", "سبعة عشر", "ثمانية عشر", "تسعة عشر"];
     const tens = ["", "", "عشرون", "ثلاثون", "أربعون", "خمسون", "ستون", "سبعون", "ثمانون", "تسعون"];
@@ -53,5 +53,5 @@ export function numberToArabicWords(n: number): string {
         result += convertUnder1000(remainder);
     }
 
-    return result + " دينار جزائري لا غير";
+    return result;
 }

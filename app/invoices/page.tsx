@@ -41,10 +41,11 @@ interface Invoice {
 export default function InvoicesPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
+    const [dashboardStats, setDashboardStats] = useState<any>(null);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID'>('ALL');
+    const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE'>('ALL');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
     // Modals
@@ -85,6 +86,7 @@ export default function InvoicesPage() {
 
     useEffect(() => {
         fetchInvoices();
+        fetch('/api/dashboard/stats').then(res => res.json()).then(data => setDashboardStats(data)).catch(console.error);
     }, []);
 
     // --- Calculations for KPIs ---
@@ -106,7 +108,11 @@ export default function InvoicesPage() {
         return invoices.filter(inv => {
             const matchesSearch = inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 inv.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
+            
+            const isOverdueItem = inv.dueDate ? new Date(inv.dueDate) < new Date() && new Date(inv.dueDate).toDateString() !== new Date().toDateString() : false;
+            
+            const matchesStatus = statusFilter === 'ALL' || 
+                (statusFilter === 'OVERDUE' ? (isOverdueItem && inv.status !== 'PAID') : inv.status === statusFilter);
 
             let matchesDate = true;
             if (dateRange.start && dateRange.end) {
@@ -272,7 +278,7 @@ export default function InvoicesPage() {
                         <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase">تحصيلات اليوم</span>
                     </div>
                     <div>
-                        <p className="text-2xl font-black font-sans">0 دج</p>
+                        <p className="text-2xl font-black font-sans">{dashboardStats?.todayCollections?.toLocaleString() || 0} دج</p>
                         <p className="text-xs font-bold text-gray-400 mt-1">إجمالي المبالغ المحصلة اليوم</p>
                     </div>
                 </div>
@@ -302,6 +308,7 @@ export default function InvoicesPage() {
                     <button onClick={() => setStatusFilter('UNPAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'UNPAID' ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'}`}>لم يدفع</button>
                     <button onClick={() => setStatusFilter('PARTIAL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}>جزئي</button>
                     <button onClick={() => setStatusFilter('PAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'text-gray-400 hover:text-green-500'}`}>خالص</button>
+                    <button onClick={() => setStatusFilter('OVERDUE')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${statusFilter === 'OVERDUE' ? 'bg-rose-100/50 border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>🚨 متجاوزة</button>
                 </div>
 
                 <div className="flex items-center gap-3 mr-auto">

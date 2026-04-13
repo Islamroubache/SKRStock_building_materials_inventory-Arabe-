@@ -26,7 +26,7 @@ export default function CustomerDetailPage() {
 
     // States for modals/sheets
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-    const [paymentData, setPaymentData] = useState<{ invoiceId: number, amount: string, max: number }>({ invoiceId: 0, amount: '', max: 0 });
+    const [paymentData, setPaymentData] = useState<{ type: 'ORDER' | 'PROJECT' | 'GLOBAL', invoiceId?: number, projectId?: number, amount: string, max: number }>({ type: 'ORDER', amount: '', max: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [isProjectSheetOpen, setIsProjectSheetOpen] = useState(false);
@@ -72,20 +72,32 @@ export default function CustomerDetailPage() {
     const handlePayment = async () => {
         setIsSubmitting(true);
         try {
-            const res = await fetch(`/api/payments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    invoiceId: paymentData.invoiceId,
-                    customerId: parseInt(id as string),
-                    amount: parseFloat(paymentData.amount),
-                    paymentMethod: 'CASH',
-                    notes: 'دفعة من صفحة تفاصيل العميل'
-                })
-            });
+            let res;
+            if (paymentData.type === 'ORDER') {
+                res = await fetch(`/api/payments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        invoiceId: paymentData.invoiceId,
+                        customerId: parseInt(id as string),
+                        amount: parseFloat(paymentData.amount),
+                        paymentMethod: 'CASH',
+                        notes: 'دفعة من صفحة تفاصيل العميل'
+                    })
+                });
+            } else {
+                res = await fetch(`/api/customers/${id}/pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: parseFloat(paymentData.amount),
+                        projectId: paymentData.projectId
+                    })
+                });
+            }
             if (res.ok) {
                 setIsPaymentModalOpen(false);
-                setPaymentData({ invoiceId: 0, amount: '', max: 0 });
+                setPaymentData({ type: 'ORDER', amount: '', max: 0 });
                 fetchCustomer();
             } else {
                 const err = await res.json();
@@ -183,7 +195,7 @@ export default function CustomerDetailPage() {
         return (
             <div className="flex-1 flex flex-col justify-center items-center h-screen bg-gray-50 gap-4" dir="rtl">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="font-black text-gray-400">جاري تحميل بيانات المقاول...</p>
+                <p className="font-black text-gray-400">جاري تحميل بيانات العميل...</p>
             </div>
         );
     }
@@ -212,15 +224,12 @@ export default function CustomerDetailPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print mb-6">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
-                            <Link href="/customers" className="hover:text-blue-600 transition-colors">قائمة المقاولين</Link>
+                            <Link href="/customers" className="hover:text-blue-600 transition-colors">قائمة العملاء</Link>
                             <ChevronRight size={14} className="rotate-180" />
                             <span className="text-gray-900">{customer.name}</span>
                         </div>
                         <h1 className="text-3xl font-black text-gray-900 mt-2 flex items-center gap-3">
                             {customer.name}
-                            {isLoyal && (
-                                <span className="text-[10px] px-3 py-1 rounded-full font-black bg-blue-100 text-blue-700 uppercase">مقاول مخلص</span>
-                            )}
                         </h1>
                     </div>
 
@@ -257,11 +266,14 @@ export default function CustomerDetailPage() {
                                         <p className="font-black font-sans text-gray-900" dir="ltr">{customer.phone || '---'}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                    <div className="bg-white p-2 rounded-xl text-gray-400"><MapPin size={18} /></div>
+                                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <div className="bg-white p-2 rounded-xl text-gray-400 mt-1"><MapPin size={18} /></div>
                                     <div className="text-right">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase">العنوان / المنطقة</p>
-                                        <p className="font-black text-gray-900">{customer.address || 'غير محدد'}</p>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase">الموقع الجغرافي</p>
+                                        <p className="font-black text-gray-900 leading-tight">
+                                            {customer.address}<br />
+                                            {customer.commune} - {customer.wilaya}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -269,7 +281,7 @@ export default function CustomerDetailPage() {
 
                         <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
                             <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                                <History size={16} /> نشاط المقاول
+                                <History size={16} /> نشاط العميل
                             </h3>
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center border-b border-gray-50 pb-4">
@@ -308,7 +320,7 @@ export default function CustomerDetailPage() {
                                 <div className="bg-white/20 p-4 rounded-2xl"><AlertTriangle size={32} /></div>
                                 <div>
                                     <h3 className="text-xl font-black">تجاوز الحد الائتماني!</h3>
-                                    <p className="font-bold opacity-80 mt-1">يجب على المقاول تسديد جزء من ديونه ليتمكن من القيام بعمليات شراء آجلة أخرى.</p>
+                                    <p className="font-bold opacity-80 mt-1">يجب على العميل تسديد جزء من ديونه ليتمكن من القيام بعمليات شراء آجلة أخرى.</p>
                                 </div>
                             </div>
                         )}
@@ -328,17 +340,17 @@ export default function CustomerDetailPage() {
                                 <div className="flex flex-col gap-2">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">إجمالي الدين المستحق</span>
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-3xl font-black font-sans ${creditStats?.totalDebt! > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                            {creditStats?.totalDebt.toLocaleString()} دج
+                                        <span className={`text-3xl font-black font-sans ${creditStats && creditStats.totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            {creditStats?.totalDebt?.toLocaleString()} دج
                                         </span>
-                                        {creditStats?.totalDebt! > 0 && <ArrowDownLeft className="text-red-600" size={24} />}
+                                        {creditStats && creditStats.totalDebt > 0 && <ArrowDownLeft className="text-red-600" size={24} />}
                                     </div>
                                 </div>
 
                                 <div className="flex flex-col gap-2">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الحد الائتماني المعتمد</span>
                                     <div className="flex items-center gap-2 text-gray-900">
-                                        <span className="text-3xl font-black font-sans">{creditStats?.limit.toLocaleString()} دج</span>
+                                        <span className="text-3xl font-black font-sans">{creditStats?.limit?.toLocaleString()} دج</span>
                                         <div className="bg-gray-100 p-1 rounded-lg"><CreditCard size={18} /></div>
                                     </div>
                                 </div>
@@ -346,7 +358,7 @@ export default function CustomerDetailPage() {
                                 <div className="flex flex-col gap-2">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الرصيد الائتماني المتاح</span>
                                     <div className="flex items-center gap-2 text-blue-600">
-                                        <span className="text-3xl font-black font-sans">{creditStats?.remaining.toLocaleString()} دج</span>
+                                        <span className="text-3xl font-black font-sans">{creditStats?.remaining?.toLocaleString()} دج</span>
                                         <div className={`w-3 h-3 rounded-full ${overCredit ? 'bg-red-500' : 'bg-green-500'}`}></div>
                                     </div>
                                 </div>
@@ -355,16 +367,27 @@ export default function CustomerDetailPage() {
                             <div className="mt-10">
                                 <div className="flex justify-between items-center mb-3">
                                     <span className="text-xs font-black text-gray-500">معدل استخدام الائتمان</span>
-                                    <span className={`text-xs font-black font-sans ${overCredit ? 'text-red-600' : 'text-blue-600'}`}>{Math.round(creditStats?.usedPercent!)}%</span>
+                                    <span className={`text-xs font-black font-sans ${overCredit ? 'text-red-600' : 'text-blue-600'}`}>{creditStats ? Math.round(creditStats.usedPercent) : 0}%</span>
                                 </div>
                                 <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
                                     <div
                                         className={`h-full transition-all duration-1000 ease-out ${overCredit ? 'bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]'}`}
-                                        style={{ width: `${Math.min(100, creditStats?.usedPercent!)}%` }}
+                                        style={{ width: `${creditStats ? Math.min(100, creditStats.usedPercent) : 0}%` }}
                                     ></div>
                                 </div>
                                 {overCredit && (
-                                    <p className="text-[10px] font-black text-red-600 mt-3 text-left">تنبيه: تجاوز العميل سقف الائتمان بـ {Math.abs(creditStats?.remaining!).toLocaleString()} دج</p>
+                                    <p className="text-[10px] font-black text-red-600 mt-3 text-left">تنبيه: تجاوز العميل سقف الائتمان بـ {Math.abs(creditStats?.remaining ?? 0).toLocaleString()} دج</p>
+                                )}
+                                
+                                {creditStats && creditStats.totalDebt > 0 && (
+                                    <div className="mt-4 flex justify-end">
+                                        <button
+                                            onClick={() => { setPaymentData({ type: 'GLOBAL', amount: creditStats.totalDebt.toString(), max: creditStats.totalDebt }); setIsPaymentModalOpen(true); }}
+                                            className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-gray-200 hover:-translate-y-1 transition-all flex items-center gap-2 w-full justify-center"
+                                        >
+                                            <CreditCard size={16} /> تسديد شامل لكامل ديون العميل
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -378,14 +401,14 @@ export default function CustomerDetailPage() {
                             </div>
                             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2">
                                 <div className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl w-fit mb-2"><ShoppingCart size={20} /></div>
-                                <span className="text-[10px] font-black text-gray-400 uppercase">إجمالي الطلبيات</span>
-                                <span className="text-2xl font-black font-sans text-gray-900">{customer.orders?.length || 0}</span>
+                                <span className="text-[10px] font-black text-gray-400 uppercase">إجمالي المقتنيات الثابتة</span>
+                                <span className="text-2xl font-black font-sans text-gray-900 border-b border-indigo-100 pb-1 w-fit">{customer.orders?.reduce((sum: number, o: any) => sum + (o.total || 0), 0).toLocaleString()} دج</span>
                             </div>
                             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-2">
                                 <div className="bg-green-50 text-green-600 p-3 rounded-2xl w-fit mb-2"><CheckCircle size={20} /></div>
                                 <span className="text-[10px] font-black text-gray-400 uppercase">المبلغ الإجمالي المسدد</span>
                                 <span className="text-2xl font-black font-sans text-green-600">
-                                    {customer.orders?.reduce((sum: number, o: any) => sum + o.paidAmount, 0).toLocaleString()} دج
+                                    {customer.invoices?.reduce((sum: number, inv: any) => sum + (inv.paid || 0), 0).toLocaleString()} دج
                                 </span>
                             </div>
                         </div>
@@ -459,7 +482,7 @@ export default function CustomerDetailPage() {
                                 {customer.projects?.length === 0 ? (
                                     <div className="col-span-full py-20 bg-white rounded-[2rem] border-2 border-dashed border-gray-100 flex flex-col items-center gap-4 text-gray-300">
                                         <Briefcase size={48} />
-                                        <p className="font-black">لا توجد مشاريع مسجلة لهذا المقاول حالياً</p>
+                                        <p className="font-black">لا توجد مشاريع مسجلة لهذا العميل حالياً</p>
                                         <button onClick={() => setIsProjectSheetOpen(true)} className="text-blue-600 font-black text-sm hover:underline">+ إنشاء أول مشروع</button>
                                     </div>
                                 ) : (
@@ -499,6 +522,17 @@ export default function CustomerDetailPage() {
                                                             <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${Math.min(prog, 100)}%` }} />
                                                         </div>
                                                     </div>
+
+                                                    {p.totalAmount - p.paidAmount > 0 && (
+                                                        <div className="flex justify-end mt-4">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setPaymentData({ type: 'PROJECT', projectId: p.id, amount: (p.totalAmount - p.paidAmount).toString(), max: (p.totalAmount - p.paidAmount) }); setIsPaymentModalOpen(true); }}
+                                                                className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl text-xs font-black hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 border border-blue-100 shadow-sm"
+                                                            >
+                                                                <ArrowDownLeft size={16} /> تسديد ديون هذا المشروع
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {isExpanded && (
@@ -508,20 +542,50 @@ export default function CustomerDetailPage() {
                                                             {projOrders.length === 0 ? (
                                                                 <p className="text-center py-4 text-xs font-bold text-gray-400 italic">لا توجد طلبيات مسجلة لهذا المشروع بعد</p>
                                                             ) : (
-                                                                projOrders.map((o: any) => (
-                                                                    <div key={o.id} className="flex justify-between items-center bg-white p-4 border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="font-black text-gray-900 font-sans tracking-tight">{o.orderNumber}</span>
-                                                                            <span className="text-[10px] font-black text-gray-400">{formatDate(o.orderDate)}</span>
+                                                                projOrders.map((o: any) => {
+                                                                    const isFullyReturned = o.items && o.items.length > 0 && o.items.every((i: any) => i.returnedQuantity === i.quantity);
+                                                                    const isPartiallyReturned = o.items && !isFullyReturned && o.items.some((i: any) => i.returnedQuantity > 0);
+                                                                    
+                                                                    return (
+                                                                    <div key={o.id} className="flex flex-col gap-3 bg-white p-4 border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                                                                        <div className="flex justify-between items-start">
+                                                                            <div className="flex flex-col gap-1">
+                                                                                <span className="font-black text-gray-900 font-sans tracking-tight flex items-center gap-2">
+                                                                                    {o.orderNumber}
+                                                                                    {isFullyReturned && <span className="bg-rose-100 text-rose-700 text-[9px] px-2 py-0.5 rounded-sm">مسترجعة كلياً</span>}
+                                                                                    {isPartiallyReturned && <span className="bg-amber-100 text-amber-700 text-[9px] px-2 py-0.5 rounded-sm">مسترجعة جزئياً</span>}
+                                                                                </span>
+                                                                                <span className="text-[10px] font-black text-gray-400">{formatDate(o.orderDate)}</span>
+                                                                            </div>
+                                                                            <div className="flex flex-col items-end">
+                                                                                <span className={`font-black font-sans ${isFullyReturned ? 'text-gray-400 line-through' : 'text-blue-600'}`}>{(o.total || 0).toLocaleString()} دج</span>
+                                                                                {o.invoice ? (
+                                                                                    <span className={`text-[10px] font-black ${o.invoice.remaining === 0 ? 'text-green-600 border border-green-100 bg-green-50 px-2 py-0.5 rounded-md mt-1' : 'text-amber-600 border border-amber-100 bg-amber-50 px-2 py-0.5 rounded-md mt-1'}`}>
+                                                                                        {o.invoice.remaining === 0 ? 'مكتمل التسديد' : `دين متبقي: ${o.invoice.remaining.toLocaleString()} دج`}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className={`text-[9px] font-black text-gray-400`}>لا توجد فاتورة</span>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="flex flex-col items-end">
-                                                                            <span className="font-black text-blue-600 font-sans">{o.totalAmount.toLocaleString()} دج</span>
-                                                                            <span className={`text-[9px] font-black ${o.status === 'DONE' ? 'text-green-600' : 'text-amber-600'}`}>
-                                                                                {o.status === 'DONE' ? 'مكتمل' : 'قيد المعالجة'}
-                                                                            </span>
+                                                                        
+                                                                        <div className="flex justify-between items-center mt-1 pt-3 border-t border-gray-50">
+                                                                            <div className="flex gap-2">
+                                                                                <button onClick={() => window.open(`/orders/${o.id}/print`, '_blank')} className="text-gray-500 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5">
+                                                                                    <Printer size={12} /> معاينة وطباعة
+                                                                                </button>
+                                                                            </div>
+                                                                            {o.invoice?.remaining > 0 && !isFullyReturned && (
+                                                                                <button
+                                                                                    onClick={() => { setPaymentData({ type: 'ORDER', invoiceId: o.invoice.id, amount: o.invoice.remaining.toString(), max: o.invoice.remaining }); setIsPaymentModalOpen(true); }}
+                                                                                    className="text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5"
+                                                                                >
+                                                                                    <CreditCard size={12} /> تسديد الطلبية
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     </div>
-                                                                ))
+                                                                )})
                                                             )}
                                                         </div>
                                                     </div>
@@ -549,7 +613,10 @@ export default function CustomerDetailPage() {
                                     {customer.orders?.length === 0 ? (
                                         <div className="py-20 text-center text-gray-300 font-black">لا توجد مبيعات مسجلة</div>
                                     ) : (
-                                        customer.orders.map((o: any) => (
+                                        customer.orders.map((o: any) => {
+                                            const isFullyReturned = o.items && o.items.length > 0 && o.items.every((i: any) => i.returnedQuantity === i.quantity);
+                                            const isPartiallyReturned = o.items && !isFullyReturned && o.items.some((i: any) => i.returnedQuantity > 0);
+                                            return (
                                             <div key={o.id}>
                                                 <div
                                                     className="flex items-center justify-between p-5 hover:bg-gray-50/80 cursor-pointer group transition-colors"
@@ -560,7 +627,11 @@ export default function CustomerDetailPage() {
                                                             {expandedOrder === o.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                         </div>
                                                         <div>
-                                                            <p className="font-black text-gray-900 font-sans tracking-tight">{o.orderNumber}</p>
+                                                            <p className="font-black text-gray-900 font-sans tracking-tight flex items-center gap-2">
+                                                                {o.orderNumber}
+                                                                {isFullyReturned && <span className="bg-rose-100 text-rose-700 text-[9px] px-2 py-0.5 rounded-sm">مسترجعة كلياً</span>}
+                                                                {isPartiallyReturned && <span className="bg-amber-100 text-amber-700 text-[9px] px-2 py-0.5 rounded-sm">مسترجعة جزئياً</span>}
+                                                            </p>
                                                             <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
                                                                 <Calendar size={11} /> {formatDate(o.orderDate)}
                                                                 {o.project && <span className="mr-2 px-2 rounded bg-blue-50 text-blue-600">{o.project.name}</span>}
@@ -569,10 +640,13 @@ export default function CustomerDetailPage() {
                                                     </div>
 
                                                     <div className="flex items-center gap-6">
+                                                        <button onClick={(e) => { e.stopPropagation(); window.open(`/orders/${o.id}/print`, '_blank'); }} className="text-gray-400 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-transparent hover:border-gray-200 px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 h-fit">
+                                                            <Printer size={14} /> إعداد للطباعة
+                                                        </button>
                                                         <div className="flex flex-col text-left">
-                                                            <span className="font-black text-gray-900 font-sans">{(o.totalAmount || o.total).toLocaleString()} دج</span>
+                                                            <span className={`font-black font-sans ${isFullyReturned ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{((o.totalAmount || o.total) || 0).toLocaleString()} دج</span>
                                                         </div>
-                                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase w-[70px] text-center ${o.status === 'DONE' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase min-w-[70px] text-center ${o.status === 'DONE' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                                                             {o.status === 'DONE' ? 'مكتمل' : 'معلق'}
                                                         </span>
                                                     </div>
@@ -625,7 +699,8 @@ export default function CustomerDetailPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                             </div>
@@ -675,7 +750,7 @@ export default function CustomerDetailPage() {
                                                         <td className="px-8 py-6 text-left">
                                                             {remain > 0 ? (
                                                                 <button
-                                                                    onClick={() => { setPaymentData({ invoiceId: inv.id, amount: remain.toString(), max: remain }); setIsPaymentModalOpen(true); }}
+                                                                    onClick={() => { setPaymentData({ type: 'ORDER', invoiceId: inv.id, amount: remain.toString(), max: remain }); setIsPaymentModalOpen(true); }}
                                                                     className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:scale-105 transition-all flex items-center gap-2"
                                                                 >
                                                                     <ArrowDownLeft size={14} /> تسديد الآن
@@ -699,7 +774,7 @@ export default function CustomerDetailPage() {
                                 {payments.length === 0 ? (
                                     <div className="py-24 text-center text-gray-200 flex flex-col items-center gap-4">
                                         <History size={64} />
-                                        <p className="text-xl font-black">لا توجد سجلات دفع لهذا المقاول حالياً</p>
+                                        <p className="text-xl font-black">لا توجد سجلات دفع لهذا العميل حالياً</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-8 relative pr-6 border-r-4 border-gray-50 mr-4">
@@ -746,8 +821,14 @@ export default function CustomerDetailPage() {
                         <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
                             <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
                                 <div>
-                                    <h2 className="text-2xl font-black text-gray-900">سداد رصيد</h2>
-                                    <p className="text-xs font-bold text-gray-400 mt-1">تأكيد استلام دفعة مالية من المقاول</p>
+                                    <h2 className="text-2xl font-black text-gray-900">
+                                        {paymentData.type === 'GLOBAL' ? 'تسديد ديون العميل شاملة' : 
+                                         paymentData.type === 'PROJECT' ? 'تسديد ديون المشروع' : 'سداد طلبية'}
+                                    </h2>
+                                    <p className="text-xs font-bold text-gray-400 mt-1">
+                                        {paymentData.type === 'GLOBAL' ? 'سيتم التوزيع آلياً على أقدم الطلبيات غير المسددة' : 
+                                         paymentData.type === 'PROJECT' ? 'سيتم التوزيع آلياً لتسديد ديون هذا المشروع' : 'تأكيد استلام دفعة مالية للطلبية'}
+                                    </p>
                                 </div>
                                 <button onClick={() => setIsPaymentModalOpen(false)} className="text-gray-400 hover:text-gray-900 transition-colors p-2"><X size={24} /></button>
                             </div>
@@ -771,7 +852,7 @@ export default function CustomerDetailPage() {
                                             className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-8 py-6 font-black font-sans text-3xl text-center focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none transition-all"
                                             placeholder="0"
                                         />
-                                        <p className="text-center text-[10px] font-black text-gray-400 mt-3 uppercase tracking-widest">تنبيه: سيتم خصم هذا المبلغ من رصيد المقاول فوراً</p>
+                                        <p className="text-center text-[10px] font-black text-gray-400 mt-3 uppercase tracking-widest">تنبيه: سيتم خصم هذا المبلغ من رصيد العميل فوراً</p>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">

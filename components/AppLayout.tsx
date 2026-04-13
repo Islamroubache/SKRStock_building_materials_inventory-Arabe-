@@ -27,6 +27,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         { icon: '📊', label: 'المخزون', href: '/inventory' },
         { icon: '📈', label: 'التقارير', href: '/reports' },
         { icon: '🤖', label: 'الذكاء الاصطناعي', href: '/ai' },
+        { icon: '⚙️', label: 'الإعدادات', href: '/settings' },
     ]
 
     const isActive = (href: string) => pathname === href
@@ -104,6 +105,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
         '/inventory': 'المخزون',
         '/reports': 'التقارير',
         '/ai': 'الذكاء الاصطناعي',
+        '/settings': 'الإعدادات',
     }
 
     const currentPageTitle = pageMap[pathname] || 'سوكر'

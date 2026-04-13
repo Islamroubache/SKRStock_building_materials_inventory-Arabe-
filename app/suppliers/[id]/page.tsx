@@ -46,6 +46,12 @@ interface Supplier {
     phone: string | null;
     email: string | null;
     address: string | null;
+    commune: string | null;
+    wilaya: string | null;
+    rc: string | null;
+    nif: string | null;
+    ai: string | null;
+    nis: string | null;
     balanceDue: number;
     products: { id: number; name: string; code: string | null; quantity: number; unit: string; purchasePrice: number }[];
     orders: Order[];
@@ -237,9 +243,50 @@ export default function SupplierDetailPage() {
                                     </div>
                                 )}
                                 {supplier.address && (
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                                        <MapPin size={16} className="text-gray-400" />
-                                        <span className="font-bold text-gray-700">{supplier.address}</span>
+                                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl relative group overflow-hidden">
+                                        <div className="absolute inset-y-0 right-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <MapPin size={16} className="text-gray-400 mt-1 shrink-0" />
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">الموقع / العنوان</span>
+                                            <span className="font-bold text-gray-900 leading-tight">
+                                                {supplier.address}
+                                                {(supplier.commune || supplier.wilaya) && <span className="text-gray-400 mx-1">/</span>}
+                                                <span className="text-indigo-600">{supplier.commune}</span>
+                                                {supplier.wilaya && <span className="text-gray-400 mx-1">-</span>}
+                                                <span className="text-indigo-600">{supplier.wilaya}</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                {(supplier.rc || supplier.nif || supplier.ai || supplier.nis) && (
+                                    <div className="pt-2 mt-2 border-t border-gray-100 flex flex-col gap-3">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الهوية الجبائية والقانونية</span>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {supplier.rc && (
+                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 mb-0.5">RC</p>
+                                                    <p className="text-xs font-bold font-sans text-gray-900">{supplier.rc}</p>
+                                                </div>
+                                            )}
+                                            {supplier.nif && (
+                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 mb-0.5">NIF</p>
+                                                    <p className="text-xs font-bold font-sans text-gray-900">{supplier.nif}</p>
+                                                </div>
+                                            )}
+                                            {supplier.ai && (
+                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 mb-0.5">AI</p>
+                                                    <p className="text-xs font-bold font-sans text-gray-900">{supplier.ai}</p>
+                                                </div>
+                                            )}
+                                            {supplier.nis && (
+                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 mb-0.5">NIS</p>
+                                                    <p className="text-xs font-bold font-sans text-gray-900">{supplier.nis}</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {!supplier.phone && !supplier.email && !supplier.address && (

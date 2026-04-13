@@ -18,7 +18,7 @@ export default function Dashboard() {
             fetch('/api/dashboard/sales-chart?days=30').then(res => res.json())
         ]).then(([statsData, chartResData]) => {
             setStats(statsData);
-            setChartData(chartResData);
+            setChartData(Array.isArray(chartResData) ? chartResData : []);
             setLoading(false);
         }).catch(err => {
             console.error(err);
@@ -234,7 +234,26 @@ export default function Dashboard() {
                             </div>
                         ))}
 
-                        {(!stats?.lowStockProducts?.length && !stats?.creditAlerts?.length && !stats?.expiredList?.length) && (
+                        {stats?.overdueInvoices?.map((inv: any, idx: number) => {
+                            const dateStr = new Date(inv.dueDate).toLocaleDateString('ar-DZ');
+                            return (
+                                <div key={`overdue-${idx}`} className="p-3 bg-red-50 border border-red-300 rounded-lg flex items-center justify-between shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-red-600 flex-shrink-0"><Clock size={18} /></div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-red-800 leading-tight">فاتورة متأخرة: <span className="font-sans">{inv.invoiceNumber}</span></p>
+                                            <p className="text-xs text-red-600 font-medium">العميل: {inv.customerName}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-sm font-black text-gray-900 font-sans" dir="ltr">{inv.remaining.toLocaleString()} دج</p>
+                                        <p className="text-[10px] font-bold text-red-500 mt-1">استحقت يوم: {dateStr}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {(!stats?.lowStockProducts?.length && !stats?.creditAlerts?.length && !stats?.expiredList?.length && !stats?.overdueInvoices?.length) && (
                             <div className="h-40 flex flex-col items-center justify-center text-center text-gray-500">
                                 <Package size={32} className="text-gray-300 mb-2" />
                                 <p className="text-sm font-medium">كل شيء على ما يرام.</p>
