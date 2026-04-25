@@ -12,24 +12,91 @@ export async function GET() {
         const totalSuppliers = await prisma.supplier.count();
         const totalCustomers = await prisma.customer.count();
 
-        const todaySalesData = await prisma.order.aggregate({
-            where: {
-                type: 'SALE',
-                status: { in: ['COMPLETED', 'DONE'] },
-                orderDate: { gte: start, lte: end }
+        // 1. Calculate Today's Sales Collected (Initial payments or full payments for orders created today)
+        const todaySaleOrders = await prisma.order.findMany({
+            where: { 
+                type: 'SALE', 
+                status: { in: ['COMPLETED', 'DONE', 'PENDING'] },
+                orderDate: { gte: start, lte: end } 
             },
-            _sum: { total: true }
+            include: { invoice: true }
         });
-        const todaySales = todaySalesData._sum.total || 0;
 
-        // Today's Collections (Payments)
-        const todayPaymentsData = await prisma.payment.aggregate({
-            where: {
-                paymentDate: { gte: start, lte: end }
-            },
+        const todayNet = todaySaleOrders.reduce((sum, order) => {
+            const grandTotal = order.grandTotal || 0;
+            const isPaid = order.invoice?.status === 'PAID';
+            const remaining = isPaid ? 0 : (order.invoice?.remaining || 0);
+            return sum + (grandTotal - remaining);
+        }, 0);
+
+        const todaySales = todaySaleOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+
+        // 2. Calculate Today's Collections for OLD debts (Payments today for invoices created BEFORE today)
+        const allTodayPayments = await prisma.payment.findMany({
+            where: { paymentDate: { gte: start, lte: end } },
+            include: { invoice: true }
+        });
+
+        // Sum payments where the invoice was created before today OR if there is no invoice (direct customer payment)
+        // Actually, if it's an initial payment for a today's order, it's already in todayNet.
+        // So we want payments where the invoice.order.orderDate < start.
+        
+        // Let's get order dates for these payments
+        const paymentInvoiceIds = allTodayPayments.map(p => p.invoiceId).filter(id => id !== null) as number[];
+        const invoices = await prisma.invoice.findMany({
+            where: { id: { in: paymentInvoiceIds } },
+            include: { order: true }
+        });
+
+        const todayOldDebtCollections = allTodayPayments.reduce((sum, p) => {
+            const inv = invoices.find(i => i.id === p.invoiceId);
+            // If invoice exists and order was before today, count it.
+            // If no invoice, it might be a general credit, we can count it as collection too.
+            if (!inv || !inv.order || inv.order.orderDate < start) {
+                return sum + p.amount;
+            }
+            return sum;
+        }, 0);
+
+        const todayCustomerCollections = todayOldDebtCollections; // Renaming for consistency in Dashboard formula
+
+        // 3. Calculate Today's Payments (Money OUT to suppliers)
+        const todaySupplierPaymentsData = await prisma.supplierPayment.aggregate({
+            where: { paymentDate: { gte: start, lte: end } },
             _sum: { amount: true }
         });
-        const todayCollections = todayPaymentsData._sum.amount || 0;
+        const todaySupplierPayments = todaySupplierPaymentsData._sum.amount || 0;
+
+        // 4. Monthly Collection Growth Calculation
+        const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
+
+        const [thisMonthCollectionsData, lastMonthCollectionsData] = await Promise.all([
+            prisma.payment.aggregate({
+                where: { paymentDate: { gte: startOfThisMonth, lte: end } },
+                _sum: { amount: true }
+            }),
+            prisma.payment.aggregate({
+                where: { paymentDate: { gte: startOfLastMonth, lte: endOfLastMonth } },
+                _sum: { amount: true }
+            })
+        ]);
+
+        const thisMonthCol = thisMonthCollectionsData._sum.amount || 0;
+        const lastMonthCol = lastMonthCollectionsData._sum.amount || 0;
+
+        let collectionGrowth = 0;
+        if (lastMonthCol > 0) {
+            collectionGrowth = ((thisMonthCol - lastMonthCol) / lastMonthCol) * 100;
+        } else if (thisMonthCol > 0) {
+            collectionGrowth = 100; // 100% growth if there was nothing last month
+        }
+        
+        const monthlyGrowth = {
+            value: collectionGrowth.toFixed(1),
+            isPositive: collectionGrowth >= 0
+        };
 
         const pendingInvoices = await prisma.invoice.aggregate({
             _sum: { remaining: true }
@@ -156,14 +223,34 @@ export async function GET() {
         
         const overdueInvoices = overdueInvoicesQuery.map(inv => ({
             invoiceNumber: inv.invoiceNumber,
-            customerName: inv.order?.customer?.name || inv.order?.guestName || 'عميل نقدي',
+            customerName: inv.order?.customer?.name || inv.order?.customerName || 'عميل نقدي',
             remaining: inv.remaining,
             dueDate: inv.dueDate
         }));
         const overdueInvoicesCount = overdueInvoices.length;
 
-        // Total Debt Calculation (sum of all customer balanceDue)
-        const totalDebt = outstandingDebts.totalAmount;
+        // 5. Total Debt Calculation (Sync with Invoices Page Logic)
+        const allSaleOrders = await prisma.order.findMany({
+            where: { type: 'SALE' },
+            include: {
+                items: true,
+                invoice: true
+            }
+        });
+
+        let totalDebt = 0;
+        allSaleOrders.forEach(order => {
+            const returnsValue = order.items.reduce((sum, item) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+            const paid = order.invoice?.paid || 0;
+            const remaining = Math.max(0, (order.grandTotal - returnsValue) - paid);
+            totalDebt += remaining;
+        });
+        
+        const allSalesTotal = allSaleOrders.reduce((sum, o) => sum + o.grandTotal, 0);
+        const allPaymentsTotal = await prisma.payment.aggregate({ _sum: { amount: true } }).then(res => res._sum.amount || 0);
+        const allReturnsTotal = allSaleOrders.reduce((sum, o) => {
+            return sum + o.items.reduce((iSum, item) => iSum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+        }, 0);
 
         return NextResponse.json({
             totalProducts,
@@ -184,7 +271,10 @@ export async function GET() {
             totalLossThisMonth,
             overdueInvoices,
             overdueInvoicesCount,
-            todayCollections
+            todayCustomerCollections,
+            todaySupplierPayments,
+            todayNet,
+            monthlyGrowth
         });
 
     } catch (error) {

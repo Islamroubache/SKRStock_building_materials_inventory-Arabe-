@@ -17,11 +17,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                                 product: { select: { id: true, name: true, unit: true, quantity: true } }
                             }
                         },
-                        invoice: true
+                        invoice: {
+                            include: {
+                                payments: {
+                                    orderBy: { paymentDate: 'asc' },
+                                    take: 1
+                                }
+                            }
+                        }
                     }
                 },
                 invoices: { orderBy: { date: 'desc' }, take: 10 },
-                payments: { orderBy: { paymentDate: 'desc' } }
+                payments: { 
+                    orderBy: { paymentDate: 'desc' },
+                    include: {
+                        invoice: {
+                            include: {
+                                order: {
+                                    select: { orderNumber: true }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
         if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -34,9 +52,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const resolvedParams = await params;
         const id = parseInt(resolvedParams.id, 10);
         const body = await request.json();
-        const updated = await prisma.customer.update({ where: { id }, data: body });
+
+        // Exclude relations and metadata from the update data
+        const { id: _id, projects, orders, invoices, payments, createdAt, ...updateData } = body;
+
+        const updated = await prisma.customer.update({
+            where: { id },
+            data: updateData
+        });
         return NextResponse.json(updated);
-    } catch (e) { return NextResponse.json({ error: 'Failed' }, { status: 500 }); }
+    } catch (e) {
+        console.error('Update Error:', e);
+        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> | { id: string } }) {

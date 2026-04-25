@@ -6,14 +6,22 @@ import { calculateInvoiceStatus, checkCreditLimit } from '@/lib/payment-helpers'
 
 export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const type = searchParams.get('type');
+        
         const orders = await prisma.order.findMany({
+            where: type ? { type: type as any } : undefined,
             orderBy: { orderDate: 'desc' },
             include: {
                 customer: true,
                 project: true,
                 supplier: true,
                 items: { include: { product: true } },
-                invoice: true
+                invoice: {
+                    include: {
+                        payments: { orderBy: { paymentDate: 'asc' }, take: 1 }
+                    }
+                }
             }
         });
         return NextResponse.json(orders);
@@ -60,13 +68,34 @@ export async function POST(request: Request) {
         
         // --- PURCHASE ORDER LOGIC ---
         if (type === 'PURCHASE') {
-            const orderNumber = bodyOrderNumber || ("ORD-" + Date.now());
+            // Check for duplicate external number for the same supplier
+            if (externalNumber && externalNumber !== 'SHR-') {
+                const existingOrder = await prisma.order.findFirst({
+                    where: {
+                        supplierId: supplierId || null,
+                        customerName: supplierId ? undefined : body.guestSupplierName,
+                        externalNumber: externalNumber,
+                        type: 'PURCHASE'
+                    }
+                });
+
+                if (existingOrder) {
+                    return NextResponse.json({ 
+                        error: `عذراً! رقم الفاتورة "${externalNumber}" مسجل مسبقاً لهذا المورد. يرجى التأكد من الرقم لتجنب التكرار.` 
+                    }, { status: 400 });
+                }
+            }
+
+            // Generate orderNumber by combining externalNumber and supplier ID/Guest suffix
+            const supplierSuffix = supplierId ? `S${supplierId}` : `GST-${Date.now().toString().slice(-4)}`;
+            const orderNumber = bodyOrderNumber || `${externalNumber || 'SHR'}-${supplierSuffix}`;
             const result = await prisma.$transaction(async (tx) => {
                 const orderData: any = {
                     type,
                     orderNumber,
                     externalNumber,
                     notes,
+                    dueDate: body.dueDate ? new Date(body.dueDate) : null,
                     status: body.status || 'DONE',
                     total: subtotal,
                     taxRate: isOfficial ? tvaRate : 0,
@@ -156,10 +185,10 @@ export async function POST(request: Request) {
                                 quantity: newQty,
                                 quantityBefore: currentQty,
                                 quantityAfter: currentQty + newQty,
-                                supplierId: body.supplierId,
+                                supplierId: supplierId || null,
                                 unitCost: newUnitCost,
                                 totalCost: newUnitCost * newQty,
-                                reason: `شراء من المورد — ${order.supplier?.name || 'غير محدد'}${externalNumber ? ` (فاتورة: ${externalNumber})` : ''}`
+                                reason: `شراء من المورد — ${body.guestSupplierName || 'مورد مسجل'}${externalNumber ? ` (فاتورة: ${externalNumber})` : ''}`
                             }
                         });
                     }
@@ -172,6 +201,25 @@ export async function POST(request: Request) {
                         data: { balanceDue: { increment: remainingAmount } }
                     });
                 }
+
+                // Create Invoice for Purchase
+                const invoiceStatus = calculateInvoiceStatus(grandTotal, paidAmount);
+                await tx.invoice.create({
+                    data: {
+                        orderId: order.id,
+                        invoiceNumber: `PUR/${order.orderNumber}`,
+                        supplierId: supplierId || null,
+                        type: 'PURCHASE_INVOICE',
+                        total: subtotal,
+                        grandTotal,
+                        paid: paidAmount,
+                        remaining: remainingAmount,
+                        status: invoiceStatus,
+                        dueDate: body.dueDate ? new Date(body.dueDate) : null,
+                        date: new Date(),
+                        customerName: body.guestSupplierName || undefined
+                    }
+                });
 
                 return order;
             });
@@ -234,6 +282,7 @@ export async function POST(request: Request) {
                 grandTotal,
                 isOfficial: !!isOfficial,
                 notes,
+                dueDate: body.dueDate ? new Date(body.dueDate) : null,
                 items: {
                     create: items.map((i: any) => ({
                         productId: i.productId,

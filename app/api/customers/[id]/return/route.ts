@@ -39,27 +39,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             // First, calculate financial adjustments based on Invoice
             const invoice = await tx.invoice.findUnique({ where: { orderId: orderItem.orderId } });
             
-            let forgivenDebt = returnValue; // Default
-            let cashRefunded = 0;
 
             if (invoice) {
-                forgivenDebt = Math.min(invoice.remaining, returnValue);
-                cashRefunded = returnValue - forgivenDebt;
-
                 const newTotal = Math.max(0, invoice.total - returnValue);
-                const newPaid = Math.max(0, invoice.paid - cashRefunded);
-                const newRemaining = Math.max(0, newTotal - newPaid);
+                // We DON'T decrement invoice.paid here. 
+                // The surplus will naturally show up in newRemaining as a negative value.
+                const newRemaining = newTotal - invoice.paid;
 
                 let newStatus = 'UNPAID';
-                if (newPaid >= newTotal && newTotal > 0) newStatus = 'PAID';
+                if (invoice.paid >= newTotal && newTotal > 0) {
+                    newStatus = (newRemaining < 0) ? 'CREDIT' : 'PAID';
+                }
                 else if (newTotal === 0) newStatus = 'PAID';
-                else if (newPaid > 0) newStatus = 'PARTIAL';
+                else if (invoice.paid > 0) newStatus = 'PARTIAL';
 
                 await tx.invoice.update({
                     where: { id: invoice.id },
                     data: {
                         total: newTotal,
-                        paid: newPaid,
                         remaining: newRemaining,
                         status: newStatus
                     }
@@ -78,10 +75,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 data: { quantity: { increment: quantity } }
             });
 
-            // 3. Reduce customer balance due ONLY by ForgivenDebt to avoid negative
+            // 3. Reduce customer balance due by the FULL returnValue (allowing it to go negative)
             await tx.customer.update({
                 where: { id: customerId },
-                data: { balanceDue: { decrement: forgivenDebt } }
+                data: { balanceDue: { decrement: returnValue } }
             });
 
             // 4. Log stock movement
@@ -106,13 +103,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 data: { total: { decrement: returnValue } }
             });
 
-            // 6. Update Project Total and PaidAmount
+            // 6. Update Project Total
             if (orderItem.order.projectId) {
                 await tx.project.update({
                     where: { id: orderItem.order.projectId },
                     data: { 
-                        totalAmount: { decrement: returnValue },
-                        paidAmount: { decrement: cashRefunded } 
+                        totalAmount: { decrement: returnValue }
                     }
                 });
             }

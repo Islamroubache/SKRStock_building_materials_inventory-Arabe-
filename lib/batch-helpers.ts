@@ -67,7 +67,34 @@ export async function getFIFOBatches(productId: number, totalQty: number, tx: an
     }
 
     if (remainingToAllocate > 0) {
-        throw new Error(`Insufficient stock in batches for product ID ${productId}. Missing: ${remainingToAllocate}`);
+        // Handle discrepancy: Check if product total quantity can cover the gap
+        const product = await tx.product.findUnique({ where: { id: productId } });
+        if (product && product.quantity >= totalQty) {
+            // Create an auto-correction batch for the missing quantity
+            const batchNumber = `SYNC-${Date.now().toString().slice(-4)}`;
+            const newBatch = await tx.productBatch.create({
+                data: {
+                    productId,
+                    batchNumber,
+                    initialQty: remainingToAllocate,
+                    remainingQty: remainingToAllocate,
+                    unitCost: product.avgPurchasePrice || product.purchasePrice || 0,
+                    totalCost: (product.avgPurchasePrice || product.purchasePrice || 0) * remainingToAllocate,
+                    status: 'ACTIVE',
+                    notes: 'دورة تصحيح تلقائية لمزامنة المخزون مع الدفعات'
+                }
+            });
+
+            allocations.push({
+                batchId: newBatch.id,
+                quantity: remainingToAllocate,
+                unitCost: newBatch.unitCost
+            });
+            
+            remainingToAllocate = 0;
+        } else {
+            throw new Error(`Insufficient stock in batches for product ID ${productId}. Missing: ${remainingToAllocate}`);
+        }
     }
 
     return allocations;

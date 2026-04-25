@@ -12,6 +12,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 import { formatDate } from '@/lib/utils';
+import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 
 interface OrderItem {
     id: number;
@@ -253,7 +254,9 @@ export default function SupplierDetailPage() {
                                                 {(supplier.commune || supplier.wilaya) && <span className="text-gray-400 mx-1">/</span>}
                                                 <span className="text-indigo-600">{supplier.commune}</span>
                                                 {supplier.wilaya && <span className="text-gray-400 mx-1">-</span>}
-                                                <span className="text-indigo-600">{supplier.wilaya}</span>
+                                                <span className="text-indigo-600">
+                                                    {ALGERIA_LOCATIONS.find(w => w.arabicName === supplier.wilaya)?.name || supplier.wilaya}
+                                                </span>
                                             </span>
                                         </div>
                                     </div>

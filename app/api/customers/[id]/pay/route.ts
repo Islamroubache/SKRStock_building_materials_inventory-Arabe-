@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const resolvedParams = await params;
         const customerId = parseInt(resolvedParams.id, 10);
         const body = await request.json();
-        const { amount, projectId } = body;
+        const { amount, projectId, paymentMethod, chequeNumber, bankName, notes } = body;
 
         let workingAmount = parseFloat(amount);
 
@@ -60,13 +60,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                         invoiceId: invoice.id,
                         customerId,
                         amount: paymentForThisInvoice,
-                        paymentMethod: 'CASH',
-                        notes: projectId ? `تسديد شامل للمشروع (توزيع آلي)` : `تسديد رصيد العميل الشامل (توزيع آلي)`,
+                        paymentMethod: paymentMethod || 'CASH',
+                        chequeNumber: (paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') ? chequeNumber : null,
+                        bankName: (paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') ? bankName : null,
+                        notes: notes || (projectId ? `تسديد شامل للمشروع (توزيع آلي)` : `تسديد رصيد العميل الشامل (توزيع آلي)`),
                         paymentDate: new Date()
                     }
                 });
 
                 const newPaid = invoice.paid + paymentForThisInvoice;
+
                 const newRemaining = invoice.total - newPaid;
 
                 // Update invoice

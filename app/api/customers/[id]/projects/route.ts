@@ -27,6 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 customerId: id,
                 name: body.name,
                 description: body.description,
+                address: body.address,
                 status: body.status || 'ACTIVE',
                 totalAmount: body.totalAmount || 0,
                 paidAmount: body.paidAmount || 0,

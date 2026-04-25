@@ -26,6 +26,7 @@ interface Supplier {
     nif: string | null;
     ai: string | null;
     nis: string | null;
+    activity?: string | null;
     _count?: {
         products: number;
     }
@@ -46,8 +47,48 @@ export default function SuppliersPage() {
         name: '', phone: '', email: '', address: '', 
         commune: 'المسيلة', 
         wilaya: 'المسيلة',
-        rc: '', nif: '', ai: '', nis: ''
+        rc: '', nif: '', ai: '', nis: '', activity: "Grossiste en Matériel Électrique"
     });
+    const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+    const setFieldTouched = (field: string) => {
+        setTouched(prev => ({ ...prev, [field]: true }));
+    };
+
+    const validations = {
+        name: (() => {
+            const words = formData.name.trim().split(/\s+/).filter(w => w.length > 0);
+            return words.length >= 2 && words.slice(0, 2).every(w => w.length >= 3);
+        })(),
+        activity: (() => {
+            const predefinedActivities = [
+                "Fabricant de Câbles & Fils Électriques",
+                "Fabricant de Matériel Électrique",
+                "Fabricant d'Éclairage & LED",
+                "Fabricant d'Appareillage Électrique",
+                "Grossiste en Matériel Électrique",
+                "Importateur de Matériel Électrique",
+                "Commerce en Gros d'Électricité",
+                "Distributeur Agréé",
+                "Fabricant de Coffrets & Tableaux",
+                "Fabricant de Gaines & Tubes",
+                "Fournisseur d'Équipements Industriels",
+            ];
+            const isCustom = formData.activity === 'Autre' || (formData.activity && !predefinedActivities.includes(formData.activity));
+            if (!isCustom) return true;
+            const words = formData.activity.trim().split(/\s+/).filter(w => w.length > 0);
+            return words.length >= 2;
+        })(),
+        phone: formData.phone === '' || /^0[567]\d{8}$/.test(formData.phone),
+        email: formData.email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email),
+        rc: formData.rc === '' || formData.rc.length === 10,
+        nif: formData.nif === '' || formData.nif.length === 15,
+        ai: formData.ai === '' || formData.ai.length === 11,
+        nis: formData.nis === '' || formData.nis.length === 15,
+        address: formData.address.length >= 5,
+        commune: formData.commune.length > 0,
+        wilaya: formData.wilaya.length > 0,
+    };
 
     // Dialog State
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean, id: number | null }>({ isOpen: false, id: null });
@@ -95,8 +136,9 @@ export default function SuppliersPage() {
             setEditingSupplier(sup);
             setFormData({ 
                 name: sup.name, phone: sup.phone || '', email: sup.email || '', 
-                address: sup.address || '', commune: sup.commune || '', wilaya: sup.wilaya || '',
-                rc: sup.rc || '', nif: sup.nif || '', ai: sup.ai || '', nis: sup.nis || ''
+                address: sup.address || '', commune: (sup as any).commune || '', wilaya: (sup as any).wilaya || '',
+                rc: sup.rc || '', nif: sup.nif || '', ai: sup.ai || '', nis: sup.nis || '',
+                activity: sup.activity || "Grossiste en Matériel Électrique"
             });
         } else {
             setEditingSupplier(null);
@@ -105,9 +147,10 @@ export default function SuppliersPage() {
                 address: '', 
                 commune: 'المسيلة', 
                 wilaya: 'المسيلة',
-                rc: '', nif: '', ai: '', nis: ''
+                rc: '', nif: '', ai: '', nis: '', activity: "Grossiste en Matériel Électrique"
             });
         }
+        setTouched({});
         setIsSheetOpen(true);
     };
 
@@ -225,7 +268,18 @@ export default function SuppliersPage() {
                                     return (
                                         <React.Fragment key={s.id}>
                                             <tr className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-5 py-4 font-bold text-gray-900">{s.name}</td>
+                                                <td className="px-5 py-4">
+                                                    <div className="flex items-center gap-3 text-right" dir="rtl">
+                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
+                                                            <img 
+                                                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(s.name)}&backgroundColor=transparent&textColor=4f46e5&fontWeight=900&fontSize=40`} 
+                                                                alt={s.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <span className="font-bold text-gray-900">{s.name}</span>
+                                                    </div>
+                                                </td>
                                                 <td className="px-5 py-4 text-gray-600">
                                                     <div className="flex flex-col gap-0.5">
                                                         <span dir="ltr" className="text-right">{s.phone || '-'}</span>
@@ -280,33 +334,124 @@ export default function SuppliersPage() {
                         </h2>
 
                         <div className="space-y-4 flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
-                            <div>
-                                <label className="text-sm font-bold text-gray-700 mb-1 block">اسم المورد / الشركة <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500"
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-bold text-gray-700">اسم المورد <span className="text-red-500">*</span></label>
+                                <input 
+                                    type="text" value={formData.name} 
+                                    onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })} 
+                                    onBlur={() => setFieldTouched('name')}
+                                    className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all font-black text-sm uppercase
+                                        ${touched.name && !validations.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-indigo-500'}`} 
+                                    placeholder="اسم الشركة أو المورد..." required 
                                 />
+                                {touched.name && !validations.name && (
+                                    <p className="text-[10px] text-red-500 font-bold mt-1 text-right">يجب إدخال اسم المورد (كلمتان على الأقل، كل كلمة 3 أحرف على الأقل).</p>
+                                )}
                             </div>
+
+                            {/* ACTIVITY FIELD */}
                             <div>
-                                <label className="text-sm font-bold text-gray-700 mb-1 block">رقم الهاتف</label>
-                                <input
-                                    type="tel" dir="ltr"
-                                    value={formData.phone} 
-                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    onFocus={() => setFocusedField('phone')}
-                                    onBlur={() => setFocusedField(null)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
-                                />
-                                {focusedField === 'phone' && (
-                                    <div className="flex gap-1 mt-1 font-mono text-xs" dir="ltr">
+                                <label className="text-sm font-bold text-gray-700 mb-1 block">النشاط التجاري <span className="text-red-500">*</span></label>
+                                {(() => {
+                                    const predefinedActivities = [
+                                        "Fabricant de Câbles & Fils Électriques",
+                                        "Fabricant de Matériel Électrique",
+                                        "Fabricant d'Éclairage & LED",
+                                        "Fabricant d'Appareillage Électrique",
+                                        "Grossiste en Matériel Électrique",
+                                        "Importateur de Matériel Électrique",
+                                        "Commerce en Gros d'Électricité",
+                                        "Distributeur Agréé",
+                                        "Fabricant de Coffrets & Tableaux",
+                                        "Fabricant de Gaines & Tubes",
+                                        "Fournisseur d'Équipements Industriels",
+                                    ];
+                                    const currentActivity = (formData as any).activity || '';
+                                    const isCustom = currentActivity === 'Autre' || (currentActivity && !predefinedActivities.includes(currentActivity));
+                                    const selectValue = isCustom ? 'Autre' : currentActivity;
+                                    return (
+                                        <>
+                                            <select
+                                                value={selectValue}
+                                                onChange={e => {
+                                                    if (e.target.value === 'Autre') {
+                                                        setFormData({ ...formData, activity: 'Autre' } as any);
+                                                    } else {
+                                                        setFormData({ ...formData, activity: e.target.value } as any);
+                                                    }
+                                                }}
+                                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                            >
+                                                {predefinedActivities.map(a => (
+                                                    <option key={a} value={a}>{a}</option>
+                                                ))}
+                                                <option value="Autre">Autre (saisie manuelle)</option>
+                                            </select>
+                                            {isCustom && (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        value={currentActivity === 'Autre' ? '' : currentActivity}
+                                                        onChange={e => setFormData({ ...formData, activity: e.target.value || 'Autre' } as any)}
+                                                        onBlur={() => setFieldTouched('activity')}
+                                                        placeholder="أدخل النشاط التجاري يدوياً..."
+                                                        className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all mt-2
+                                                            ${touched.activity && !validations.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50 text-gray-900'}`}
+                                                        autoFocus
+                                                    />
+                                                    {touched.activity && !validations.activity && (
+                                                        <p className="text-[10px] text-red-500 font-bold mt-1 text-right">يجب إدخال كلمتين على الأقل للنشاط.</p>
+                                                    )}
+                                                </>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+
+                            <div className="space-y-1.5 flex flex-col items-start w-full">
+                                <label className="text-sm font-bold text-gray-700">رقم الهاتف (اختياري)</label>
+                                <div className="relative w-full group overflow-hidden">
+                                    <input
+                                        type="text"
+                                        maxLength={10}
+                                        value={formData.phone}
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            if (val.length === 1 && val[0] !== '0') return;
+                                            if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return;
+                                            setFormData({ ...formData, phone: val });
+                                        }}
+                                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                        dir="ltr"
+                                        onFocus={() => setFocusedField('phone')}
+                                        onBlur={() => {
+                                            setFocusedField(null);
+                                            setFieldTouched('phone');
+                                        }}
+                                    />
+                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
+                                        ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !validations.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
                                         {[...Array(10)].map((_, i) => (
-                                            <div key={i} className={`flex-1 flex justify-center border-b-2 ${formData.phone[i] ? 'text-indigo-600 border-indigo-600' : (i === formData.phone.length ? 'text-amber-500 border-amber-500 font-bold scale-110' : 'text-gray-300 border-gray-100')}`}>
-                                                {formData.phone[i] || 'x'}
-                                            </div>
+                                            <React.Fragment key={i}>
+                                                <div
+                                                    className={`flex-1 flex justify-center items-center h-9 rounded-md transition-all duration-200
+                                                        ${formData.phone[i] ? 'text-gray-900 font-bold' : 
+                                                            (i === formData.phone.length && focusedField === 'phone') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}
+                                                >
+                                                    {formData.phone[i] || 'x'}
+                                                </div>
+                                                {(i === 1 || i === 3 || i === 5 || i === 7) && <div className="w-2" />}
+                                            </React.Fragment>
                                         ))}
                                     </div>
-                                )}
+                                    {touched.phone && !validations.phone && (
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-red-500 animate-pulse pointer-events-none z-30">
+                                            <AlertTriangle size={16} />
+                                        </div>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-bold mt-1">يجب أن يبدأ بـ 05، 06، أو 07.</p>
                             </div>
                             <div>
                                 <label className="text-sm font-bold text-gray-700 mb-1 block">البريد الإلكتروني</label>
@@ -332,12 +477,12 @@ export default function SuppliersPage() {
                                             value={formData.wilaya} 
                                             onChange={e => {
                                                 const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
-                                                setFormData({ ...formData, wilaya: e.target.value, commune: w?.communes[0] || '' });
+                                                setFormData({ ...formData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
                                             }}
                                             className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
                                         >
                                             {ALGERIA_LOCATIONS.map(w => (
-                                                <option key={w.id} value={w.arabicName}>{w.id} - {w.arabicName}</option>
+                                                <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -363,13 +508,18 @@ export default function SuppliersPage() {
                                                 type="text" maxLength={10} value={formData.rc} 
                                                 onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} 
                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                onFocus={() => setFocusedField('rc')}
-                                                onBlur={() => setFocusedField(null)}
+                                                onBlur={() => {
+                                                    setFocusedField(null);
+                                                    setFieldTouched('rc');
+                                                }}
                                                 dir="ltr"
                                             />
-                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-2 z-10 text-[10px]" dir="ltr">
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                                ${focusedField === 'rc' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.rc && !validations.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(10)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.rc[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.rc.length && focusedField === 'rc' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
+                                                        ${formData.rc[i] ? 'text-gray-900 font-bold' : 
+                                                            (i === formData.rc.length && focusedField === 'rc') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
                                                         {formData.rc[i] || 'x'}
                                                     </div>
                                                 ))}
@@ -386,12 +536,18 @@ export default function SuppliersPage() {
                                                 onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '') })} 
                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                 onFocus={() => setFocusedField('nif')}
-                                                onBlur={() => setFocusedField(null)}
+                                                onBlur={() => {
+                                                    setFocusedField(null);
+                                                    setFieldTouched('nif');
+                                                }}
                                                 dir="ltr"
                                             />
-                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1.5 py-2.5 z-10 text-[9px]" dir="ltr">
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
+                                                ${focusedField === 'nif' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.nif && !validations.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(15)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.nif[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.nif.length && focusedField === 'nif' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
+                                                        ${formData.nif[i] ? 'text-gray-900 font-bold' : 
+                                                            (i === formData.nif.length && focusedField === 'nif') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
                                                         {formData.nif[i] || 'x'}
                                                     </div>
                                                 ))}
@@ -408,12 +564,18 @@ export default function SuppliersPage() {
                                                 onChange={e => setFormData({ ...formData, ai: e.target.value.replace(/\D/g, '') })} 
                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                 onFocus={() => setFocusedField('ai')}
-                                                onBlur={() => setFocusedField(null)}
+                                                onBlur={() => {
+                                                    setFocusedField(null);
+                                                    setFieldTouched('ai');
+                                                }}
                                                 dir="ltr"
                                             />
-                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-2 z-10 text-[10px]" dir="ltr">
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                                ${focusedField === 'ai' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.ai && !validations.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(11)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.ai[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.ai.length && focusedField === 'ai' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
+                                                        ${formData.ai[i] ? 'text-gray-900 font-bold' : 
+                                                            (i === formData.ai.length && focusedField === 'ai') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
                                                         {formData.ai[i] || 'x'}
                                                     </div>
                                                 ))}
@@ -430,12 +592,18 @@ export default function SuppliersPage() {
                                                 onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '') })} 
                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                 onFocus={() => setFocusedField('nis')}
-                                                onBlur={() => setFocusedField(null)}
+                                                onBlur={() => {
+                                                    setFocusedField(null);
+                                                    setFieldTouched('nis');
+                                                }}
                                                 dir="ltr"
                                             />
-                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1.5 py-2.5 z-10 text-[9px]" dir="ltr">
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2.5 z-10 text-[9px] transition-all
+                                                ${focusedField === 'nis' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.nis && !validations.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(15)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center border-b ${formData.nis[i] ? 'text-indigo-600 border-indigo-600 font-bold' : (i === formData.nis.length && focusedField === 'nis' ? 'text-amber-500 border-amber-500 font-black scale-110' : 'text-gray-300 border-gray-100')}`}>
+                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
+                                                        ${formData.nis[i] ? 'text-gray-900 font-bold' : 
+                                                            (i === formData.nis.length && focusedField === 'nis') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
                                                         {formData.nis[i] || 'x'}
                                                     </div>
                                                 ))}

@@ -207,6 +207,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </div>
                 </main>
             </div>
+
+            <style jsx global>{`
+                @media print {
+                    aside, header, nav, button, .no-print, [role="button"] {
+                        display: none !important;
+                    }
+                    main {
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                    }
+                    body {
+                        background: white !important;
+                    }
+                    .flex-1 {
+                        display: block !important;
+                    }
+                    * {
+                        overflow: visible !important;
+                    }
+                }
+            `}</style>
         </div>
     )
 }

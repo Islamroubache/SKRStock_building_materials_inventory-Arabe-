@@ -10,13 +10,49 @@ export async function GET(req: Request, context: any) {
             return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
         }
 
-        // @ts-ignore - Bypass IDE cache issue, npx tsc passes cleanly
-        const payments = await prisma.payment.findMany({
-            where: { invoiceId: id },
-            orderBy: { paymentDate: 'desc' }
+        const invoice = await prisma.invoice.findUnique({
+            where: { id },
+            include: { order: true }
         });
 
-        return NextResponse.json(payments);
+        if (!invoice) {
+            return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+        }
+
+        const [customerPayments, supplierPayments, returnOrders] = await Promise.all([
+            prisma.payment.findMany({
+                where: { invoiceId: id },
+                orderBy: { paymentDate: 'desc' }
+            }),
+            prisma.supplierPayment.findMany({
+                where: { invoiceId: id },
+                orderBy: { paymentDate: 'desc' }
+            }),
+            prisma.order.findMany({
+                where: {
+                    orderNumber: { contains: invoice.order.orderNumber },
+                    type: { in: ['RETURN_SALE', 'RETURN_PURCHASE'] }
+                },
+                include: { items: { include: { product: true } } }
+            })
+        ]);
+
+        // Map returns to a payment-like structure
+        const returnsAsPayments = returnOrders.map(r => ({
+            id: `ret-${r.id}`,
+            amount: r.total,
+            paymentMethod: 'RETURN',
+            paymentDate: r.orderDate,
+            notes: r.notes || 'Retour de produits',
+            isReturn: true,
+            items: r.items
+        }));
+
+        const allPayments = [...customerPayments, ...supplierPayments, ...returnsAsPayments].sort((a, b) => 
+            new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+        );
+
+        return NextResponse.json(allPayments);
     } catch (error: any) {
         console.error('[INVOICE_PAYMENTS_GET]', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

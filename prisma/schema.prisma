@@ -31,29 +31,46 @@ model Product {
 }
 
 model Supplier {
-  id              Int              @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   name            String
+  activity        String?
   phone           String?
   email           String?
   address         String?
-  balanceDue      Float            @default(0)
-  isArchived      Boolean          @default(false)
-  createdAt       DateTime         @default(now())
+  rc              String?
+  nif             String?
+  ai              String?
+  nis             String?
+  commune         String?
+  wilaya          String?
+  balanceDue      Float             @default(0)
+  isArchived      Boolean           @default(false)
+  createdAt       DateTime          @default(now())
   damagedProducts DamagedProduct[]
   orders          Order[]           @relation("SupplierToOrder")
   products        Product[]
   batches         ProductBatch[]
   payments        SupplierPayment[] @relation("SupplierToPayment")
+  invoices        Invoice[]         @relation("SupplierToInvoice")
 }
 
 model Customer {
   id                Int       @id @default(autoincrement())
   name              String
+  activity          String?
   type              String    @default("REGULAR")
   phone             String?
   email             String?
+  rc                String?
+  nif               String?
+  ai                String?
+  nis               String?
+  address           String?
+  commune           String?
+  wilaya            String?
   creditLimit       Float     @default(0)
   balanceDue        Float     @default(0)
+  isArchived        Boolean   @default(false)
   createdAt         DateTime  @default(now())
   lastPaymentAmount Float?    @default(0)
   lastPaymentDate   DateTime?
@@ -68,6 +85,7 @@ model Project {
   customerId  Int
   name        String
   description String?
+  address     String?
   status      String    @default("ACTIVE")
   totalAmount Float     @default(0)
   paidAmount  Float     @default(0)
@@ -83,13 +101,27 @@ model Order {
   supplierId     Int?
   projectId      Int?
   orderNumber    String          @unique
+  externalNumber String?
   type           String
   status         String          @default("PENDING")
+  isOfficial     Boolean         @default(false)
+  taxRate        Float           @default(0)
+  taxTotal       Float           @default(0)
+  timbreAmount   Float           @default(0)
   total          Float           @default(0)
+  grandTotal     Float           @default(0)
   orderDate      DateTime        @default(now())
+  dueDate        DateTime?
   notes          String?
   customerName   String?
   customerPhone  String?
+  customerRC     String?
+  customerNIF    String?
+  customerAI     String?
+  customerNIS    String?
+  customerAddress String?
+  customerCommune String?
+  customerWilaya  String?
   invoice        Invoice?        @relation("OrderToInvoice")
   project        Project?        @relation("ProjectToOrder", fields: [projectId], references: [id])
   supplier       Supplier?       @relation("SupplierToOrder", fields: [supplierId], references: [id])
@@ -115,25 +147,38 @@ model Invoice {
   id            Int       @id @default(autoincrement())
   orderId       Int       @unique
   customerId    Int?
+  supplierId    Int?
   invoiceNumber String    @unique
   type          String    @default("INVOICE")
+  taxTotal      Float     @default(0)
+  timbreAmount  Float     @default(0)
   total         Float
+  grandTotal    Float     @default(0)
   paid          Float     @default(0)
   remaining     Float
   date          DateTime  @default(now())
   customerName  String?
   customerPhone String?
+  customerRC    String?
+  customerNIF   String?
+  customerAI    String?
+  customerNIS   String?
+  customerAddress String?
+  customerCommune String?
+  customerWilaya  String?
   status        String    @default("UNPAID")
   dueDate       DateTime?
   customer      Customer? @relation("CustomerToInvoice", fields: [customerId], references: [id])
+  supplier      Supplier? @relation("SupplierToInvoice", fields: [supplierId], references: [id])
   order         Order     @relation("OrderToInvoice", fields: [orderId], references: [id])
   payments      Payment[] @relation("InvoiceToPayment")
+  supplierPayments SupplierPayment[] @relation("InvoiceToSupplierPayment")
 }
 
 model Payment {
   id            Int       @id @default(autoincrement())
   invoiceId     Int?
-  customerId    Int
+  customerId    Int?
   amount        Float
   paymentMethod String    @default("CASH")
   chequeNumber  String?
@@ -141,7 +186,7 @@ model Payment {
   paymentDate   DateTime  @default(now())
   notes         String?
   createdAt     DateTime  @default(now())
-  customer      Customer  @relation("CustomerToPayment", fields: [customerId], references: [id])
+  customer      Customer? @relation("CustomerToPayment", fields: [customerId], references: [id])
   invoice       Invoice?  @relation("InvoiceToPayment", fields: [invoiceId], references: [id])
 }
 
@@ -217,6 +262,7 @@ model OrderItemBatch {
 model SupplierPayment {
   id            Int      @id @default(autoincrement())
   supplierId    Int
+  invoiceId     Int?
   amount        Float
   paymentMethod String   @default("CASH")
   chequeNumber  String?
@@ -225,4 +271,22 @@ model SupplierPayment {
   notes         String?
   createdAt     DateTime @default(now())
   supplier      Supplier @relation("SupplierToPayment", fields: [supplierId], references: [id])
+  invoice       Invoice? @relation("InvoiceToSupplierPayment", fields: [invoiceId], references: [id])
+}
+
+model StoreSettings {
+  id          Int      @id @default(autoincrement())
+  storeName   String   @default("مخزون")
+  logo        String?
+  address     String?
+  phone       String?
+  email       String?
+  rc          String?
+  nif         String?
+  ai          String?
+  nis         String?
+  tvaRate     Float    @default(19)
+  timbreRate  Float    @default(1)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
 }

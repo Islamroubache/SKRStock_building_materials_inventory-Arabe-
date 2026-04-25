@@ -3,9 +3,21 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const archivedStr = searchParams.get('isArchived');
+        const isArchived = archivedStr === 'true';
+
         const customers = await prisma.customer.findMany({
+            where: { isArchived: isArchived },
             orderBy: { name: 'asc' },
-            include: { _count: { select: { projects: true, orders: true } } }
+            include: { 
+                _count: { 
+                    select: { 
+                        projects: { where: { status: 'ACTIVE' } }, 
+                        orders: true 
+                    } 
+                } 
+            }
         });
         return NextResponse.json(customers);
     } catch (e: any) {

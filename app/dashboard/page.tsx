@@ -42,7 +42,7 @@ export default function Dashboard() {
     return (
         <div className="space-y-6 font-tajawal">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7 gap-6">
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
                         <Package size={24} />
@@ -58,8 +58,44 @@ export default function Dashboard() {
                         <TrendingUp size={24} />
                     </div>
                     <div>
-                        <p className="text-sm font-medium text-gray-500">مبيعات اليوم</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todaySales?.toLocaleString() || 0} دج</h3>
+                        <p className="text-sm font-medium text-gray-500">تحصيل مبيعات اليوم</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todayNet?.toLocaleString() || 0} دج</h3>
+                        <p className="text-[10px] text-gray-400 mt-1">المبالغ المدفوعة في طلبيات اليوم</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+                        <CreditCard size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">تحصيلات اليوم</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todayCustomerCollections?.toLocaleString() || 0} دج</h3>
+                        <p className="text-[10px] text-gray-400 mt-1">تحصيل ديون فواتير سابقة</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="p-3 bg-rose-100 text-rose-600 rounded-lg">
+                        <ArrowDownLeft size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">مدفوعات الموردين</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todaySupplierPayments?.toLocaleString() || 0} دج</h3>
+                        <p className="text-[10px] text-gray-400 mt-1">المبالغ المدفوعة للموردين</p>
+                    </div>
+                </div>
+
+                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl flex items-center gap-4 group hover:scale-105 transition-all">
+                    <div className="p-3 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-500/20">
+                        <TrendingUp size={24} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-blue-400">سيولة اليوم الفعلية</p>
+                        <h3 className="text-2xl font-black text-white font-sans">
+                            {((stats?.todayNet || 0) + (stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} دج
+                        </h3>
+                        <p className="text-[9px] text-gray-500 mt-1">المبيعات + التحصيلات - المدفوعات</p>
                     </div>
                 </div>
 
@@ -74,32 +110,12 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-cyan-100 text-cyan-600 rounded-lg">
-                        <Users size={24} />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">مبالغ مستحقة</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.outstandingDebts?.count || 0} </h3>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-red-100 text-red-600 rounded-lg">
                         <ArrowDownLeft size={24} />
                     </div>
                     <div>
                         <p className="text-sm font-medium text-gray-500">إجمالي الديون</p>
                         <h3 className="text-2xl font-bold text-gray-900">{(stats?.totalDebt || 0).toLocaleString()} دج</h3>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-amber-100 text-amber-600 rounded-lg">
-                        <Clock size={24} />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">فواتير متأخرة</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.overdueInvoicesCount || 0} </h3>
                     </div>
                 </div>
             </div>

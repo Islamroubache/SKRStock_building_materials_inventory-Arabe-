@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { 
-    Search, Plus, Trash2, CheckCircle, AlertTriangle, Printer, Download, 
-    CreditCard, ShoppingBag, ShoppingCart, X, ChevronDown, User, Calendar, 
+import {
+    Search, Plus, Trash2, CheckCircle, AlertTriangle, Printer, Download,
+    CreditCard, ShoppingBag, ShoppingCart, X, ChevronDown, User, Calendar,
     PackageOpen, Layers, Dribbble, BookOpen, UserCircle2, Building2, Store,
     FileText, FileSpreadsheet, Percent, Info, ShieldCheck, Landmark
 } from 'lucide-react';
@@ -36,6 +36,7 @@ interface Project {
     id: number;
     name: string;
     customerId: number;
+    status: string;
 }
 
 interface Product {
@@ -172,9 +173,11 @@ function NewOrderPage() {
         if (type === 'PURCHASE') {
             setOrderType('PURCHASE');
             setExternalOrderNumber('SHR-');
+            setOrderStatus('DONE');
         } else {
             setOrderType('SALE');
             setExternalOrderNumber('');
+            setOrderStatus('DONE');
         }
     }, [searchParams]);
     const [orderStatus, setOrderStatus] = useState<'DONE' | 'PENDING'>('DONE');
@@ -198,6 +201,7 @@ function NewOrderPage() {
     const [guestAddress, setGuestAddress] = useState('');
     const [guestCommune, setGuestCommune] = useState('المسيلة');
     const [guestWilaya, setGuestWilaya] = useState('المسيلة');
+    const [guestIsOfficial, setGuestIsOfficial] = useState(false);
 
     // Payment states
     const [paymentMode, setPaymentMode] = useState<'FULL' | 'PARTIAL' | 'NONE'>('FULL');
@@ -240,7 +244,14 @@ function NewOrderPage() {
 
     const selectedCustomer = useMemo(() => (Array.isArray(customers) ? customers : []).find(c => c.id === customerId) || null, [customers, customerId]);
     const selectedSupplier = useMemo(() => (Array.isArray(suppliers) ? suppliers : []).find(s => s.id === supplierId) || null, [suppliers, supplierId]);
-    const customerProjects = useMemo(() => (Array.isArray(projects) ? projects : []).filter(p => p.customerId === customerId), [projects, customerId]);
+    const customerProjects = useMemo(() => (Array.isArray(projects) ? projects : []).filter(p => p.customerId === customerId && p.status === 'ACTIVE'), [projects, customerId]);
+    
+    const filteredCustomersForList = useMemo(() => {
+        return (Array.isArray(customers) ? customers : []).filter(c => {
+            if (c.type !== 'LOYAL') return true;
+            return (Array.isArray(projects) ? projects : []).some(p => p.customerId === c.id && p.status === 'ACTIVE');
+        });
+    }, [customers, projects]);
 
     const subtotal = useMemo(() => {
         return lines.reduce((acc, line) => acc + (line.quantity * line.unitPrice), 0);
@@ -333,7 +344,7 @@ function NewOrderPage() {
 
     const handleSave = async () => {
         if (creditLimitExceeded) {
-            alert('لا يمكنك تأكيد الطلبية! السقف الائتماني المتاح للمقاول غير كافٍ. يرجى رفع قيمة التسديد النقدي أو تسوية ديونه السابقة الأولية.');
+            alert('لا يمكنك تأكيد الطلبية! السقف الائتماني المتاح للعميل غير كافٍ. يرجى رفع قيمة التسديد النقدي أو تسوية ديونه السابقة الأولية.');
             return;
         }
         if (!isFormValid()) {
@@ -351,7 +362,6 @@ function NewOrderPage() {
             guestName: customerType === 'GUEST' ? guestName : undefined,
             guestPhone: customerType === 'GUEST' ? guestPhone : undefined,
             guestSupplierName: (orderType === 'PURCHASE' && supplierType === 'GUEST') ? guestSupplierName : undefined,
-            orderNumber: orderType === 'PURCHASE' ? externalOrderNumber : undefined,
             externalNumber: orderType === 'PURCHASE' ? externalOrderNumber : undefined,
             docType,
             total: subtotal,
@@ -362,8 +372,8 @@ function NewOrderPage() {
             timbreAmount,
             initialPayment,
             paymentMethod,
-            chequeNumber: paymentMethod === 'CHEQUE' ? chequeNumber : undefined,
-            bankName: paymentMethod === 'CHEQUE' ? bankName : undefined,
+            chequeNumber: (paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') ? chequeNumber : undefined,
+            bankName: (paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') ? bankName : undefined,
             dueDate: dueDate || undefined,
             notes,
             guestRC: customerType === 'GUEST' ? guestRC : undefined,
@@ -414,7 +424,7 @@ function NewOrderPage() {
         } else if (e.key === 'ArrowRight') {
             const target = e.target as HTMLInputElement;
             const isTextAtStart = target.tagName !== 'INPUT' || (target.selectionStart === 0 && target.selectionEnd === 0);
-            
+
             if (isTextAtStart && index > 0) {
                 e.preventDefault();
                 (focusableElements[index - 1] as HTMLElement).focus();
@@ -437,7 +447,7 @@ function NewOrderPage() {
                         .no-print { display: none !important; }
                     }
                 `}</style>
-                
+
                 {/* SUCCESS MODAL UI */}
                 <div className="bg-white border border-gray-200 shadow-2xl rounded-[2.5rem] p-10 max-w-lg w-full text-center relative overflow-hidden animate-in zoom-in-95 duration-500 no-print">
                     <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-emerald-500/10 to-transparent pointer-events-none"></div>
@@ -445,7 +455,7 @@ function NewOrderPage() {
                         <CheckCircle size={48} className="text-emerald-400 drop-shadow-lg" />
                     </div>
                     <h2 className="text-3xl font-black text-gray-900 mb-8 tracking-tight">تمت الطلبية بنجاح!</h2>
-                    
+
                     <div className="bg-white/50 border border-gray-200 rounded-2xl p-6 text-right space-y-4 mb-8">
                         <div className="flex justify-between items-center pb-4 border-b border-gray-200">
                             <span className="text-gray-500 font-bold text-sm">رقم الفاتورة:</span>
@@ -486,14 +496,7 @@ function NewOrderPage() {
                                 </button>
                             </>
                         )}
-                        <div className="flex gap-3">
-                            <button className="flex-1 bg-white/50 hover:bg-gray-100 border border-gray-300 text-gray-900 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors">
-                                <FileText size={18} /> تصدير PDF
-                            </button>
-                            <button className="flex-1 bg-white/50 hover:bg-gray-100 border border-gray-300 text-emerald-400 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors">
-                                <FileSpreadsheet size={18} /> Excel
-                            </button>
-                        </div>
+
                         <div className="flex gap-3 mt-4">
                             <button onClick={() => window.location.reload()} className="flex-1 text-gray-400 hover:text-gray-900 font-bold text-sm transition-colors text-right px-2">➕ تسجيل طلبية أخرى</button>
                             <Link href="/orders" className="flex-1 text-gray-400 hover:text-gray-900 font-bold text-sm transition-colors text-left px-2">📋 العودة للقائمة</Link>
@@ -504,16 +507,16 @@ function NewOrderPage() {
                 {/* HIDDEN PRINT DOCUMENT */}
                 <div id="printable-invoice" className="hidden print:block absolute left-0 top-0 w-full bg-white z-[9999]" dir="rtl">
                     {docType === 'INVOICE' ? (
-                        <Facture 
-                            settings={settings} 
-                            order={{ ...invoiceData.newOrder, taxRate: isOfficial ? settings?.tvaRate : 0, taxTotal, timbreAmount, grandTotal }} 
-                            items={lines.map(l => ({ ...l, product: products.find(p => p.id === l.productId) }))} 
+                        <Facture
+                            settings={settings}
+                            order={{ ...invoiceData.newOrder, taxRate: isOfficial ? settings?.tvaRate : 0, taxTotal, timbreAmount, grandTotal }}
+                            items={lines.map(l => ({ ...l, product: products.find(p => p.id === l.productId) }))}
                         />
                     ) : (
-                        <BonDeCommande 
-                            settings={settings} 
-                            order={{ ...invoiceData.newOrder, total: subtotal }} 
-                            items={lines.map(l => ({ ...l, product: products.find(p => p.id === l.productId) }))} 
+                        <BonDeCommande
+                            settings={settings}
+                            order={{ ...invoiceData.newOrder, total: subtotal }}
+                            items={lines.map(l => ({ ...l, product: products.find(p => p.id === l.productId) }))}
                         />
                     )}
                 </div>
@@ -524,10 +527,10 @@ function NewOrderPage() {
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8 flex flex-col items-center" dir="rtl">
             <div className="w-full max-w-7xl grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-                
+
                 {/* ━━━ RIGHT SIDE (MAIN FORM) ━━━ */}
                 <div className="xl:col-span-7 flex flex-col gap-6">
-                    
+
                     {/* Header */}
                     <div className="flex items-center gap-4 mb-2">
                         <div className="bg-blue-600/20 p-3 rounded-2xl border border-blue-500/30">
@@ -543,47 +546,31 @@ function NewOrderPage() {
                         </div>
                     </div>
 
-                    {/* STEP 1: ORDER STATUS */}
-                    <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">1. نوع الوثيقة والتحصيل</h2>
-                            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
-                                <Landmark size={14} className="text-blue-600" />
-                                <span className="text-[10px] font-black text-blue-600 uppercase">التطبيق الضريبي الرسمي</span>
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsOfficial(!isOfficial)}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isOfficial ? 'bg-blue-600' : 'bg-gray-200'}`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isOfficial ? '-translate-x-6' : '-translate-x-1'}`} />
-                                </button>
+                    {/* STEP 1: ORDER STATUS (ONLY FOR SALES) */}
+                    {orderType === 'SALE' && (
+                        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">1. نوع التحصيل</h2>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex p-1.5 bg-gray-50 border border-gray-200 rounded-2xl w-full">
+                                    <button
+                                        onClick={() => setOrderStatus('DONE')}
+                                        className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'DONE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
+                                    >
+                                        <CheckCircle size={18} /> تسليم فوري (مكتملة)
+                                    </button>
+                                    <button
+                                        onClick={() => setOrderStatus('PENDING')}
+                                        className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
+                                    >
+                                        <AlertTriangle size={18} /> معلقة
+                                    </button>
+                                </div>
+
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex p-1.5 bg-gray-50 border border-gray-200 rounded-2xl w-full">
-                                <button
-                                    onClick={() => setOrderStatus('DONE')}
-                                    className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-md font-black transition-all ${orderStatus === 'DONE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-                                >
-                                    <CheckCircle size={18} /> {orderType === 'SALE' ? 'تسليم فوري (مكتملة)' : 'استلام كامل للمخزون'}
-                                </button>
-                            </div>
-                            <div className="flex p-1.5 bg-gray-50 border border-gray-200 rounded-2xl w-full">
-                                <select 
-                                    value={isOfficial ? 'INVOICE' : 'BON'} 
-                                    onChange={(e) => {
-                                        const val = e.target.value as 'INVOICE' | 'BON';
-                                        setDocType(val);
-                                        setIsOfficial(val === 'INVOICE');
-                                    }}
-                                    className="w-full bg-transparent text-center font-black text-gray-700 outline-none"
-                                >
-                                    <option value="BON">وثيقة داخلية (Bon)</option>
-                                    <option value="INVOICE">فاتورة رسمية (Facture)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    )}
 
                     {/* ORDER NUMBER (FOR PURCHASES) */}
                     {orderType === 'PURCHASE' && (
@@ -612,7 +599,7 @@ function NewOrderPage() {
                         <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
                             2. بيانات {orderType === 'SALE' ? 'العميل' : 'المورد المعتمد'} <User size={16} />
                         </h2>
-                        
+
                         {orderType === 'SALE' && (
                             <>
                                 <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-xl w-fit">
@@ -623,19 +610,19 @@ function NewOrderPage() {
                                 {customerType === 'REGISTERED' ? (
                                     <div className="space-y-4">
                                         <div className={showErrors && !customerId ? "ring-2 ring-rose-500/50 rounded-2xl p-1" : ""}>
-                                            <SearchableSelect 
-                                                options={customers.map(c => ({ 
-                                                    id: c.id, 
-                                                    label: c.name, 
-                                                    subLabel: c.type === 'LOYAL' ? 'مقاول معتمد - له سقف ائتماني' : 'عميل عادي' 
+                                            <SearchableSelect
+                                                options={filteredCustomersForList.map(c => ({
+                                                    id: c.id,
+                                                    label: c.name,
+                                                    subLabel: c.type === 'LOYAL' ? 'مقاول معتمد - له سقف ائتماني' : 'عميل عادي'
                                                 }))}
-                                                value={customerId} 
+                                                value={customerId}
                                                 onChange={(val) => setCustomerId(val)}
                                                 placeholder="ابحث واختر العميل من القائمة..."
                                             />
                                         </div>
                                         {showErrors && !customerId && <p className="text-rose-500 text-xs font-bold px-2">⚠️ يرجى اختيار العميل من القائمة لمعالجة الطلبية</p>}
-                                        
+
                                         {/* Credit Card Banner */}
                                         {selectedCustomer && selectedCustomer.type === 'LOYAL' && selectedCustomer.creditLimit && (
                                             <div className="bg-gradient-to-br from-[#1A2333] to-[#0B101A] rounded-2xl border border-gray-300/50 p-5 shadow-inner">
@@ -648,9 +635,9 @@ function NewOrderPage() {
                                                     <span className="flex items-center gap-2">الدين الحالي <span className="text-rose-400">{selectedCustomer.balanceDue.toLocaleString()} دج 🔴</span></span>
                                                 </div>
                                                 <div className="w-full bg-gray-100 rounded-full h-3.5 mb-2 overflow-hidden border border-gray-200 relative">
-                                                    <div 
-                                                        className={`h-full rounded-full transition-all duration-1000 ${progressPercent > 90 ? 'bg-rose-500' : progressPercent > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                                                    style={{ width: `${progressPercent}%` }}></div>
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-1000 ${progressPercent > 90 ? 'bg-rose-500' : progressPercent > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                        style={{ width: `${progressPercent}%` }}></div>
                                                     <div className="absolute inset-0 bg-white/10 w-full" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px)' }}></div>
                                                 </div>
                                                 <p className="text-xs font-bold text-gray-500 text-center">{progressPercent}% مستخدم من السقف الائتماني</p>
@@ -660,9 +647,9 @@ function NewOrderPage() {
                                         {selectedCustomer && selectedCustomer.type === 'LOYAL' && customerProjects.length > 0 && (
                                             <div className="pt-2">
                                                 <label className="text-sm font-bold text-gray-400 block mb-2">تأطير الطلبية ضمن مشروع (اختياري)</label>
-                                                <select 
+                                                <select
                                                     className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:border-blue-500 outline-none transition-colors"
-                                                    value={projectId} 
+                                                    value={projectId}
                                                     onChange={(e) => setProjectId(e.target.value ? parseInt(e.target.value) : '')}
                                                 >
                                                     <option value="">لا يوجد مشروع محدد</option>
@@ -673,13 +660,27 @@ function NewOrderPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4" onKeyDown={handleKeyDown}>
+                                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded-xl border border-gray-200 mb-2">
+                                            <span className="text-xs font-bold text-gray-700 mx-2">معلومات الزبون العابر</span>
+                                            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
+                                                <Landmark size={14} className="text-blue-600" />
+                                                <span className="text-[10px] font-black text-blue-600 uppercase">التطبيق الضريبي الرسمي</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setGuestIsOfficial(!guestIsOfficial)}
+                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${guestIsOfficial ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                                >
+                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${guestIsOfficial ? '-translate-x-6' : '-translate-x-1'}`} />
+                                                </button>
+                                            </div>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div className="md:col-span-2">
                                                 <div className={showErrors && !guestName.trim() ? "ring-2 ring-rose-500/50 rounded-xl" : ""}>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="* الاسم الكامل للزبون العابر..." 
-                                                        value={guestName} 
+                                                    <input
+                                                        type="text"
+                                                        placeholder="* الاسم الكامل للزبون العابر..."
+                                                        value={guestName}
                                                         onChange={e => setGuestName(e.target.value.toUpperCase())}
                                                         className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase ${showErrors && !guestName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
                                                     />
@@ -696,17 +697,21 @@ function NewOrderPage() {
                                                     ))}
                                                 </div>
                                             )}
-                                            <input 
-                                                type="text" 
-                                                placeholder="* العنوان (Cité / الحي / الشارع)..." 
-                                                value={guestAddress}
-                                                onChange={e => setGuestAddress(e.target.value.toUpperCase())}
-                                                className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase font-black ${showErrors && !guestAddress.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`} 
-                                            />
-                                            {showErrors && !guestAddress.trim() && <p className="text-rose-500 text-xs font-bold px-2 mt-1">⚠️ العنوان إلزامي!</p>}
+                                            {!guestIsOfficial && (
+                                                <div className="md:col-span-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="* العنوان (Cité / الحي / الشارع)..."
+                                                        value={guestAddress}
+                                                        onChange={e => setGuestAddress(e.target.value.toUpperCase())}
+                                                        className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase font-black ${showErrors && !guestAddress.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
+                                                    />
+                                                    {showErrors && !guestAddress.trim() && <p className="text-rose-500 text-xs font-bold px-2 mt-1">⚠️ العنوان إلزامي!</p>}
+                                                </div>
+                                            )}
                                         </div>
-                                        
-                                        {isOfficial && (
+
+                                        {guestIsOfficial && (
                                             <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 space-y-4">
                                                 <h4 className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-2 mb-2"><Info size={12} /> الهوية الجبائية للزبون (للفاتورة)</h4>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -714,13 +719,13 @@ function NewOrderPage() {
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-bold text-gray-500">سجل تجاري (RC)</label>
                                                         <div className="relative font-mono">
-                                                            <input 
-                                                                type="text" maxLength={10} value={guestRC} 
-                                                                onChange={e => setGuestRC(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} 
+                                                            <input
+                                                                type="text" maxLength={10} value={guestRC}
+                                                                onChange={e => setGuestRC(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
                                                                 onFocus={() => setFocusedField('guestRC')}
                                                                 onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text" 
-                                                                dir="ltr" 
+                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                                dir="ltr"
                                                             />
                                                             <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-1.5 z-10 text-[10px]" dir="ltr">
                                                                 {[...Array(10)].map((_, i) => (
@@ -735,13 +740,13 @@ function NewOrderPage() {
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
                                                         <div className="relative font-mono">
-                                                            <input 
-                                                                type="text" maxLength={15} value={guestNIF} 
-                                                                onChange={e => setGuestNIF(e.target.value.replace(/\D/g, ''))} 
+                                                            <input
+                                                                type="text" maxLength={15} value={guestNIF}
+                                                                onChange={e => setGuestNIF(e.target.value.replace(/\D/g, ''))}
                                                                 onFocus={() => setFocusedField('guestNIF')}
                                                                 onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text" 
-                                                                dir="ltr" 
+                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                                dir="ltr"
                                                             />
                                                             <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1 py-1.5 z-10 text-[9px]" dir="ltr">
                                                                 {[...Array(15)].map((_, i) => (
@@ -756,13 +761,13 @@ function NewOrderPage() {
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-bold text-gray-500">رقم المادة (AI)</label>
                                                         <div className="relative font-mono">
-                                                            <input 
-                                                                type="text" maxLength={11} value={guestAI} 
-                                                                onChange={e => setGuestAI(e.target.value.replace(/\D/g, ''))} 
+                                                            <input
+                                                                type="text" maxLength={11} value={guestAI}
+                                                                onChange={e => setGuestAI(e.target.value.replace(/\D/g, ''))}
                                                                 onFocus={() => setFocusedField('guestAI')}
                                                                 onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text" 
-                                                                dir="ltr" 
+                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                                dir="ltr"
                                                             />
                                                             <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-1.5 z-10 text-[10px]" dir="ltr">
                                                                 {[...Array(11)].map((_, i) => (
@@ -777,13 +782,13 @@ function NewOrderPage() {
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
                                                         <div className="relative font-mono">
-                                                            <input 
-                                                                type="text" maxLength={15} value={guestNIS} 
-                                                                onChange={e => setGuestNIS(e.target.value.replace(/\D/g, ''))} 
+                                                            <input
+                                                                type="text" maxLength={15} value={guestNIS}
+                                                                onChange={e => setGuestNIS(e.target.value.replace(/\D/g, ''))}
                                                                 onFocus={() => setFocusedField('guestNIS')}
                                                                 onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text" 
-                                                                dir="ltr" 
+                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                                dir="ltr"
                                                             />
                                                             <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1 py-1.5 z-10 text-[9px]" dir="ltr">
                                                                 {[...Array(15)].map((_, i) => (
@@ -798,18 +803,18 @@ function NewOrderPage() {
 
                                                 <div className="pt-2 space-y-3">
                                                     <div className="space-y-1">
-                                                        <label className="text-[9px] font-bold text-gray-500">العنوان الكامل (الشارع / الحي / Cité) <span className="text-red-500">*</span></label>
+                                                        <label className="text-[9px] font-bold text-gray-500">العنوان الكامل (الشارع / الحي ) <span className="text-red-500">*</span></label>
                                                         <input type="text" placeholder="Cité, Street, Ave..." value={guestAddress} onChange={e => setGuestAddress(e.target.value.toUpperCase())} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 uppercase font-black" required />
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div className="space-y-1">
                                                             <label className="text-[9px] font-bold text-gray-500">الولاية <span className="text-red-500">*</span></label>
-                                                            <select 
-                                                                value={guestWilaya} 
+                                                            <select
+                                                                value={guestWilaya}
                                                                 onChange={e => {
                                                                     const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
                                                                     setGuestWilaya(e.target.value);
-                                                                    setGuestCommune(w?.communes[0] || '');
+                                                                    setGuestCommune((w as any)?.communes?.[0] || '');
                                                                 }}
                                                                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold"
                                                             >
@@ -820,13 +825,13 @@ function NewOrderPage() {
                                                         </div>
                                                         <div className="space-y-1">
                                                             <label className="text-[9px] font-bold text-gray-500">البلدية <span className="text-red-500">*</span></label>
-                                                            <input 
-                                                                type="text" 
-                                                                placeholder="البلدية..." 
-                                                                value={guestCommune} 
-                                                                onChange={e => setGuestCommune(e.target.value.toUpperCase())} 
-                                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold uppercase" 
-                                                                required 
+                                                            <input
+                                                                type="text"
+                                                                placeholder="البلدية..."
+                                                                value={guestCommune}
+                                                                onChange={e => setGuestCommune(e.target.value.toUpperCase())}
+                                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold uppercase"
+                                                                required
                                                             />
                                                         </div>
                                                     </div>
@@ -848,9 +853,9 @@ function NewOrderPage() {
                                 {supplierType === 'REGISTERED' ? (
                                     <div className="space-y-4">
                                         <div className={showErrors && !supplierId ? "ring-2 ring-rose-500 rounded-2xl p-1" : ""}>
-                                            <SearchableSelect 
+                                            <SearchableSelect
                                                 options={suppliers.map(s => ({ id: s.id, label: s.name, subLabel: `رصيد المورد: ${s.balanceDue.toLocaleString()} دج` }))}
-                                                value={supplierId} 
+                                                value={supplierId}
                                                 onChange={(val) => setSupplierId(val)}
                                                 placeholder="ابحث واختر المورد لطلب سلع جديدة..."
                                             />
@@ -866,10 +871,10 @@ function NewOrderPage() {
                                 ) : (
                                     <div className="space-y-4">
                                         <div className={showErrors && !guestSupplierName.trim() ? "ring-2 ring-rose-500 rounded-xl" : ""}>
-                                            <input 
-                                                type="text" 
-                                                placeholder="* اسم المورد اليدوي..." 
-                                                value={guestSupplierName} 
+                                            <input
+                                                type="text"
+                                                placeholder="* اسم المورد اليدوي..."
+                                                value={guestSupplierName}
                                                 onChange={e => setGuestSupplierName(e.target.value)}
                                                 className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors ${showErrors && !guestSupplierName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
                                             />
@@ -887,21 +892,21 @@ function NewOrderPage() {
                         <div className="bg-white/50 p-6 border-b border-gray-200 flex justify-between items-center">
                             <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><PackageOpen className="text-blue-500" /> شبكة بناء الطلبية (المنتجات)</h2>
                         </div>
-                        
+
                         <div className="p-6 flex flex-col gap-4 bg-gray-50">
                             {lines.map((line, index) => {
                                 const selectedProduct = line.product;
                                 const isQtyWarn = orderType === 'SALE' && selectedProduct && line.quantity > selectedProduct.quantity;
                                 const isPriceWarn = orderType === 'SALE' && selectedProduct && line.unitPrice < selectedProduct.purchasePrice;
-                                
+
                                 return (
                                     <div key={line.id} className={`bg-white border border-gray-200 rounded-2xl p-5 relative transition-all shadow-md group ${isQtyWarn ? 'ring-2 ring-rose-500/50' : ''}`}>
                                         <div className="flex items-start justify-between gap-4 mb-4">
                                             <div className="flex-1">
-                                                <SearchableSelect 
-                                                    options={products.map(p => ({ 
-                                                        id: p.id, 
-                                                        label: p.name, 
+                                                <SearchableSelect
+                                                    options={products.map(p => ({
+                                                        id: p.id,
+                                                        label: p.name,
                                                         subLabel: `متوفر: ${p.quantity} ${p.unit} | متوسط التكلفة: ${p.purchasePrice} دج`
                                                     }))}
                                                     value={line.productId}
@@ -921,7 +926,7 @@ function NewOrderPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                             <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50">
                                                 <span className="text-xs font-bold text-gray-500">الكمية</span>
-                                                <input 
+                                                <input
                                                     type="number" min="1" dir="ltr"
                                                     value={line.quantity || ''}
                                                     onChange={e => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
@@ -935,7 +940,7 @@ function NewOrderPage() {
                                                         <span className="text-[10px] text-blue-500 font-bold">سعر البيع الحالي: {selectedProduct.sellPrice} دج</span>
                                                     )}
                                                 </div>
-                                                <input 
+                                                <input
                                                     type="number" min="1" dir="ltr"
                                                     value={line.unitPrice || ''}
                                                     onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
@@ -968,8 +973,8 @@ function NewOrderPage() {
                                 );
                             })}
 
-                            <button 
-                                onClick={handleAddLine} 
+                            <button
+                                onClick={handleAddLine}
                                 disabled={hasAnyLineWarning}
                                 className={`mt-2 w-full py-5 border-2 border-dashed rounded-2xl font-black flex items-center justify-center gap-2 transition-all
                                     ${hasAnyLineWarning ? 'border-amber-300/50 text-amber-400 bg-amber-50 cursor-not-allowed' : 'border-gray-300 hover:border-blue-500/50 text-blue-400 hover:bg-blue-500/5'}`}
@@ -982,16 +987,16 @@ function NewOrderPage() {
                     {/* STEP 5: PAYMENT */}
                     <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl flex flex-col gap-6">
                         <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">5. هيكلة السداد المالي</h2>
-                        
+
                         <div className="grid grid-cols-3 gap-3">
                             <button onClick={() => setPaymentMode('FULL')} className={`p-4 rounded-2xl border flex flex-col items-center justify-center text-center gap-2 font-black transition-all ${paymentMode === 'FULL' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-white/50 border-gray-200 text-gray-400 hover:bg-gray-200'}`}>
-                                <CreditCard size={24} /> <span>دفع كامل<br/><span className="text-[10px] opacity-70 font-medium">(الكل نقداً)</span></span>
+                                <CreditCard size={24} /> <span>دفع كامل<br /><span className="text-[10px] opacity-70 font-medium">(الكل نقداً)</span></span>
                             </button>
                             <button onClick={() => setPaymentMode('PARTIAL')} className={`p-4 rounded-2xl border flex flex-col items-center justify-center text-center gap-2 font-black transition-all ${paymentMode === 'PARTIAL' ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-white/50 border-gray-200 text-gray-400 hover:bg-gray-200'}`}>
-                                <Store size={24} /> <span>دفع جزئي<br/><span className="text-[10px] opacity-70 font-medium">(عربون وتسديد لاحق)</span></span>
+                                <Store size={24} /> <span>دفع جزئي<br /><span className="text-[10px] opacity-70 font-medium">(عربون وتسديد لاحق)</span></span>
                             </button>
                             <button onClick={() => setPaymentMode('NONE')} className={`p-4 rounded-2xl border flex flex-col items-center justify-center text-center gap-2 font-black transition-all ${paymentMode === 'NONE' ? 'bg-rose-500/10 border-rose-500/50 text-rose-400' : 'bg-white/50 border-gray-200 text-gray-400 hover:bg-gray-200'}`}>
-                                <Calendar size={24} /> <span>تسليف / آجل<br/><span className="text-[10px] opacity-70 font-medium">(دين بالكامل)</span></span>
+                                <Calendar size={24} /> <span>تسليف / آجل<br /><span className="text-[10px] opacity-70 font-medium">(دين بالكامل)</span></span>
                             </button>
                         </div>
 
@@ -1000,7 +1005,7 @@ function NewOrderPage() {
                                 {paymentMode === 'PARTIAL' && (
                                     <div className="mb-6">
                                         <label className="text-xs font-bold text-gray-400 block mb-2">الدفع الأولي (المُقدم)</label>
-                                        <input 
+                                        <input
                                             type="number" dir="ltr"
                                             className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 font-sans font-black text-2xl outline-none focus:border-blue-500 text-left"
                                             value={initialPayment || ''}
@@ -1008,7 +1013,7 @@ function NewOrderPage() {
                                         />
                                         <div className="flex gap-2 mt-3 justify-end font-sans">
                                             {[25, 50, 75].map(pct => (
-                                                <button key={pct} onClick={() => setInitialPayment(grandTotal * (pct/100))} className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded border border-blue-500/20">
+                                                <button key={pct} onClick={() => setInitialPayment(grandTotal * (pct / 100))} className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded border border-blue-500/20">
                                                     {pct}% تسديد
                                                 </button>
                                             ))}
@@ -1019,50 +1024,74 @@ function NewOrderPage() {
                                 <label className="text-xs font-bold text-gray-400 block mb-3">حالة ووسيلة الدفع:</label>
                                 <div className="flex gap-2 p-1 bg-gray-50 rounded-xl mb-4 w-fit border border-gray-200">
                                     <button onClick={() => setPaymentMethod('CASH')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'CASH' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>💵 كاش النقدي</button>
-                                    <button onClick={() => setPaymentMethod('BANK_TRANSFER')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'BANK_TRANSFER' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>🏦 الحوالة بنكي</button>
+                                    <button onClick={() => setPaymentMethod('BANK_TRANSFER')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'BANK_TRANSFER' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>🏦 الحوالة البنكية</button>
                                     <button onClick={() => setPaymentMethod('CHEQUE')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'CHEQUE' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>📄 الشيك البنكي</button>
                                 </div>
 
-                                {paymentMethod === 'CHEQUE' && (
-                                    <div className="grid grid-cols-2 gap-4 mt-4">
-                                        <input type="text" placeholder="رقم الشيك / الحوالة" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50" />
-                                        <select value={bankName} onChange={e => setBankName(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50">
-                                            <option value="" disabled>اختر البنك أو المؤسسة...</option>
-                                            <option value="Algérie Poste (بريد الجزائر)">Algérie Poste (بريد الجزائر)</option>
-                                            <option value="BNA (البنك الوطني الجزائري)">BNA (البنك الوطني الجزائري)</option>
-                                            <option value="CPA (القرض الشعبي الجزائري)">CPA (القرض الشعبي الجزائري)</option>
-                                            <option value="BADR (الفلاحة والتنمية الريفية)">BADR (الفلاحة والتنمية الريفية)</option>
-                                            <option value="BDL (بنك التنمية المحلية)">BDL (بنك التنمية المحلية)</option>
-                                            <option value="CNEP (الصندوق الوطني للتوفير)">CNEP (الصندوق للتوفير والاحتياط)</option>
-                                            <option value="BEA (بنك الجزائر الخارجي)">BEA (بنك الجزائر الخارجي)</option>
-                                            <option value="Société Générale Algérie">Société Générale Algérie</option>
-                                            <option value="BNP Paribas El Djazaïr">BNP Paribas El Djazaïr</option>
-                                            <option value="Gulf Bank Algérie (AGB)">Gulf Bank Algérie (AGB)</option>
-                                            <option value="Natixis Algérie">Natixis Algérie</option>
-                                            <option value="Al Baraka (بنك البركة)">Al Baraka (بنك البركة)</option>
-                                            <option value="Al Salam Bank (مصرف السلام)">Al Salam Bank (مصرف السلام)</option>
-                                            <option value="Trust Bank Algeria">Trust Bank Algeria</option>
-                                            <option value="Housing Bank Algeria">Housing Bank Algeria</option>
-                                            <option value="Fransabank El Djazaïr">Fransabank El Djazaïr</option>
-                                        </select>
+                                {(paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') && (
+                                    <div className="mt-4 space-y-3">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-400 block mb-1">
+                                                    {paymentMethod === 'CHEQUE' ? '📄 رقم الشيك البنكي' : '🏦 رقم مرجع الحوالة'}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder={paymentMethod === 'CHEQUE' ? 'أدخل رقم الشيك...' : 'أدخل رقم العملية / المرجع...'}
+                                                    value={chequeNumber}
+                                                    onChange={e => setChequeNumber(e.target.value)}
+                                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-400 block mb-1">🏛️ البنك أو المؤسسة المالية</label>
+                                                <select value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50">
+                                                    <option value="" disabled>اختر البنك...</option>
+                                                    <option value="Algérie Poste (بريد الجزائر)">Algérie Poste (بريد الجزائر)</option>
+                                                    <option value="BNA (البنك الوطني الجزائري)">BNA (البنك الوطني الجزائري)</option>
+                                                    <option value="CPA (القرض الشعبي الجزائري)">CPA (القرض الشعبي الجزائري)</option>
+                                                    <option value="BADR (الفلاحة والتنمية الريفية)">BADR (الفلاحة والتنمية الريفية)</option>
+                                                    <option value="BDL (بنك التنمية المحلية)">BDL (بنك التنمية المحلية)</option>
+                                                    <option value="CNEP (الصندوق الوطني للتوفير)">CNEP (الصندوق للتوفير والاحتياط)</option>
+                                                    <option value="BEA (بنك الجزائر الخارجي)">BEA (بنك الجزائر الخارجي)</option>
+                                                    <option value="Société Générale Algérie">Société Générale Algérie</option>
+                                                    <option value="BNP Paribas El Djazaïr">BNP Paribas El Djazaïr</option>
+                                                    <option value="Gulf Bank Algérie (AGB)">Gulf Bank Algérie (AGB)</option>
+                                                    <option value="Natixis Algérie">Natixis Algérie</option>
+                                                    <option value="Al Baraka (بنك البركة)">Al Baraka (بنك البركة)</option>
+                                                    <option value="Al Salam Bank (مصرف السلام)">Al Salam Bank (مصرف السلام)</option>
+                                                    <option value="Trust Bank Algeria">Trust Bank Algeria</option>
+                                                    <option value="Housing Bank Algeria">Housing Bank Algeria</option>
+                                                    <option value="Fransabank El Djazaïr">Fransabank El Djazaïr</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
                         {remaining > 0 && (
-                            <div className={`border rounded-2xl p-5 transition-colors ${isDueDateInvalid ? 'bg-rose-500/10 border-rose-500 ring-2 ring-rose-500/30' : 'bg-rose-500/5 border-rose-500/20'}`}>
-                                <label className={`text-xs font-bold block mb-2 ${isDueDateInvalid ? 'text-rose-600' : 'text-rose-400'}`}>يوجد باقٍ للتسديد، هل تريد تحديد تاريخ استحقاق؟ (اختياري)</label>
-                                <input 
-                                    type="date" 
+                            <div className={`border rounded-2xl p-6 transition-all ${isDueDateInvalid ? 'bg-rose-500/10 border-rose-500 ring-4 ring-rose-500/20' : 'bg-amber-500/5 border-amber-500/20 shadow-sm animate-in fade-in slide-in-from-bottom-4'}`}>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                                        <Calendar size={16} className="text-amber-500" />
+                                    </div>
+                                    <label className={`text-sm font-black block ${isDueDateInvalid ? 'text-rose-600' : 'text-gray-700'}`}>
+                                        تحديد موعد السداد (Date Limite / Echéance)
+                                    </label>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mb-4 font-bold">بما أن هناك مبلغ متبقي ({remaining.toLocaleString()} دج)، يرجى تحديد تاريخ التزام الطرف الآخر بالدفع.</p>
+                                <input
+                                    type="date"
                                     lang="fr-FR"
                                     min={new Date().toISOString().split('T')[0]}
                                     value={dueDate} onChange={e => setDueDate(e.target.value)}
-                                    className={`bg-white/50 border rounded-xl px-4 py-3 text-sm font-sans w-full max-w-xs outline-none transition-colors ${isDueDateInvalid ? 'border-rose-500 text-rose-600 focus:border-rose-600' : 'border-gray-200 text-gray-700 focus:border-rose-500/50'}`}
+                                    className={`bg-white border-2 rounded-xl px-5 py-4 text-base font-sans w-full max-w-sm outline-none transition-all shadow-sm ${isDueDateInvalid ? 'border-rose-500 text-rose-600 focus:ring-4 focus:ring-rose-500/20' : 'border-gray-200 text-gray-900 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'}`}
                                 />
                                 {isDueDateInvalid && (
-                                    <p className="text-xs font-black text-rose-500 mt-2 flex items-center gap-1">
-                                        <AlertTriangle size={14} /> خطأ: لا يمكن اختيار تاريخ استحقاق في الماضي!
+                                    <p className="text-xs font-black text-rose-500 mt-3 flex items-center gap-1.5 bg-rose-500/10 p-2 rounded-lg">
+                                        <AlertTriangle size={16} /> تنبيه: لا يمكن اختيار تاريخ سابق لليوم!
                                     </p>
                                 )}
                             </div>
@@ -1072,8 +1101,8 @@ function NewOrderPage() {
                     {/* STEP 6: NOTES */}
                     <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl mb-24 lg:mb-0">
                         <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">6. أدرج ملحقات نصية للطباعة <BookOpen size={16} /></h2>
-                        <textarea 
-                            rows={3} 
+                        <textarea
+                            rows={3}
                             placeholder="ملاحظات تظهر وتُطبع على الفاتورة (مثلا: النقل على عاتق المشتري)..."
                             value={notes} onChange={e => setNotes(e.target.value)}
                             className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500/50 resize-none font-medium leading-relaxed"
@@ -1105,7 +1134,7 @@ function NewOrderPage() {
                                 <p className="flex justify-between border-b border-gray-800/50 pb-2">
                                     <span className="text-gray-500">الطرف المعني:</span>
                                     <span className="text-white font-black truncate max-w-[150px]">
-                                        {orderType === 'SALE' 
+                                        {orderType === 'SALE'
                                             ? (customerType === 'REGISTERED' ? selectedCustomer?.name : guestName) || <span className="text-rose-500 text-xs">مفقود!</span>
                                             : (supplierType === 'REGISTERED' ? selectedSupplier?.name : guestSupplierName) || <span className="text-rose-500 text-xs">مفقود!</span>
                                         }
@@ -1188,7 +1217,7 @@ function NewOrderPage() {
 
                             {/* Final Save Action */}
                             <div className="flex flex-col gap-3 pt-2">
-                                <button 
+                                <button
                                     onClick={handleSave}
                                     disabled={loading}
                                     className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-all shadow-2xl
