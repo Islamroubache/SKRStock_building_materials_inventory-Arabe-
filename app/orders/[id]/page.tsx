@@ -55,12 +55,7 @@ export default function OrderDetailsPage() {
 
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isEditMode, setIsEditMode] = useState(false);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
-    
-    // Edit form states
-    const [editedItems, setEditedItems] = useState<any[]>([]);
-    const [editedNotes, setEditedNotes] = useState('');
 
     const fetchOrder = async () => {
         try {
@@ -69,13 +64,6 @@ export default function OrderDetailsPage() {
             if (res.ok) {
                 const data = await res.json();
                 setOrder(data);
-                setEditedItems(data.items.map((it: any) => ({
-                    productId: it.productId,
-                    quantity: it.quantity,
-                    unitPrice: it.unitPrice,
-                    product: it.product
-                })));
-                setEditedNotes(data.notes || '');
             } else {
                 alert('فشل في جلب بيانات الطلبية');
                 router.push('/orders');
@@ -104,44 +92,6 @@ export default function OrderDetailsPage() {
         fetchProducts();
     }, [orderId]);
 
-    const handleSave = async () => {
-        // Filter out items without a product selected
-        const validItems = editedItems.filter(item => item.productId !== '');
-        
-        if (validItems.length === 0) {
-            alert('يجب إضافة منتج واحد على الأقل');
-            return;
-        }
-
-        if (!confirm('هل أنت متأكد من حفظ التعديلات؟ سيتم تحديث المخزون بناءً على الكميات الجديدة.')) return;
-        
-        try {
-            setLoading(true);
-            const res = await fetch(`/api/orders/${orderId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    items: validItems,
-                    notes: editedNotes,
-                    type: order?.type
-                })
-            });
-
-            if (res.ok) {
-                alert('تم تحديث الطلبية بنجاح');
-                setIsEditMode(false);
-                fetchOrder();
-            } else {
-                const err = await res.json();
-                alert(`خطأ: ${err.error}`);
-            }
-        } catch (e) {
-            console.error(e);
-            alert('فشلت عملية الحفظ');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleQuickReturn = async (item: OrderItem) => {
         const remaining = item.quantity - item.returnedQuantity;
@@ -182,32 +132,9 @@ export default function OrderDetailsPage() {
         }
     };
 
-    const addItem = () => {
-        setEditedItems([...editedItems, { productId: '', quantity: 1, unitPrice: 0 }]);
-    };
-
-    const removeItem = (index: number) => {
-        setEditedItems(editedItems.filter((_, i) => i !== index));
-    };
-
-    const updateItem = (index: number, field: string, value: any) => {
-        const newItems = [...editedItems];
-        newItems[index] = { ...newItems[index], [field]: value };
-        
-        if (field === 'productId') {
-            const p = allProducts.find(prod => prod.id === parseInt(value));
-            if (p) {
-                newItems[index].unitPrice = order?.type === 'SALE' ? p.sellPrice : p.purchasePrice;
-                newItems[index].product = p;
-            }
-        }
-        setEditedItems(newItems);
-    };
-
     const subtotal = useMemo(() => {
-        const itemsToSum = isEditMode ? editedItems : (order?.items || []);
-        return itemsToSum.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    }, [editedItems, isEditMode, order]);
+        return (order?.items || []).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    }, [order]);
 
     if (loading && !order) {
         return (
@@ -245,38 +172,13 @@ export default function OrderDetailsPage() {
                     </div>
                 </div>
 
-                <div className="flex gap-3">
-                    {!isEditMode ? (
-                        <>
-                            <button 
-                                onClick={() => setIsEditMode(true)}
-                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl text-sm font-black transition-all shadow-lg hover:scale-105 active:scale-95"
-                            >
-                                <Edit3 size={18} /> تعديل الطلبية
-                            </button>
-                            <Link 
-                                href={`/orders/${orderId}/print`}
-                                className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 px-6 py-3 rounded-2xl text-sm font-black transition-all shadow-sm hover:scale-105"
-                            >
-                                <Printer size={18} /> طباعة
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            <button 
-                                onClick={handleSave}
-                                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl text-sm font-black transition-all shadow-lg hover:scale-105 active:scale-95"
-                            >
-                                <Save size={18} /> حفظ التغييرات
-                            </button>
-                            <button 
-                                onClick={() => { setIsEditMode(false); fetchOrder(); }}
-                                className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 px-6 py-3 rounded-2xl text-sm font-black transition-all"
-                            >
-                                <XCircle size={18} /> إلغاء
-                            </button>
-                        </>
-                    )}
+                <div className="flex gap-3 no-print">
+                    <Link 
+                        href={`/orders/${orderId}/print`}
+                        className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+                    >
+                        <Printer size={16} /> طباعة المستند
+                    </Link>
                 </div>
             </div>
 
@@ -288,14 +190,6 @@ export default function OrderDetailsPage() {
                             <h2 className="text-lg font-black text-gray-800 flex items-center gap-2">
                                 <TableIcon size={20} className="text-blue-500" /> تفاصيل المنتجات
                             </h2>
-                            {isEditMode && (
-                                <button 
-                                    onClick={addItem}
-                                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold text-sm bg-blue-50 px-4 py-2 rounded-xl transition-all"
-                                >
-                                    <Plus size={16} /> إضافة منتج
-                                </button>
-                            )}
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right text-sm">
@@ -311,51 +205,7 @@ export default function OrderDetailsPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {isEditMode ? (
-                                        editedItems.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <select 
-                                                        value={item.productId}
-                                                        onChange={(e) => updateItem(idx, 'productId', e.target.value)}
-                                                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                                                    >
-                                                        <option value="">اختر منتجاً...</option>
-                                                        {allProducts.map(p => (
-                                                            <option key={p.id} value={p.id}>{p.name} ({p.quantity} {p.unit})</option>
-                                                        ))}
-                                                    </select>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <input 
-                                                        type="number"
-                                                        value={item.quantity}
-                                                        onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value))}
-                                                        className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none font-sans"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 text-gray-400">-</td>
-                                                <td className="px-6 py-4 text-gray-400">-</td>
-                                                <td className="px-6 py-4">
-                                                    <input 
-                                                        type="number"
-                                                        value={item.unitPrice}
-                                                        onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value))}
-                                                        className="w-32 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none font-sans"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 font-black text-gray-900 font-sans">
-                                                    {(item.quantity * item.unitPrice).toLocaleString()} دج
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <button onClick={() => removeItem(idx)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        order.items.map((item) => {
+                                    {order.items.map((item) => {
                                             const rest = item.quantity - (item.returnedQuantity || 0);
                                             return (
                                                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
@@ -386,8 +236,7 @@ export default function OrderDetailsPage() {
                                                     </td>
                                                 </tr>
                                             );
-                                        })
-                                    )}
+                                        })}
                                 </tbody>
                             </table>
                         </div>
@@ -397,18 +246,9 @@ export default function OrderDetailsPage() {
                         <h3 className="text-gray-400 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Edit3 size={14} /> ملاحظات الطلبية
                         </h3>
-                        {isEditMode ? (
-                            <textarea 
-                                value={editedNotes}
-                                onChange={(e) => setEditedNotes(e.target.value)}
-                                placeholder="أضف ملاحظاتك هنا..."
-                                className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all h-32"
-                            />
-                        ) : (
-                            <p className="text-gray-700 leading-relaxed font-medium bg-gray-50 p-4 rounded-2xl border border-gray-100 italic">
-                                {order.notes || "لا توجد ملاحظات لهذه الطلبية."}
-                            </p>
-                        )}
+                        <p className="text-gray-700 leading-relaxed font-medium bg-gray-50 p-4 rounded-2xl border border-gray-100 italic">
+                            {order.notes || "لا توجد ملاحظات لهذه الطلبية."}
+                        </p>
                     </div>
                 </div>
 
@@ -469,7 +309,7 @@ export default function OrderDetailsPage() {
                             <div className="pt-4 border-t border-gray-700/50 flex justify-between items-center">
                                 <span className="text-blue-400 font-black">الإجمالي الكلي:</span>
                                 <span className="text-2xl font-black font-sans text-blue-400">
-                                    {isEditMode ? (subtotal + order.taxTotal + order.timbreAmount).toLocaleString() : order.grandTotal.toLocaleString()} دج
+                                    {order.grandTotal.toLocaleString()} دج
                                 </span>
                             </div>
                             <div className="pt-2 flex justify-between items-center text-sm">
@@ -482,7 +322,7 @@ export default function OrderDetailsPage() {
                             </div>
                         </div>
 
-                        {!isEditMode && order.status !== 'CANCELLED' && (order.grandTotal - (order.invoice?.paid || 0)) > 0 && (
+                        {order.status !== 'CANCELLED' && (order.grandTotal - (order.invoice?.paid || 0)) > 0 && (
                             <button className="w-full mt-8 bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
                                 <Banknote size={20} /> تسجيل عملية دفع
                             </button>

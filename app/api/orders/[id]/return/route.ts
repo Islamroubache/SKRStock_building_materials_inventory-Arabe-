@@ -49,8 +49,16 @@ export async function POST(
             }
         }
 
-        const ts = Date.now();
-        const returnOrderNumber = `RET/${originalOrder.orderNumber}/${ts}`;
+        // Count existing returns for this specific order to generate the sequence
+        const existingReturnsCount = await prisma.order.count({
+            where: {
+                orderNumber: {
+                    startsWith: `RET-${originalOrder.orderNumber}/`
+                }
+            }
+        });
+        const yyy = String(existingReturnsCount + 1).padStart(3, '0');
+        const returnOrderNumber = `RET-${originalOrder.orderNumber}/${yyy}`;
 
         const result = await prisma.$transaction(async (tx) => {
             // 1. Create return order for record keeping (No Invoice created for this)
@@ -95,7 +103,7 @@ export async function POST(
                     data: { returnedQuantity: { increment: ret.returnQty } }
                 });
 
-                // Reverse stock movement
+                // Reverse stock movement & Update Batches
                 const currentQty = product.quantity;
                 if (originalOrder.type === 'SALE') {
                     // Sale return → stock comes back IN
@@ -103,10 +111,54 @@ export async function POST(
                         where: { id: product.id },
                         data: { quantity: { increment: ret.returnQty } }
                     });
+
+                    // Update batches: Put quantity back into the batches it was taken from
+                    const orderItem = originalOrder.items.find(i => i.id === ret.orderItemId)!;
+                    const allocations = await tx.orderItemBatch.findMany({
+                        where: { orderItemId: orderItem.id },
+                        include: { batch: true }
+                    });
+
+                    let remainingToReturn = ret.returnQty;
+                    for (const alloc of allocations) {
+                        if (remainingToReturn <= 0) break;
+                        // How much can we put back in this allocation?
+                        // (Usually we put back what was taken, but handle partial returns)
+                        const toPutBack = Math.min(alloc.quantity, remainingToReturn);
+                        
+                        await tx.productBatch.update({
+                            where: { id: alloc.batchId },
+                            data: { 
+                                remainingQty: { increment: toPutBack },
+                                status: 'ACTIVE' // Ensure it's active if it was depleted
+                            }
+                        });
+                        remainingToReturn -= toPutBack;
+                    }
+
+                    // If for some reason we have more to return than recorded allocations (shouldn't happen)
+                    if (remainingToReturn > 0) {
+                        // Put it in the most recent active batch or create one
+                        const lastBatch = await tx.productBatch.findFirst({
+                            where: { productId: product.id, status: 'ACTIVE' },
+                            orderBy: { id: 'desc' }
+                        });
+                        if (lastBatch) {
+                            await tx.productBatch.update({
+                                where: { id: lastBatch.id },
+                                data: { remainingQty: { increment: remainingToReturn } }
+                            });
+                        }
+                    }
+
+                    // Sync nearest expiry
+                    const { updateNearestExpiry } = await import('@/lib/batch-helpers');
+                    await updateNearestExpiry(product.id, tx);
+
                     await tx.stockMovement.create({
                         data: {
                             productId: product.id,
-                            orderId: returnOrder.id, // Link to return order
+                            orderId: returnOrder.id,
                             movementType: 'RETURN_IN',
                             quantity: ret.returnQty,
                             quantityBefore: currentQty,
@@ -116,14 +168,42 @@ export async function POST(
                     });
                 } else {
                     // Purchase return → stock goes OUT
+                    if (product.quantity < ret.returnQty) {
+                        throw new Error(`الكمية المتوفرة من "${product.name}" غير كافية لإتمام عملية الإرجاع للمورد`);
+                    }
+
                     await tx.product.update({
                         where: { id: product.id },
                         data: { quantity: { decrement: ret.returnQty } }
                     });
+
+                    // Update batches: Take quantity out using FIFO (since we are returning to supplier)
+                    const { getFIFOBatches } = await import('@/lib/batch-helpers');
+                    const allocations = await getFIFOBatches(product.id, ret.returnQty, tx);
+
+                    for (const alloc of allocations) {
+                        await tx.productBatch.update({
+                            where: { id: alloc.batchId },
+                            data: { remainingQty: { decrement: alloc.quantity } }
+                        });
+
+                        const updatedBatch = await tx.productBatch.findUnique({ where: { id: alloc.batchId } });
+                        if (updatedBatch && updatedBatch.remainingQty <= 0) {
+                            await tx.productBatch.update({
+                                where: { id: alloc.batchId },
+                                data: { status: 'DEPLETED' }
+                            });
+                        }
+                    }
+
+                    // Sync nearest expiry
+                    const { updateNearestExpiry } = await import('@/lib/batch-helpers');
+                    await updateNearestExpiry(product.id, tx);
+
                     await tx.stockMovement.create({
                         data: {
                             productId: product.id,
-                            orderId: returnOrder.id, // Link to return order
+                            orderId: returnOrder.id,
                             movementType: 'RETURN_OUT',
                             quantity: ret.returnQty,
                             quantityBefore: currentQty,

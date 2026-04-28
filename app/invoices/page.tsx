@@ -5,7 +5,8 @@ import {
     Search, FileText, Printer, Eye, Download, Filter,
     CheckCircle, Clock, AlertCircle, ShoppingBag, X,
     Store, CreditCard, History, ChevronLeft, Calendar,
-    User, ArrowUpRight, ArrowDownLeft, MoreVertical, Banknote, RotateCcw
+    User, ArrowUpRight, ArrowDownLeft, MoreVertical, Banknote, RotateCcw,
+    FileSpreadsheet, ChevronDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -58,6 +59,8 @@ export default function InvoicesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE' | 'CREDIT'>('ALL');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [customerTypeFilter, setCustomerTypeFilter] = useState<'ALL' | 'GUEST' | 'FIDEL'>('ALL');
+    const [showExportDropdown, setShowExportDropdown] = useState(false);
 
     // Modals
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -120,17 +123,18 @@ export default function InvoicesPage() {
 
     // --- Calculations for KPIs ---
     const stats = useMemo(() => {
-        const totalOpenDebt = invoices.reduce((sum, inv) => sum + inv.remaining, 0);
-        const unpaidCount = invoices.filter(inv => inv.status === 'UNPAID').length;
-        const partialCount = invoices.filter(inv => inv.status === 'PARTIAL').length;
-
-        // Collections this month
+        const totalOpenDebt = invoices.reduce((sum, inv) => sum + Math.max(0, inv.remaining), 0);
+        const unpaidCount = invoices.filter(inv => inv.remaining > 0 && inv.paid === 0).length;
+        const partialCount = invoices.filter(inv => inv.remaining > 0 && inv.paid > 0).length;
+        const creditCount = invoices.filter(inv => inv.remaining < 0).length;
+        
         const now = new Date();
-        const thisMonth = now.getMonth();
-        const thisYear = now.getFullYear();
-        // This would ideally come from a separate payments API, but for now we'll estimate or just show debt
+        const overdueCount = invoices.filter(inv => {
+            const isOverdue = inv.dueDate ? new Date(inv.dueDate) < now && new Date(inv.dueDate).toDateString() !== now.toDateString() : false;
+            return isOverdue && inv.remaining > 0;
+        }).length;
 
-        return { totalOpenDebt, unpaidCount, partialCount };
+        return { totalOpenDebt, unpaidCount, partialCount, creditCount, overdueCount };
     }, [invoices]);
 
     const filteredInvoices = useMemo(() => {
@@ -140,8 +144,15 @@ export default function InvoicesPage() {
             
             const isOverdueItem = inv.dueDate ? new Date(inv.dueDate) < new Date() && new Date(inv.dueDate).toDateString() !== new Date().toDateString() : false;
             
-            const matchesStatus = statusFilter === 'ALL' || 
-                (statusFilter === 'OVERDUE' ? (isOverdueItem && inv.status !== 'PAID') : inv.status === statusFilter);
+            const matchesStatus = (() => {
+                if (statusFilter === 'ALL') return true;
+                if (statusFilter === 'OVERDUE') return isOverdueItem && inv.remaining > 0;
+                if (statusFilter === 'CREDIT') return inv.remaining < 0;
+                if (statusFilter === 'UNPAID') return inv.remaining > 0 && inv.paid === 0;
+                if (statusFilter === 'PARTIAL') return inv.remaining > 0 && inv.paid > 0;
+                if (statusFilter === 'PAID') return inv.remaining === 0;
+                return inv.status === statusFilter;
+            })();
 
             let matchesDate = true;
             const invDate = new Date(inv.date);
@@ -158,9 +169,12 @@ export default function InvoicesPage() {
                 if (invDate > endDate) matchesDate = false;
             }
 
-            return matchesSearch && matchesStatus && matchesDate;
+            const matchesCustomerType = customerTypeFilter === 'ALL' || 
+                (customerTypeFilter === 'GUEST' ? !inv.order?.customerId : !!inv.order?.customerId);
+
+            return matchesSearch && matchesStatus && matchesDate && matchesCustomerType;
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [invoices, searchTerm, statusFilter, dateRange]);
+    }, [invoices, searchTerm, statusFilter, dateRange, customerTypeFilter]);
 
     const handleRecordPayment = async () => {
         if (!showPaymentModal || paymentAmount <= 0) return;
@@ -225,7 +239,11 @@ export default function InvoicesPage() {
     };
 
     const handleRefundExcess = async (inv: any) => {
-        if (!confirm(`هل أنت متأكد من إرجاع مبلغ ${Math.abs(inv.remaining).toLocaleString()} دج للزبون نقداً؟ سيتم تصفير الرصيد.`)) return;
+        const isSale = invoiceType === 'SALE';
+        const partyLabel = isSale ? 'للزبون' : 'من المورد';
+        const actionLabel = isSale ? 'إرجاع' : 'استرجاع';
+        
+        if (!confirm(`هل أنت متأكد من تسجيل ${actionLabel} مبلغ ${Math.abs(inv.remaining).toLocaleString()} دج ${partyLabel} نقداً؟ سيتم تصفير الرصيد.`)) return;
 
         setIsSubmitting(true);
         try {
@@ -343,123 +361,160 @@ export default function InvoicesPage() {
                             📦 فواتير المشتريات
                         </button>
                     </div>
-                    <div className="relative flex-1 min-w-[300px]">
-                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                        <input
-                            type="text"
-                            placeholder={invoiceType === 'SALE' ? "بحث برقم فاتورة، اسم العميل..." : "بحث برقم فاتورة، اسم المورد..."}
-                            className="w-full bg-white border border-gray-200 rounded-2xl pr-12 pl-4 py-4 font-bold shadow-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <button
-                        onClick={exportToExcel}
-                        className="bg-white border border-gray-200 text-gray-700 px-6 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"
-                        title="Exporter vers Excel"
-                    >
-                        <Download size={20} className="text-emerald-600" /> Excel
-                    </button>
-                    <button
-                        onClick={exportToPDF}
-                        className="bg-white border border-gray-200 text-gray-700 px-6 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"
-                        title="Exporter vers PDF"
-                    >
-                        <FileText size={20} className="text-rose-600" /> PDF
-                    </button>
-                    <button
-                        onClick={handlePrintList}
-                        className="bg-gray-900 text-white px-6 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
-                        title="Imprimer la liste"
-                    >
-                        <Printer size={20} /> Imprimer
-                    </button>
                 </div>
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-6">
-                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4 relative overflow-hidden">
-                    <div className="absolute -top-6 -left-6 w-24 h-24 bg-red-500/5 rounded-full"></div>
-                    <div className="flex justify-between items-start">
-                        <div className="bg-red-50 p-3 rounded-2xl text-red-600"><ArrowUpRight size={24} /></div>
-                        <span className="text-[10px] font-black text-red-600 bg-red-50 px-2 py-1 rounded-full uppercase">إجمالي الديون</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {/* Card 1: Total Debt */}
+                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-32 h-32 bg-rose-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-rose-50 p-4 rounded-2xl text-rose-600 relative z-10 shadow-sm">
+                        <ArrowUpRight size={24} />
                     </div>
-                    <div>
-                        <p className="text-2xl font-black font-sans">{stats.totalOpenDebt.toLocaleString()} دج</p>
-                        <p className="text-xs font-bold text-gray-400 mt-1">مبالغ لم يتم تحصيلها بعد</p>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4 relative overflow-hidden">
-                    <div className="absolute -top-6 -left-6 w-24 h-24 bg-amber-500/5 rounded-full"></div>
-                    <div className="flex justify-between items-start">
-                        <div className="bg-amber-50 p-3 rounded-2xl text-amber-600"><Clock size={24} /></div>
-                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-full uppercase">فواتير مفتوحة</span>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-black font-sans">{stats.unpaidCount + stats.partialCount}</p>
-                        <p className="text-xs font-bold text-gray-400 mt-1">{stats.unpaidCount} غير مدفوعة | {stats.partialCount} جزئية</p>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">
+                            {invoiceType === 'SALE' ? 'إجمالي الديون (عند الزبائن)' : 'إجمالي الديون (للموردين)'}
+                        </span>
+                        <p className="text-2xl font-black font-sans text-gray-900">{stats.totalOpenDebt.toLocaleString()} <span className="text-xs font-bold text-gray-400 mr-1">دج</span></p>
+                        <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">
+                            {invoiceType === 'SALE' ? 'مبالغ لم يتم تحصيلها' : 'مبالغ لم يتم تسديدها'}
+                        </p>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4 relative overflow-hidden">
-                    <div className="absolute -top-6 -left-6 w-24 h-24 bg-green-500/5 rounded-full"></div>
-                    <div className="flex justify-between items-start">
-                        <div className="bg-green-50 p-3 rounded-2xl text-green-600"><CheckCircle size={24} /></div>
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${invoiceType === 'SALE' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                {/* Card 2: Open Invoices */}
+                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-amber-50 p-4 rounded-2xl text-amber-600 relative z-10 shadow-sm">
+                        <Clock size={24} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">
+                            {invoiceType === 'SALE' ? 'فواتير مفتوحة' : 'فواتير غير مسددة'}
+                        </span>
+                        <p className="text-2xl font-black font-sans text-gray-900">{stats.unpaidCount + stats.partialCount}</p>
+                        <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">
+                            {invoiceType === 'SALE' 
+                                ? `${stats.unpaidCount} غير مدفوعة • ${stats.partialCount} جزئية` 
+                                : `${stats.unpaidCount} لم نسدد • ${stats.partialCount} جزئية`}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Card 3: Today's Collections */}
+                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-32 h-32 bg-emerald-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 relative z-10 shadow-sm">
+                        <CheckCircle size={24} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">
                             {invoiceType === 'SALE' ? 'تحصيلات اليوم' : 'مدفوعات اليوم'}
                         </span>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-black font-sans">
+                        <p className="text-2xl font-black font-sans text-gray-900">
                             {invoiceType === 'SALE' 
                                 ? (dashboardStats?.todayCustomerCollections?.toLocaleString() || 0)
                                 : (dashboardStats?.todaySupplierPayments?.toLocaleString() || 0)
-                            } دج
+                            } <span className="text-xs font-bold text-gray-400 mr-1">دج</span>
                         </p>
-                        <p className="text-xs font-bold text-gray-400 mt-1">
-                            {invoiceType === 'SALE' ? 'إجمالي المبالغ المحصلة (نقداً)' : 'إجمالي المبالغ المدفوعة للموردين'}
+                        <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">
+                            {invoiceType === 'SALE' ? 'إجمالي المحصل اليوم' : 'إجمالي المسدد اليوم'}
                         </p>
-                    </div>
-                </div>
-
-                <div className={`${(dashboardStats?.monthlyGrowth?.isPositive ?? true) ? 'bg-blue-600 shadow-blue-200' : 'bg-rose-600 shadow-rose-200'} p-6 rounded-[2rem] shadow-xl flex flex-col gap-4 relative overflow-hidden group transition-all`}>
-                    <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <div className="bg-white/20 p-3 rounded-2xl text-white"><History size={24} /></div>
-                        <span className="text-[10px] font-black text-white/60 uppercase">النمو الشهري</span>
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-2xl font-black text-white font-sans">
-                            {dashboardStats?.monthlyGrowth?.isPositive ? '+' : ''}{dashboardStats?.monthlyGrowth?.value || '0.0'}%
-                        </p>
-                        <p className="text-xs font-bold text-white/60 mt-1">معدل التحصيل مقارنة بالشهر السابق</p>
                     </div>
                 </div>
             </div>
 
-            {/* Filter Bar */}
-            <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-6">
-                <div className="flex items-center gap-2 pr-2 border-l border-gray-100">
-                    <Filter size={18} className="text-gray-400" />
-                    <span className="text-sm font-black text-gray-900">تصفية حسب:</span>
+            <div className="flex flex-col gap-4">
+                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-6">
+                    {/* Search Bar integrated in filter line */}
+                    <div className="relative flex-1 min-w-[300px]">
+                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder={invoiceType === 'SALE' ? "بحث برقم فاتورة، اسم العميل..." : "بحث برقم فاتورة، اسم المورد..."}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-2xl pr-12 pl-4 py-2.5 font-bold shadow-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-sm"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="w-px h-8 bg-gray-100 mx-2 hidden lg:block"></div>
+
+                    <div className="flex items-center gap-2 pr-2">
+                        <Filter size={18} className="text-gray-400" />
+                        <span className="text-sm font-black text-gray-900">تصفية حسب:</span>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                        <button onClick={() => setStatusFilter('ALL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'ALL' ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}>الكل</button>
+                        <button onClick={() => setStatusFilter('UNPAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'UNPAID' ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'}`}>لم يدفع</button>
+                        <button onClick={() => setStatusFilter('PARTIAL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}>جزئي</button>
+                        <button onClick={() => setStatusFilter('PAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'text-gray-400 hover:text-green-500'}`}>خالص</button>
+                        <button onClick={() => setStatusFilter('CREDIT')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'text-gray-400 hover:text-purple-500'}`}>رصيد زائد للعميل</button>
+                        <button onClick={() => setStatusFilter('OVERDUE')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${statusFilter === 'OVERDUE' ? 'bg-rose-100/50 border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>🚨 متجاوزة</button>
+                    </div>
+
+                    {/* Customer Type Dropdown */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-gray-400 uppercase">نوع العميل:</span>
+                        <select 
+                            value={customerTypeFilter} 
+                            onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
+                            className="bg-white border-2 border-gray-100 rounded-xl px-4 py-2 text-xs font-black text-gray-700 outline-none focus:border-orange-400 transition-all cursor-pointer shadow-sm"
+                        >
+                            <option value="ALL">الكل (الزبائن)</option>
+                            <option value="FIDEL">👤 زبائن مسجلون</option>
+                            <option value="GUEST">👥 زبائن عابرون</option>
+                        </select>
+                    </div>
+
+                    {/* Actions (Export & Print) on the Left */}
+                    <div className="mr-auto flex items-center gap-3">
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"
+                            >
+                                <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            {showExportDropdown && (
+                                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <button
+                                        onClick={() => { exportToExcel(); setShowExportDropdown(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-b border-gray-50"
+                                    >
+                                        <FileSpreadsheet size={16} className="text-emerald-600" /> Excel (.xlsx)
+                                    </button>
+                                    <button
+                                        onClick={() => { exportToPDF(); setShowExportDropdown(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+                                    >
+                                        <FileText size={16} className="text-rose-600" /> PDF (.pdf)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={handlePrintList}
+                            className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
+                        >
+                            <Printer size={16} /> طباعة القائمة
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex gap-2">
-                    <button onClick={() => setStatusFilter('ALL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'ALL' ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}>الكل</button>
-                    <button onClick={() => setStatusFilter('UNPAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'UNPAID' ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'}`}>لم يدفع</button>
-                    <button onClick={() => setStatusFilter('PARTIAL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}>جزئي</button>
-                    <button onClick={() => setStatusFilter('PAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'text-gray-400 hover:text-green-500'}`}>خالص</button>
-                    <button onClick={() => setStatusFilter('CREDIT')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'text-gray-400 hover:text-purple-500'}`}>رصيد زائد للعميل</button>
-                    <button onClick={() => setStatusFilter('OVERDUE')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${statusFilter === 'OVERDUE' ? 'bg-rose-100/50 border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>🚨 متجاوزة</button>
-                </div>
+                {/* Date Filter Row */}
+                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-6 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <div className="flex items-center gap-3 pr-2">
+                        <Calendar size={18} className="text-gray-400" />
+                        <span className="text-sm font-black text-gray-900">الفترة الزمنية:</span>
+                    </div>
 
-                <div className="flex items-center gap-3 mr-auto">
-                    <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
-                        <Calendar size={14} className="text-gray-400" />
-                        
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-4 bg-gray-50 px-5 py-2.5 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-gray-400 uppercase">من</span>
                             <input
                                 type="date"
@@ -469,9 +524,9 @@ export default function InvoicesPage() {
                             />
                         </div>
 
-                        <span className="text-gray-200 mx-1">|</span>
+                        <span className="text-gray-200 mx-2">|</span>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-gray-400 uppercase">إلى</span>
                             <input
                                 type="date"
@@ -484,10 +539,9 @@ export default function InvoicesPage() {
                         {(dateRange.start || dateRange.end) && (
                             <button 
                                 onClick={() => setDateRange({ start: '', end: '' })}
-                                className="mr-2 p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-900 transition-all"
-                                title="إلغاء تصفية التاريخ"
+                                className="mr-4 flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-amber-600 hover:bg-amber-50 font-black text-[10px] transition-all shadow-sm"
                             >
-                                <RotateCcw size={14} />
+                                <RotateCcw size={14} /> إعادة تعيين التاريخ
                             </button>
                         )}
                     </div>
@@ -742,24 +796,22 @@ export default function InvoicesPage() {
                                                          <span className={`text-lg font-black font-sans ${p.isReturn ? 'text-orange-600' : (p.amount < 0 ? 'text-purple-600' : 'text-gray-900')}`}>
                                                              {p.isReturn ? '-' : ''}{Math.abs(p.amount).toLocaleString()} دج
                                                          </span>
-                                                         {!p.isReturn && (
-                                                             <button
-                                                                 onClick={() => {
-                                                                     const printContent = document.getElementById(`receipt-${p.id}`);
-                                                                     if (printContent) {
-                                                                         const originalContent = document.body.innerHTML;
-                                                                         document.body.innerHTML = printContent.innerHTML;
-                                                                         window.print();
-                                                                         document.body.innerHTML = originalContent;
-                                                                         window.location.reload();
-                                                                     }
-                                                                 }}
-                                                                 className={`flex items-center gap-1.5 px-3 py-1.5 ${p.amount < 0 ? 'bg-purple-600' : 'bg-blue-600'} text-white rounded-lg hover:opacity-90 transition-all shadow-md no-print`}
-                                                             >
-                                                                 <Printer size={12} />
-                                                                 <span className="text-[10px] font-black">طباعة الوصل</span>
-                                                             </button>
-                                                         )}
+                                                         <button
+                                                              onClick={() => {
+                                                                  const printContent = document.getElementById(`receipt-${p.id}`);
+                                                                  if (printContent) {
+                                                                      const originalContent = document.body.innerHTML;
+                                                                      document.body.innerHTML = printContent.innerHTML;
+                                                                      window.print();
+                                                                      document.body.innerHTML = originalContent;
+                                                                      window.location.reload();
+                                                                  }
+                                                              }}
+                                                              className={`flex items-center gap-1.5 px-3 py-1.5 ${p.isReturn ? 'bg-orange-600' : (p.amount < 0 ? 'bg-purple-600' : 'bg-blue-600')} text-white rounded-lg hover:opacity-90 transition-all shadow-md no-print`}
+                                                          >
+                                                              <Printer size={12} />
+                                                              <span className="text-[10px] font-black">طباعة الوصل</span>
+                                                          </button>
                                                      </div>
                                                      <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${p.isReturn ? 'text-orange-600 bg-orange-50' : (p.amount < 0 ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50')}`}>
                                                          {p.isReturn ? 'DÉDUCTION RETOUR' : (p.amount < 0 ? 'Remboursement' : p.paymentMethod)}
@@ -776,19 +828,7 @@ export default function InvoicesPage() {
                                                     </div>
                                                 )}
 
-                                                {p.isReturn && p.items && (
-                                                    <div className="mt-2 p-3 bg-orange-50 border border-orange-100 rounded-xl" dir="rtl">
-                                                        <p className="text-[9px] font-black text-orange-800 mb-2 border-b border-orange-200 pb-1 uppercase tracking-tighter text-right">السلع المسترجعة / PRODUITS RETOURNÉS</p>
-                                                        <div className="space-y-1">
-                                                            {p.items.map((item: any, i: number) => (
-                                                                <div key={i} className="flex justify-between items-center text-[10px] font-bold text-gray-600">
-                                                                    <span className="font-sans">({item.quantity}) x {item.unitPrice.toLocaleString()} دج</span>
-                                                                    <span className="text-gray-900">{item.product?.name}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
+
 
                                                 {/* Hidden Receipt Template for Single Print (French) */}
                                                 <div id={`receipt-${p.id}`} className="hidden">
@@ -796,7 +836,7 @@ export default function InvoicesPage() {
                                                         <div className="flex justify-between items-start border-b-2 border-gray-900 pb-6 mb-8">
                                                             <div>
                                                                 <h1 className="text-3xl font-black text-gray-900 mb-2 uppercase">
-                                                                    {p.amount < 0 ? 'REÇU DE REMBOURSEMENT' : (showHistoryModal.invoiceNumber.startsWith('PUR') ? 'BON DE PAIEMENT' : 'REÇU DE PAIEMENT')}
+                                                                    {p.isReturn ? 'BON DE RETOUR' : (p.amount < 0 ? 'REÇU DE REMBOURSEMENT' : (showHistoryModal.invoiceNumber.startsWith('PUR') ? 'BON DE PAIEMENT' : 'REÇU DE PAIEMENT'))}
                                                                 </h1>
                                                                 <p className="text-gray-500 font-bold">Réf. Transaction: {p.id}</p>
                                                             </div>
@@ -807,7 +847,7 @@ export default function InvoicesPage() {
                                                         </div>
                                                         <div className="space-y-6">
                                                             <div className="flex justify-between border-b border-gray-100 py-4">
-                                                                <span className="text-gray-500 font-bold uppercase text-xs tracking-widest">Date de Paiement:</span>
+                                                                <span className="text-gray-500 font-bold uppercase text-xs tracking-widest">Date:</span>
                                                                 <span className="font-black font-sans">{new Date(p.paymentDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                                             </div>
                                                             <div className="flex justify-between border-b border-gray-100 py-4">
@@ -836,9 +876,34 @@ export default function InvoicesPage() {
                                                                     <span className="font-black font-sans">{p.chequeNumber}</span>
                                                                 </div>
                                                             )}
-                                                            <div className={`${p.amount < 0 ? 'bg-purple-600' : 'bg-gray-900'} text-white p-8 rounded-3xl mt-10 text-center shadow-2xl shadow-gray-200`}>
+
+                                                            {p.isReturn && p.items && (
+                                                                <div className="mt-8 border-t-2 border-gray-100 pt-6">
+                                                                    <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest">Produits Retournés:</p>
+                                                                    <table className="w-full text-left">
+                                                                        <thead>
+                                                                            <tr className="text-[10px] font-black text-gray-900 uppercase border-b border-gray-200">
+                                                                                <th className="py-2">Désignation</th>
+                                                                                <th className="py-2 text-center">Qté</th>
+                                                                                <th className="py-2 text-right">P.U</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="text-sm">
+                                                                            {p.items.map((item: any, i: number) => (
+                                                                                <tr key={i} className="border-b border-gray-50">
+                                                                                    <td className="py-3 font-bold">{item.product?.name}</td>
+                                                                                    <td className="py-3 text-center font-sans">{item.quantity}</td>
+                                                                                    <td className="py-3 text-right font-black font-sans">{item.unitPrice.toLocaleString()}</td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+
+                                                            <div className={`${p.isReturn ? 'bg-orange-600' : (p.amount < 0 ? 'bg-purple-600' : 'bg-gray-900')} text-white p-8 rounded-3xl mt-10 text-center shadow-2xl transition-all`}>
                                                                 <p className="text-xs font-bold opacity-60 mb-2 tracking-widest uppercase">
-                                                                    {p.amount < 0 ? 'SOMME REMBOURSÉE' : (showHistoryModal.invoiceNumber.startsWith('PUR') ? 'MONTANT VERSÉ' : 'MONTANT REÇU')}
+                                                                    {p.isReturn ? 'VALEUR DU RETOUR' : (p.amount < 0 ? 'SOMME REMBOURSÉE' : (showHistoryModal.invoiceNumber.startsWith('PUR') ? 'MONTANT VERSÉ' : 'MONTANT REÇU'))}
                                                                 </p>
                                                                 <p className="text-5xl font-black font-sans">{Math.abs(p.amount).toLocaleString()} DZD</p>
                                                                 <p className="mt-4 text-[10px] font-bold italic opacity-50 uppercase tracking-widest">

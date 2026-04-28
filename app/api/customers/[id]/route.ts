@@ -12,6 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 orders: {
                     orderBy: { orderDate: 'desc' },
                     include: {
+                        project: { select: { id: true, name: true } },
                         items: {
                             include: {
                                 product: { select: { id: true, name: true, unit: true, quantity: true } }
@@ -34,7 +35,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                         invoice: {
                             include: {
                                 order: {
-                                    select: { orderNumber: true }
+                                    select: { 
+                                        orderNumber: true,
+                                        projectId: true,
+                                        project: { select: { name: true } }
+                                    }
                                 }
                             }
                         }

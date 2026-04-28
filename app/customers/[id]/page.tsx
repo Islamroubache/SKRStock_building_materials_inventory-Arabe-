@@ -7,9 +7,9 @@ import {
     ShoppingCart, FileText, Plus, ChevronDown, ChevronUp,
     CreditCard, History, Clock, ArrowDownLeft, CheckCircle,
     Calendar, Phone, MapPin, MoreVertical, ExternalLink, X,
-    Printer, Activity, RotateCcw, Package, Info, Eye, ShoppingBag,
+    Printer, Activity, RotateCcw, Package, Info, Eye, ShoppingBag, Edit,
     Banknote, ArrowUpRight, AlertCircle, Check, Mail, BarChart3, Star, Power,
-    Filter, ArrowDownAZ, SortDesc, TrendingUp, Hash, Search
+    Filter, ArrowDownAZ, SortDesc, Search, Download, FileSpreadsheet
 } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
@@ -55,6 +55,7 @@ export default function CustomerDetailPage() {
     const [soaMethodFilter, setSoaMethodFilter] = useState('ALL');
     const [soaDateFrom, setSoaDateFrom] = useState('');
     const [soaDateTo, setSoaDateTo] = useState('');
+    const [soaProjectFilter, setSoaProjectFilter] = useState('ALL');
 
     // New states for returns and expanded orders
     const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
@@ -73,11 +74,39 @@ export default function CustomerDetailPage() {
 
     const [projectTouched, setProjectTouched] = useState<Record<string, boolean>>({});
     const [selectedProjectForOrders, setSelectedProjectForOrders] = useState<any>(null);
+    const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
     // Project Filters/Sort
     const [projectStatusFilter, setProjectStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DISABLED'>('ALL');
     const [projectFinanceFilter, setProjectFinanceFilter] = useState<'ALL' | 'PAID' | 'DEBT' | 'SURPLUS'>('ALL');
     const [projectSortBy, setProjectSortBy] = useState<'RECENT' | 'OLD' | 'ALPHA' | 'ORDERS' | 'PURCHASES'>('RECENT');
+
+    const exportProjectOrdersCSV = () => {
+        if (!selectedProjectForOrders) return;
+        const orders = customer.orders?.filter((o: any) => o.projectId === selectedProjectForOrders.id && o.type !== 'RETURN_SALE' && o.type !== 'RETURN_PURCHASE') || [];
+        
+        let csv = "\uFEFF"; // UTF-8 BOM for Arabic support in Excel
+        csv += "رقم الطلبية,التاريخ,المبلغ الإجمالي (دج),المدفوع (دج),المتبقي (دج),الحالة\n";
+        
+        orders.forEach((o: any) => {
+            const netTotal = o.total || 0;
+            const paid = o.invoice?.paid || 0;
+            const remaining = o.invoice?.remaining ?? (netTotal - paid);
+            const status = remaining <= 0 ? 'خالص' : (paid > 0 ? 'جزئي' : 'غير مدفوع');
+            
+            csv += `${o.orderNumber},${new Date(o.orderDate).toLocaleDateString('ar-DZ')},${netTotal},${paid},${remaining},${status}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `طلبيات_مشروع_${selectedProjectForOrders.name}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const handleEditKeyDown = (e: React.KeyboardEvent) => {
         const form = e.currentTarget;
@@ -272,6 +301,7 @@ export default function CustomerDetailPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...(isGlobal ? {} : { invoiceId: showPaymentModal.id }),
+                    ...(showPaymentModal.projectId ? { projectId: showPaymentModal.projectId } : {}),
                     customerId: parseInt(id as string),
                     amount: paymentAmount,
                     paymentMethod,
@@ -609,17 +639,17 @@ export default function CustomerDetailPage() {
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
-                        <button onClick={() => { setEditData({ ...customer }); setIsEditModalOpen(true); }} className="bg-white border border-gray-200 text-blue-600 px-5 py-3 rounded-2xl font-black text-sm flex items-center gap-2 shadow-sm hover:bg-blue-50 transition-all no-print">
-                            <MoreVertical size={18} /> تعديل البيانات
+                    <div className="flex gap-3">
+                        <button onClick={() => { setEditData({ ...customer }); setIsEditModalOpen(true); }} className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all no-print">
+                            <Edit size={16} /> تعديل البيانات
                         </button>
                         {(!isLoyal || hasActiveProject) ? (
-                            <Link href={`/orders/new?customerId=${id}`} className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg shadow-blue-200 hover:scale-105 transition-all">
-                                <Plus size={18} /> طلبية بيع
+                            <Link href={`/orders/new?customerId=${id}`} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">
+                                <Plus size={16} /> طلبية بيع جديدة
                             </Link>
                         ) : (
-                            <div className="bg-gray-100 text-gray-400 px-5 py-3 rounded-2xl font-black text-sm flex items-center gap-2 border border-gray-200 cursor-not-allowed group relative" title="يجب تفعيل مشروع واحد على الأقل لهذا المقاول لتمكين الطلبيات">
-                                <Plus size={18} /> طلبية بيع
+                            <div className="bg-gray-100 text-gray-400 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 border border-gray-200 cursor-not-allowed group relative" title="يجب تفعيل مشروع واحد على الأقل لهذا المقاول لتمكين الطلبيات">
+                                <Plus size={16} /> طلبية بيع
                                 <div className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                                     يجب تفعيل مشروع واحد على الأقل
                                 </div>
@@ -847,6 +877,16 @@ export default function CustomerDetailPage() {
                                 <Briefcase size={16} /> المشاريع
                             </button>
                         )}
+                        {(() => {
+                            const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && o.type === 'SALE');
+                            if (generalOrders.length === 0) return null;
+                            return (
+                                <button onClick={() => setActiveTab('ORDERS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'ORDERS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:bg-gray-50'}`}>
+                                    <ShoppingCart size={16} /> طلبيات عامة
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>{generalOrders.length}</span>
+                                </button>
+                            );
+                        })()}
                         <button onClick={() => setActiveTab('INVOICES')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'INVOICES' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
                             <BarChart3 size={16} /> المنتجات الأكثر طلباً
                         </button>
@@ -913,117 +953,142 @@ export default function CustomerDetailPage() {
                                         <p className="font-black text-gray-400">لا توجد مشاريع تطابق الفلاتر المختارة</p>
                                     </div>
                                 ) : (
-                                    filteredAndSortedProjects.map((p: any) => {
-                                        const projectOrders = (customer.orders || []).filter((o: any) => 
-                                            o.projectId === p.id && 
-                                            o.type !== 'RETURN_SALE' && 
-                                            o.type !== 'RETURN_PURCHASE'
-                                        );
-                                        const projectTotalPurchases = projectOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || o.total || 0), 0);
-                                        
-                                        return (
-                                            <div key={p.id} className={`w-full bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 group flex flex-col relative border-r-8 ${p.status === 'DISABLED' ? 'border-r-gray-400 opacity-75' : 'border-r-emerald-500'} p-5`}>
-                                                {p.status === 'DISABLED' && (
-                                                    <div className="absolute top-0 right-0 bg-gray-500 text-white text-[8px] font-black px-2 py-1 rounded-bl-xl z-20 uppercase tracking-widest">معطل / Inactif</div>
-                                                )}
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div className="text-right flex-1">
-                                                        <h3 className="font-black text-xl text-gray-900 group-hover:text-blue-600 transition-colors">{p.name}</h3>
-                                                        <p className="text-gray-400 font-bold text-xs mb-2">{p.description || 'لا يوجد وصف للمشروع'}</p>
-                                                        
-                                                        <div className="flex flex-wrap items-center gap-3">
-                                                            <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 bg-blue-50/50 px-2.5 py-1.5 rounded-xl border border-blue-100/50">
-                                                                <Calendar size={14} />
-                                                                <span>البدء: {new Date(p.startDate).toLocaleDateString('ar-DZ')}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 bg-gray-50 px-2.5 py-1.5 rounded-xl border border-gray-200">
-                                                                <MapPin size={14} />
-                                                                <span>العنوان: {p.address || 'غير محدد'}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50/50 px-2.5 py-1.5 rounded-xl border border-emerald-100/50">
-                                                                <Hash size={14} />
-                                                                <span>الطلبيات: <span className="font-sans text-sm">{projectOrders.length}</span></span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-[10px] font-black text-indigo-600 bg-indigo-50/50 px-2.5 py-1.5 rounded-xl border border-indigo-100/50">
-                                                                <TrendingUp size={14} />
-                                                                <span>إجمالي الشراء: <span className="font-sans text-sm">{projectTotalPurchases.toLocaleString()}</span> دج</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className={`p-4 rounded-2xl shadow-lg transition-transform group-hover:scale-110 ${p.status === 'DISABLED' ? 'bg-gray-100 text-gray-400' : 'bg-emerald-600 text-white shadow-emerald-100'}`}>
-                                                        <Briefcase size={28} />
-                                                    </div>
-                                                </div>
-
-                                                {(() => {
-                                                    const balance = projectOrders.reduce((sum: number, o: any) => {
-                                                        const netTotal = o.grandTotal || o.total || 0;
-                                                        const paid = o.invoice?.paid || 0;
-                                                        return sum + (netTotal - paid);
-                                                    }, 0);
-
-                                                    const hasSurplus = balance < -0.01;
-                                                    const hasDebt = balance > 0.01;
-
-                                                    if (hasSurplus) {
-                                                        return (
-                                                            <div className="mb-4 p-4 bg-purple-50 border border-purple-100 rounded-2xl flex items-center justify-between shadow-sm">
-                                                                <div className="flex items-center gap-3 text-purple-700">
-                                                                    <div className="bg-purple-100 p-2.5 rounded-xl"><Banknote size={18} /></div>
-                                                                    <div>
-                                                                        <span className="text-[10px] font-black uppercase block leading-none mb-1 opacity-70">رصيد زائد متوفر للمشروع</span>
-                                                                        <span className="text-lg font-black font-sans">{Math.abs(balance).toLocaleString()} دج</span>
-                                                                    </div>
-                                                                </div>
-                                                                <span className="bg-purple-600 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase">Crédit Client</span>
-                                                            </div>
-                                                        );
-                                                    } else if (hasDebt) {
-                                                        return (
-                                                            <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-between shadow-sm">
-                                                                <div className="flex items-center gap-3 text-red-700">
-                                                                    <div className="bg-red-100 p-2.5 rounded-xl"><AlertCircle size={18} /></div>
-                                                                    <div>
-                                                                        <span className="text-[10px] font-black uppercase block leading-none mb-1 opacity-70">مستحقات عالقة على هذا المشروع</span>
-                                                                        <span className="text-lg font-black font-sans">{balance.toLocaleString()} دج</span>
-                                                                    </div>
-                                                                </div>
-                                                                <span className="bg-red-600 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase">Dette Pendante</span>
-                                                            </div>
-                                                        );
-                                                    } else if (projectOrders.length > 0) {
-                                                        return (
-                                                            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-between shadow-sm">
-                                                                <div className="flex items-center gap-3 text-emerald-700">
-                                                                    <div className="bg-emerald-100 p-2.5 rounded-xl"><Check size={18} /></div>
-                                                                    <div>
-                                                                        <span className="text-[10px] font-black uppercase block leading-none mb-1 opacity-70">حالة المشروع المالية</span>
-                                                                        <span className="text-lg font-black italic">المشروع خالص بالكامل</span>
-                                                                    </div>
-                                                                </div>
-                                                                <span className="bg-emerald-600 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase">Solde Réglé</span>
-                                                            </div>
-                                                        );
-                                                    }
-                                                    return null;
-                                                })()}
+                                <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
+                                    <table className="w-full text-right border-collapse" dir="rtl">
+                                        <thead>
+                                            <tr className="bg-gray-50/80 border-b border-gray-100">
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-16 text-center">#</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">المشروع / الموقع</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">تاريخ البدء</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الطلبيات</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">إجمالي المشتريات</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">المستحقات</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الحالة</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الإجراءات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {filteredAndSortedProjects.map((p: any, idx: number) => {
+                                                // Filter orders specifically for this project
+                                                const projectOrders = (customer.orders || []).filter((o: any) => 
+                                                    o.projectId === p.id && 
+                                                    o.type !== 'RETURN_SALE' && 
+                                                    o.type !== 'RETURN_PURCHASE'
+                                                );
                                                 
-                                                <div className="flex gap-3 mt-2">
-                                                    <button onClick={() => setSelectedProjectForOrders(p)} className="flex-1 bg-white border border-gray-200 text-gray-600 py-4 rounded-2xl text-[11px] font-black hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all flex items-center justify-center gap-2 shadow-sm">
-                                                        <Info size={18} /> عرض سجل الطلبيات
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => toggleProjectStatus(p.id, p.status)} 
-                                                        className={`px-6 py-4 rounded-2xl text-[11px] font-black transition-all flex items-center justify-center gap-2 shadow-sm ${p.status === 'DISABLED' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white'}`}
-                                                        title={p.status === 'DISABLED' ? 'تنشيط المشروع' : 'تعطيل المشروع'}
-                                                    >
-                                                        <Power size={18} />
-                                                        <span>{p.status === 'DISABLED' ? 'تنشيط' : 'تعطيل'}</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
+                                                const projectTotalPurchases = projectOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || o.total || 0), 0);
+                                                
+                                                // Calculate balance: Sum of (Net Total - Paid) for each invoice in this project
+                                                const projectBalance = projectOrders.reduce((sum: number, o: any) => {
+                                                    const netTotal = o.grandTotal || o.total || 0;
+                                                    const paid = o.invoice?.paid || 0;
+                                                    return sum + (netTotal - paid);
+                                                }, 0);
+
+                                                const hasDebt = projectBalance > 0.01;
+                                                const hasSurplus = projectBalance < -0.01;
+
+                                                return (
+                                                    <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors group ${p.status === 'DISABLED' ? 'opacity-50' : ''}`}>
+                                                        <td className="p-4 text-center">
+                                                            <span className="text-[11px] font-black text-gray-300 font-sans">{idx + 1}</span>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="font-black text-gray-900 group-hover:text-blue-600 transition-colors text-sm">{p.name}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-gray-400 truncate max-w-[150px]" title={p.description}>
+                                                                        {p.description || 'بدون وصف'}
+                                                                    </span>
+                                                                    <span className="text-gray-200">|</span>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
+                                                                        <MapPin size={10} className="text-gray-300" />
+                                                                        <span className="truncate max-w-[120px]">{p.address || 'عنوان غير محدد'}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className="text-xs font-black text-gray-600 font-sans">
+                                                                {new Date(p.startDate).toLocaleDateString('ar-DZ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <div className="inline-flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-lg">
+                                                                <span className="text-sm font-black text-gray-900 font-sans">{projectOrders.length}</span>
+                                                                <ShoppingCart size={12} className="text-gray-400" />
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-black text-gray-900 font-sans">{projectTotalPurchases.toLocaleString()}</span>
+                                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">دج</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {hasDebt ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-sm font-black text-rose-600 font-sans">+{projectBalance.toLocaleString()} دج</span>
+                                                                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-tighter">ديون عالقة</span>
+                                                                </div>
+                                                            ) : hasSurplus ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-sm font-black text-purple-600 font-sans">{projectBalance.toLocaleString()} دج</span>
+                                                                    <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">رصيد زائد</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-sm font-black text-emerald-600 font-sans">0 دج</span>
+                                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">خالص</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                                                                {p.status === 'ACTIVE' ? 'نشط' : 'معطل'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                {hasDebt && (
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setShowPaymentModal({
+                                                                                isGlobal: true,
+                                                                                projectId: p.id,
+                                                                                invoiceNumber: `تسديد ديون مشروع: ${p.name}`,
+                                                                                remaining: projectBalance
+                                                                            });
+                                                                            setPaymentAmount(projectBalance);
+                                                                        }}
+                                                                        className="p-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-md shadow-rose-100 active:scale-95"
+                                                                        title="تسديد ديون هذا المشروع (الأقدم فالأحدث)"
+                                                                    >
+                                                                        <Banknote size={16} />
+                                                                    </button>
+                                                                )}
+                                                                <button 
+                                                                    onClick={() => setSelectedProjectForOrders(p)}
+                                                                    className="p-2.5 bg-white border border-gray-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm active:scale-95"
+                                                                    title="عرض سجل الطلبيات"
+                                                                >
+                                                                    <Info size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => toggleProjectStatus(p.id, p.status)}
+                                                                    className={`p-2.5 border border-gray-200 rounded-xl transition-all shadow-sm active:scale-95 ${p.status === 'DISABLED' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white'}`}
+                                                                    title={p.status === 'DISABLED' ? 'تنشيط المشروع' : 'تعطيل المشروع'}
+                                                                >
+                                                                    <Power size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                                 )}
                                 <button onClick={() => setIsProjectSheetOpen(true)} className="w-full py-16 rounded-[3rem] border-4 border-dashed border-gray-100 text-gray-300 hover:border-blue-100 hover:text-blue-400 hover:bg-blue-50/20 transition-all flex flex-col items-center justify-center gap-2 group">
                                     <Plus size={64} className="group-hover:scale-125 transition-transform duration-500" />
@@ -1031,6 +1096,77 @@ export default function CustomerDetailPage() {
                                 </button>
                             </div>
                         )}
+
+
+                        {activeTab === 'ORDERS' && (() => {
+                            const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && (o.type === 'SALE' || o.type === 'RETURN_SALE'));
+                            const saleOrders = generalOrders.filter((o: any) => o.type === 'SALE');
+                            const totalPurchases = saleOrders.reduce((s: number, o: any) => s + (o.grandTotal || o.total || 0), 0);
+                            const totalPaid = saleOrders.reduce((s: number, o: any) => s + (o.invoice?.paid || 0), 0);
+                            const totalRemaining = totalPurchases - totalPaid;
+                            return (
+                                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    {/* Summary bar */}
+                                    <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm grid grid-cols-3 gap-4">
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي الطلبيات</p>
+                                            <p className="text-2xl font-black text-gray-900 font-sans">{saleOrders.length}</p>
+                                        </div>
+                                        <div className="text-center border-x border-gray-100">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي المشتريات</p>
+                                            <p className="text-2xl font-black text-gray-900 font-sans">{totalPurchases.toLocaleString()} دج</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">المستحقات المتبقية</p>
+                                            <p className={`text-2xl font-black font-sans ${totalRemaining > 0.01 ? 'text-red-600' : 'text-emerald-600'}`}>{totalRemaining.toLocaleString()} دج</p>
+                                        </div>
+                                    </div>
+                                    {/* Orders Table */}
+                                    <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
+                                        <div className="p-5 border-b border-gray-100 flex items-center gap-3">
+                                            <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><ShoppingCart size={18} /></div>
+                                            <div>
+                                                <h3 className="font-black text-gray-900">طلبيات عامة / بدون مشروع</h3>
+                                                <p className="text-[10px] text-gray-400 font-bold mt-0.5">طلبيات لم تُربط بأي مشروع</p>
+                                            </div>
+                                        </div>
+                                        <InvoicesTable
+                                            invoices={saleOrders.map((o: any) => {
+                                                const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+                                                const netTotal = o.grandTotal || o.total || 0;
+                                                const paid = o.invoice?.paid || 0;
+                                                const remaining = o.invoice?.remaining ?? (netTotal - paid);
+                                                return {
+                                                    ...o.invoice,
+                                                    id: o.invoice?.id,
+                                                    invoiceNumber: o.invoice?.invoiceNumber || o.orderNumber,
+                                                    customerName: customer.name,
+                                                    projectName: 'عام',
+                                                    total: netTotal,
+                                                    originalTotal: netTotal + returnsValue,
+                                                    returnsValue,
+                                                    remaining,
+                                                    paid,
+                                                    status: remaining <= 0 ? (remaining < 0 ? 'CREDIT' : 'PAID') : (paid > 0 ? 'PARTIAL' : 'UNPAID'),
+                                                    order: o,
+                                                    date: o.orderDate
+                                                };
+                                            })}
+                                            loading={loading}
+                                            invoiceType="SALE"
+                                            setSelectedInvoice={setSelectedInvoice}
+                                            setShowPaymentModal={setShowPaymentModal}
+                                            setPaymentAmount={setPaymentAmount}
+                                            handleRefundExcess={handleRefundExcess}
+                                            setShowHistoryModal={setShowHistoryModal}
+                                            fetchPaymentHistory={fetchPaymentHistory}
+                                            setShowReturnsModal={setShowReturnsModal}
+                                            fetchReturnsHistory={fetchReturnsHistory}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
 
                         {activeTab === 'INVOICES' && (
@@ -1098,7 +1234,7 @@ export default function CustomerDetailPage() {
                                 </div>
 
                                 {/* Filters Row */}
-                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 no-print bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100">
+                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6 no-print bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100">
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-black text-gray-400 uppercase mr-2">بحث (رقم العملية / المرجع)</label>
                                         <div className="relative">
@@ -1137,6 +1273,20 @@ export default function CustomerDetailPage() {
                                             <option value="CASH">نقداً (CASH)</option>
                                             <option value="CHEQUE">شيك (CHEQUE)</option>
                                             <option value="BANK_TRANSFER">تحويل بنكي</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">المشروع</label>
+                                        <select 
+                                            value={soaProjectFilter || 'ALL'}
+                                            onChange={(e) => setSoaProjectFilter(e.target.value)}
+                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                        >
+                                            <option value="ALL">كل المشاريع</option>
+                                            <option value="GENERAL">عام / بدون مشروع</option>
+                                            {customer?.projects?.map((p: any) => (
+                                                <option key={p.id} value={p.id.toString()}>{p.name}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -1194,18 +1344,22 @@ export default function CustomerDetailPage() {
                                                 motif: motif,
                                                 ref: '---',
                                                 versement: versement,
-                                                type: 'SALE'
+                                                type: 'SALE',
+                                                project: o.project?.name || 'عام',
+                                                projectId: o.projectId
                                             });
                                         } else if (o.type === 'RETURN_SALE') {
                                             allTxs.push({
                                                 date: new Date(o.orderDate),
-                                                number: 'AVANCE',
+                                                number: 'Retours',
                                                 vente: -(o.grandTotal || o.total || 0),
                                                 method: '---',
                                                 motif: 'إرجاع سلع',
                                                 ref: o.externalNumber || o.notes || o.orderNumber,
                                                 versement: 0,
-                                                type: 'RETURN'
+                                                type: 'RETURN',
+                                                project: o.project?.name || 'عام',
+                                                projectId: o.projectId
                                             });
                                         }
                                     });
@@ -1216,13 +1370,15 @@ export default function CustomerDetailPage() {
                                         const isRefund = p.amount < 0;
                                         allTxs.push({
                                             date: new Date(p.paymentDate),
-                                            number: 'AVANCE',
+                                            number: isRefund ? 'Remboursement' : 'Droits',
                                             vente: 0,
                                             method: isRefund ? '---' : p.paymentMethod,
                                             motif: isRefund ? 'استرداد أموال' : 'تسديد ديون',
                                             ref: p.invoice?.order?.orderNumber || p.invoice?.invoiceNumber?.replace('INV/', '') || '---',
                                             versement: p.amount,
-                                            type: isRefund ? 'REFUND' : 'PAYMENT'
+                                            type: isRefund ? 'REFUND' : 'PAYMENT',
+                                            project: p.invoice?.order?.project?.name || 'عام',
+                                            projectId: p.invoice?.order?.projectId || null
                                         });
                                     });
 
@@ -1256,6 +1412,18 @@ export default function CustomerDetailPage() {
                                             if (tx.method !== soaMethodFilter) return false;
                                         }
 
+                                        // Project Filter
+                                        if (soaProjectFilter && soaProjectFilter !== 'ALL') {
+                                            const hasProject = tx.projectId !== null && tx.projectId !== undefined;
+                                            if (soaProjectFilter === 'GENERAL') {
+                                                // Show only transactions WITHOUT a project
+                                                if (hasProject) return false;
+                                            } else {
+                                                // Show only transactions WITH this specific project
+                                                if (!hasProject || tx.projectId?.toString() !== soaProjectFilter) return false;
+                                            }
+                                        }
+
                                         // Search Query
                                         if (soaSearchQuery) {
                                             const q = soaSearchQuery.toLowerCase();
@@ -1268,6 +1436,7 @@ export default function CustomerDetailPage() {
                                     });
 
                                     // 6. Calculate Initial Balance (Balance just before the first visible transaction)
+                                    // 6. Calculate Initial Balance (Balance just before the first visible transaction)
                                     let initialBalance = 0;
                                     if (filteredTxs.length > 0) {
                                         const firstVisibleIndex = historyWithBalance.findIndex(tx => tx === filteredTxs[0]);
@@ -1275,21 +1444,22 @@ export default function CustomerDetailPage() {
                                             initialBalance = historyWithBalance[firstVisibleIndex - 1].balance;
                                         }
                                     } else if (historyWithBalance.length > 0) {
-                                        // If everything is filtered out, but history exists
-                                        // Usually we show the balance up to the dateFrom
                                         if (soaDateFrom) {
                                             const lastBeforeDate = historyWithBalance.filter(tx => tx.date < new Date(soaDateFrom)).pop();
                                             initialBalance = lastBeforeDate ? lastBeforeDate.balance : 0;
                                         }
                                     }
 
+                                    // 7. Reverse for Newest-First Display
+                                    const displayedTxs = [...filteredTxs].reverse();
+
                                     return (
                                         <div className="flex flex-col">
                                             {/* Initial Balance Header */}
-                                            <div className="bg-gray-900 text-white p-6 rounded-t-[2rem] flex justify-between items-center shadow-lg">
+                                            <div className="bg-gray-900 text-white p-6 rounded-t-[2rem] flex justify-between items-center shadow-lg no-print">
                                                 <div className="flex items-center gap-3">
                                                     <div className="bg-white/10 p-2 rounded-xl"><Activity size={18} /></div>
-                                                    <span className="text-xs font-black uppercase tracking-widest opacity-70">الرصيد الافتتاحي (Solde Initial)</span>
+                                                    <span className="text-xs font-black uppercase tracking-widest opacity-70">الرصيد قبل الفلترة (Solde Initial)</span>
                                                 </div>
                                                 <span className={`text-2xl font-black font-sans ${initialBalance > 0.01 ? 'text-red-400' : (initialBalance < -0.01 ? 'text-emerald-400' : 'text-white')}`}>
                                                     {initialBalance.toLocaleString()} دج
@@ -1302,6 +1472,7 @@ export default function CustomerDetailPage() {
                                                         <th className="p-4 text-center">N°</th>
                                                         <th className="p-4">تاريخ العملية</th>
                                                         <th className="p-4">رقم العملية</th>
+                                                        <th className="p-4 text-center">المشروع</th>
                                                         <th className="p-4">مبلغ البيع (دج)</th>
                                                         <th className="p-4">طريقة الدفع</th>
                                                         <th className="p-4">البيان (Motif)</th>
@@ -1311,11 +1482,14 @@ export default function CustomerDetailPage() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {filteredTxs.map((tx, idx) => (
+                                                    {displayedTxs.map((tx, idx) => (
                                                         <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors font-bold text-sm">
-                                                            <td className="p-4 text-center text-gray-400 font-sans">{idx + 1}</td>
+                                                            <td className="p-4 text-center text-gray-400 font-sans">{filteredTxs.length - idx}</td>
                                                             <td className="p-4 font-sans">{tx.date.toLocaleDateString('ar-DZ')}</td>
                                                             <td className="p-4 font-sans text-xs">{tx.number}</td>
+                                                            <td className="p-4 text-center text-[10px] font-bold text-gray-500 bg-gray-50/50">
+                                                                {tx.project}
+                                                            </td>
                                                             <td className="p-4 font-sans">
                                                                 {tx.vente !== 0 ? (
                                                                     <span className={tx.vente < 0 ? 'text-orange-600' : 'text-gray-900'}>
@@ -1376,10 +1550,83 @@ export default function CustomerDetailPage() {
                                         <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">سجل الطلبيات المرتبطة بالمشروع</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setSelectedProjectForOrders(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2"><X size={28} /></button>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <button 
+                                            onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+                                            className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-emerald-100 hover:scale-105 transition-all"
+                                        >
+                                            <Download size={18} /> تصدير السجل <ChevronDown size={14} className={`transition-transform ${isExportDropdownOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        
+                                        {isExportDropdownOpen && (
+                                            <>
+                                                <div className="fixed inset-0 z-10" onClick={() => setIsExportDropdownOpen(false)} />
+                                                <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-2xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                                    <button 
+                                                        onClick={() => {
+                                                            exportProjectOrdersCSV();
+                                                            setIsExportDropdownOpen(false);
+                                                        }}
+                                                        className="w-full px-5 py-3 text-right text-xs font-black text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 transition-colors"
+                                                    >
+                                                        <FileSpreadsheet size={16} className="text-emerald-600" /> تصدير Excel (.csv)
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setIsExportDropdownOpen(false);
+                                                            const printContent = document.getElementById('project-orders-print-area');
+                                                            if (printContent) {
+                                                                const original = document.body.innerHTML;
+                                                                document.body.innerHTML = printContent.innerHTML;
+                                                                window.print();
+                                                                document.body.innerHTML = original;
+                                                                window.location.reload();
+                                                            }
+                                                        }}
+                                                        className="w-full px-5 py-3 text-right text-xs font-black text-gray-700 hover:bg-red-50 hover:text-red-700 border-t border-gray-50 flex items-center gap-3 transition-colors"
+                                                    >
+                                                        <FileText size={16} className="text-red-600" /> تصدير PDF (طباعة)
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            const printContent = document.getElementById('project-orders-print-area');
+                                            if (printContent) {
+                                                const original = document.body.innerHTML;
+                                                document.body.innerHTML = printContent.innerHTML;
+                                                window.print();
+                                                document.body.innerHTML = original;
+                                                window.location.reload();
+                                            }
+                                        }}
+                                        className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
+                                    >
+                                        <Printer size={18} /> طباعة السجل
+                                    </button>
+                                    <button onClick={() => setSelectedProjectForOrders(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm ml-2">
+                                        <X size={28} />
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="p-0 overflow-y-auto">
+                            <div className="p-0 overflow-y-auto" id="project-orders-print-area">
+                                <div className="p-8 hidden print:block border-b-2 border-gray-900 mb-6">
+                                    <h1 className="text-3xl font-black text-gray-900 text-center uppercase">كشف طلبيات المشروع</h1>
+                                    <div className="flex justify-between mt-6 text-sm font-bold">
+                                        <div className="text-right">
+                                            <p>العميل: {customer.name}</p>
+                                            <p>المشروع: {selectedProjectForOrders.name}</p>
+                                        </div>
+                                        <div className="text-left">
+                                            <p>التاريخ: {new Date().toLocaleDateString('ar-DZ')}</p>
+                                        </div>
+                                    </div>
+                                </div>
                                 <InvoicesTable 
                                     invoices={customer.orders?.filter((o: any) => o.projectId === selectedProjectForOrders.id && o.type !== 'RETURN_SALE' && o.type !== 'RETURN_PURCHASE').map((o: any) => {
                                         const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);

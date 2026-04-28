@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowRight, RotateCcw, CheckCircle, PackageOpen, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { ArrowRight, RotateCcw, CheckCircle, PackageOpen, ShoppingBag, AlertTriangle, Printer } from 'lucide-react';
 import Link from 'next/link';
 
 interface OrderItem {
@@ -11,7 +11,7 @@ interface OrderItem {
     returnedQuantity: number;
     unitPrice: number;
     total: number;
-    product: { name: string; unit: string };
+    product: { name: string; unit: string; quantity: number };
 }
 
 interface Order {
@@ -38,6 +38,7 @@ export default function ReturnOrderPage() {
     const [returnQtys, setReturnQtys] = useState<Record<number, number>>({});
     const [success, setSuccess] = useState(false);
     const [returnOrderNumber, setReturnOrderNumber] = useState('');
+    const [returnOrderId, setReturnOrderId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -62,6 +63,19 @@ export default function ReturnOrderPage() {
         setReturnQtys(prev => ({ ...prev, [itemId]: Math.max(0, Math.min(val, max)) }));
     };
 
+    const handleReturnAll = () => {
+        if (!order) return;
+        const all: Record<number, number> = {};
+        order.items.forEach(item => {
+            const alreadyReturned = item.returnedQuantity || 0;
+            const maxReturnable = !isSale 
+                ? Math.min(item.quantity - alreadyReturned, item.product.quantity)
+                : item.quantity - alreadyReturned;
+            all[item.id] = maxReturnable;
+        });
+        setReturnQtys(all);
+    };
+
     const selectedItems = order?.items.filter(i => (returnQtys[i.id] || 0) > 0) || [];
     const returnTotal = selectedItems.reduce((sum, i) => sum + (returnQtys[i.id] || 0) * i.unitPrice, 0);
 
@@ -70,6 +84,18 @@ export default function ReturnOrderPage() {
             alert('يجب اختيار كمية مرتجعة واحدة على الأقل');
             return;
         }
+
+        // Extra validation for purchase returns (ensure stock is sufficient)
+        if (order.type === 'PURCHASE') {
+            for (const item of selectedItems) {
+                const qty = returnQtys[item.id] || 0;
+                if (qty > item.product.quantity) {
+                    alert(`❌ الكمية المرتجعة من "${item.product.name}" (${qty}) تتجاوز المخزون المتوفر (${item.product.quantity})`);
+                    return;
+                }
+            }
+        }
+
         if (!confirm(`هل أنت متأكد من استرجاع هذه المنتجات؟ لا يمكن التراجع عن هذه العملية.`)) return;
 
         setSaving(true);
@@ -89,6 +115,7 @@ export default function ReturnOrderPage() {
                 const data = await res.json();
                 console.log("Return success data:", data);
                 setReturnOrderNumber(data.returnOrder?.orderNumber || 'N/A');
+                setReturnOrderId(data.returnOrder?.id || null);
                 setSuccess(true);
             } else {
                 const err = await res.json();
@@ -140,14 +167,25 @@ export default function ReturnOrderPage() {
                         <span className="font-black text-gray-900 font-sans">{returnTotal.toLocaleString()} دج</span>
                     </div>
                 </div>
-                <div className="flex gap-3">
-                    <Link href="/orders" className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-2xl font-black text-sm transition-colors">
-                        قائمة الطلبيات
+                <div className="flex gap-3 mt-4">
+                    <Link href="/invoices" className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-2xl font-black text-sm transition-colors text-center inline-block">
+                        قائمة الفواتير
                     </Link>
-                    <Link href="/orders/new?type=SALE" className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-2xl font-black text-sm transition-colors">
+                    <Link href="/orders/new?type=SALE" className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-2xl font-black text-sm transition-colors text-center inline-block">
                         طلبية جديدة
                     </Link>
                 </div>
+                {returnOrderId && (
+                    <div className="mt-3">
+                        <Link 
+                            href={`/orders/${returnOrderId}/print`}
+                            target="_blank"
+                            className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-600 py-3 rounded-2xl font-black text-sm transition-colors border border-blue-200"
+                        >
+                            <Printer size={18} /> طباعة وصل الاسترجاع
+                        </Link>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -192,19 +230,46 @@ export default function ReturnOrderPage() {
                         </div>
                         <div>
                             <p className="text-gray-400 font-bold mb-1">الحالة</p>
-                            <span className={`px-3 py-1 rounded-lg text-xs font-black border inline-block
-                                ${order.status === 'DONE' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
-                                {order.status === 'DONE' ? '✅ مكتملة' : '⏳ معلقة'}
-                            </span>
+                            {(() => {
+                                const totalOrdered = order.items.reduce((sum, i) => sum + i.quantity, 0);
+                                const totalReturned = order.items.reduce((sum, i) => sum + (i.returnedQuantity || 0), 0);
+                                
+                                let label = order.status === 'DONE' ? '✅ مكتملة' : '⏳ معلقة';
+                                let colorClass = order.status === 'DONE' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200';
+                                
+                                if (totalReturned > 0) {
+                                    if (totalReturned >= totalOrdered) {
+                                        label = '🔄 استرجاع كلي';
+                                        colorClass = 'bg-rose-50 text-rose-600 border-rose-200';
+                                    } else {
+                                        label = '🔄 استرجاع جزئي';
+                                        colorClass = 'bg-orange-50 text-orange-600 border-orange-200';
+                                    }
+                                }
+
+                                return (
+                                    <span className={`px-3 py-1 rounded-lg text-xs font-black border inline-block ${colorClass}`}>
+                                        {label}
+                                    </span>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
 
                 {/* Items */}
                 <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-sm">
-                    <div className="p-5 border-b border-gray-100">
-                        <h2 className="font-black text-gray-700">اختر الكميات المرتجعة</h2>
-                        <p className="text-xs text-gray-400 font-medium mt-1">أدخل 0 لعدم استرجاع المنتج</p>
+                    <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                        <div>
+                            <h2 className="font-black text-gray-700">اختر الكميات المرتجعة</h2>
+                            <p className="text-xs text-gray-400 font-medium mt-1">أدخل 0 لعدم استرجاع المنتج</p>
+                        </div>
+                        <button 
+                            onClick={handleReturnAll}
+                            className="text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-xl border border-rose-100 transition-all flex items-center gap-1"
+                        >
+                            استرجاع الكل 🔄
+                        </button>
                     </div>
                     <table className="w-full text-right text-sm">
                         <thead className="bg-gray-50 border-b border-gray-100 text-gray-400 text-xs font-black uppercase">
@@ -219,13 +284,20 @@ export default function ReturnOrderPage() {
                         <tbody className="divide-y divide-gray-100">
                             {order.items.map(item => {
                                 const alreadyReturned = item.returnedQuantity || 0;
-                                const maxReturnable = item.quantity - alreadyReturned;
+                                const maxReturnable = !isSale 
+                                    ? Math.min(item.quantity - alreadyReturned, item.product.quantity)
+                                    : item.quantity - alreadyReturned;
                                 const currentReturnQty = returnQtys[item.id] || 0;
                                 return (
                                     <tr key={item.id} className={`transition-colors ${currentReturnQty > 0 ? 'bg-rose-50' : 'hover:bg-gray-50'}`}>
                                         <td className="px-6 py-4 font-bold text-gray-800">{item.product.name}</td>
                                         <td className="px-6 py-4 text-center font-sans text-gray-600 font-medium">
                                             {item.quantity} {item.product.unit}
+                                            {!isSale && item.product.quantity < (item.quantity - alreadyReturned) && (
+                                                <div className="text-[10px] text-rose-600 font-black mt-2 bg-rose-100/50 p-2 rounded-xl border border-rose-200 animate-pulse">
+                                                    ⚠️ المتاح بالمخزون: {item.product.quantity}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {alreadyReturned > 0

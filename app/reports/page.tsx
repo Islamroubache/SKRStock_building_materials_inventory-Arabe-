@@ -185,15 +185,15 @@ export default function ReportsPage() {
                     </div>
                 )}
 
-                <div className="flex gap-2 w-full lg:w-auto">
-                    <button onClick={reportView === 'performance' ? fetchReports : fetchExpiryStats} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-sm hover:bg-black transition-all">
-                        <RefreshCw size={18} className={(loading || loadingExpiry) ? 'animate-spin' : ''} /> تحديث
+                <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+                    <button onClick={reportView === 'performance' ? fetchReports : fetchExpiryStats} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-gray-800 transition-all shadow-lg">
+                        <RefreshCw size={16} className={(loading || loadingExpiry) ? 'animate-spin' : ''} /> تحديث البيانات
                     </button>
-                    <button onClick={exportToExcel} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-xl font-black text-sm hover:bg-green-700 transition-all shadow-lg shadow-green-200">
-                        <Download size={18} /> Excel
+                    <button onClick={exportToExcel} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs hover:bg-gray-50 transition-all shadow-sm">
+                        <Download size={16} className="text-blue-600" /> تصدير Excel
                     </button>
-                    <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
-                        <Printer size={18} /> طباعة
+                    <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-gray-800 transition-all shadow-lg">
+                        <Printer size={16} /> طباعة التقرير
                     </button>
                 </div>
             </div>

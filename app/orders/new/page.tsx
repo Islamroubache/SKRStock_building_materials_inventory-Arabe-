@@ -55,6 +55,8 @@ interface OrderLine {
     product?: Product;
     quantity: number;
     unitPrice: number;
+    discount: number;
+    newSellPrice?: number;
 }
 
 // --- Utilities ---
@@ -172,7 +174,7 @@ function NewOrderPage() {
         const type = searchParams.get('type');
         if (type === 'PURCHASE') {
             setOrderType('PURCHASE');
-            setExternalOrderNumber('SHR-');
+            setExternalOrderNumber('ACHAT-');
             setOrderStatus('DONE');
         } else {
             setOrderType('SALE');
@@ -211,13 +213,25 @@ function NewOrderPage() {
     const [bankName, setBankName] = useState('');
     const [dueDate, setDueDate] = useState<string>('');
 
-    const [lines, setLines] = useState<OrderLine[]>([{ id: '1', productId: '', quantity: 1, unitPrice: 0 }]);
+    const [lines, setLines] = useState<OrderLine[]>([{ id: '1', productId: '', quantity: 1, unitPrice: 0, discount: 0 }]);
 
     // UI states
     const [loading, setLoading] = useState(false);
     const [invoiceData, setInvoiceData] = useState<any>(null);
     const [showErrors, setShowErrors] = useState(false);
     const [focusedField, setFocusedField] = useState<string | null>(null);
+
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === 'ArrowRight') {
+            const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('.navigable-input'));
+            const index = inputs.indexOf(e.currentTarget);
+            if (index > -1 && index + 1 < inputs.length) {
+                e.preventDefault();
+                inputs[index + 1].focus();
+                inputs[index + 1].select();
+            }
+        }
+    };
 
     useEffect(() => {
         Promise.all([
@@ -254,7 +268,7 @@ function NewOrderPage() {
     }, [customers, projects]);
 
     const subtotal = useMemo(() => {
-        return lines.reduce((acc, line) => acc + (line.quantity * line.unitPrice), 0);
+        return lines.reduce((acc, line) => acc + (line.quantity * Math.max(0, line.unitPrice - line.discount)), 0);
     }, [lines]);
 
     const taxTotal = useMemo(() => {
@@ -285,10 +299,12 @@ function NewOrderPage() {
         return lines.some(line => {
             const selectedProduct = products.find(p => p.id === line.productId);
             if (!selectedProduct) return false;
+            const effectivePrice = line.unitPrice - line.discount;
             if (orderType === 'SALE') {
-                return line.quantity > selectedProduct.quantity || line.unitPrice < selectedProduct.purchasePrice;
+                return line.quantity > selectedProduct.quantity || effectivePrice < selectedProduct.purchasePrice;
             } else {
-                return line.unitPrice > selectedProduct.sellPrice;
+                const effectiveSellPrice = line.newSellPrice !== undefined ? line.newSellPrice : selectedProduct.sellPrice;
+                return line.unitPrice > effectiveSellPrice || effectiveSellPrice < Math.max(selectedProduct.purchasePrice, line.unitPrice);
             }
         });
     }, [lines, products, orderType]);
@@ -303,7 +319,7 @@ function NewOrderPage() {
         return Math.min(100, Math.round(((selectedCustomer.balanceDue + remaining) / selectedCustomer.creditLimit) * 100));
     }, [selectedCustomer, remaining]);
 
-    const handleAddLine = () => setLines([...lines, { id: Math.random().toString(), productId: '', quantity: 1, unitPrice: 0 }]);
+    const handleAddLine = () => setLines([...lines, { id: Math.random().toString(), productId: '', quantity: 1, unitPrice: 0, discount: 0 }]);
     const handleRemoveLine = (id: string) => setLines(lines.filter(l => l.id !== id));
     function updateLine(id: string, updates: Partial<OrderLine>) {
         setLines(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
@@ -325,13 +341,16 @@ function NewOrderPage() {
         } else {
             if (supplierType === 'REGISTERED' && !supplierId) return false;
             if (supplierType === 'GUEST' && !guestSupplierName.trim()) return false;
-            if (!externalOrderNumber || externalOrderNumber === 'SHR-') return false;
+            if (!externalOrderNumber || externalOrderNumber === 'ACHAT-') return false;
         }
 
         if (lines.length === 0) return false;
         for (const line of lines) {
             if (!line.productId || line.quantity <= 0 || line.unitPrice <= 0) return false;
-            if (orderType === 'PURCHASE' && line.product && line.unitPrice > line.product.sellPrice) return false;
+            if (orderType === 'PURCHASE' && line.product) {
+                const effectiveSellPrice = line.newSellPrice !== undefined ? line.newSellPrice : line.product.sellPrice;
+                if (line.unitPrice > effectiveSellPrice || effectiveSellPrice < Math.max(line.product.purchasePrice, line.unitPrice)) return false;
+            }
         }
 
         if (!validateStock()) return false;
@@ -386,7 +405,8 @@ function NewOrderPage() {
             items: lines.map(l => ({
                 productId: l.productId,
                 quantity: l.quantity,
-                unitPrice: l.unitPrice
+                unitPrice: Math.max(0, l.unitPrice - l.discount),
+                newSellPrice: l.newSellPrice
             }))
         };
 
@@ -579,15 +599,15 @@ function NewOrderPage() {
                                 <FileText size={18} /> رقم الفاتورة الخارجية
                             </h2>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-600">SHR-</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-600">ACHAT-</span>
                                 <input
                                     type="text"
-                                    value={externalOrderNumber.replace('SHR-', '')}
+                                    value={externalOrderNumber.replace('ACHAT-', '')}
                                     onChange={(e) => {
-                                        const val = e.target.value.replace('SHR-', '');
-                                        setExternalOrderNumber('SHR-' + val);
+                                        const val = e.target.value.replace('ACHAT-', '');
+                                        setExternalOrderNumber('ACHAT-' + val);
                                     }}
-                                    className={`w-full pl-14 pr-4 py-4 bg-gray-50 border rounded-2xl text-lg font-black focus:ring-2 focus:ring-emerald-500 outline-none transition-all ${showErrors && (!externalOrderNumber || externalOrderNumber === 'SHR-') ? 'border-rose-500 ring-2 ring-rose-500' : 'border-gray-200'}`}
+                                    className={`w-full pl-14 pr-4 py-4 bg-gray-50 border rounded-2xl text-lg font-black focus:ring-2 focus:ring-emerald-500 outline-none transition-all ${showErrors && (!externalOrderNumber || externalOrderNumber === 'ACHAT-') ? 'border-rose-500 ring-2 ring-rose-500' : 'border-gray-200'}`}
                                     placeholder="أدخل رقم الفاتورة..."
                                 />
                             </div>
@@ -923,44 +943,108 @@ function NewOrderPage() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                             <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50">
                                                 <span className="text-xs font-bold text-gray-500">الكمية</span>
                                                 <input
                                                     type="number" min="1" dir="ltr"
                                                     value={line.quantity || ''}
                                                     onChange={e => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                                                    className="bg-transparent border-none outline-none text-gray-900 font-sans font-black text-right w-24 text-lg"
+                                                    onKeyDown={handleInputKeyDown}
+                                                    className="navigable-input bg-transparent border-none outline-none text-gray-900 font-sans font-black text-right w-24 text-lg"
                                                 />
                                             </div>
-                                            <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50 relative">
+                                            {/* Remise Field (For Sales) */}
+                                            {orderType === 'SALE' && selectedProduct && (
+                                                <div className={`border rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-orange-400 ${
+                                                    line.discount > 0 ? 'bg-orange-50/50 border-orange-200' : 'bg-white/50 border-gray-200'
+                                                }`}>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-orange-500">تخفيض / Remise</span>
+                                                        {line.discount > 0 && selectedProduct && (
+                                                            <span className="text-[9px] font-bold text-gray-400">أقصى: {selectedProduct.sellPrice - selectedProduct.purchasePrice} دج</span>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type="number" min="0" dir="ltr"
+                                                        value={line.discount || ''}
+                                                        onChange={e => {
+                                                            const maxDiscount = selectedProduct ? selectedProduct.sellPrice - selectedProduct.purchasePrice : 0;
+                                                            const val = Math.min(parseFloat(e.target.value) || 0, Math.max(0, maxDiscount));
+                                                            updateLine(line.id, { discount: val });
+                                                        }}
+                                                        onKeyDown={handleInputKeyDown}
+                                                        className="navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-24 text-lg text-orange-500"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* New Sell Price Field (For Purchases) */}
+                                            {orderType === 'PURCHASE' && selectedProduct && (
+                                                <div className={`bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50 relative ${
+                                                    (line.newSellPrice !== undefined && line.newSellPrice < Math.max(selectedProduct.purchasePrice, line.unitPrice)) ? 'ring-2 ring-rose-500/50' : ''
+                                                }`}>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-gray-500">سعر البيع الافرادي</span>
+                                                        <span className="text-[10px] text-blue-500 font-bold">الحالي: {selectedProduct.sellPrice} دج</span>
+                                                    </div>
+                                                    <input
+                                                        type="number" min="0" dir="ltr"
+                                                        value={line.newSellPrice !== undefined ? line.newSellPrice : selectedProduct.sellPrice}
+                                                        onChange={e => updateLine(line.id, { newSellPrice: parseFloat(e.target.value) || 0 })}
+                                                        onKeyDown={handleInputKeyDown}
+                                                        className="navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-24 text-lg text-blue-600"
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-gray-500">{orderType === 'SALE' ? 'سعر البيع الافرادي' : 'تكلفة الشراء (دج)'}</span>
                                                     {orderType === 'PURCHASE' && selectedProduct && (
                                                         <span className="text-[10px] text-blue-500 font-bold">سعر البيع الحالي: {selectedProduct.sellPrice} دج</span>
                                                     )}
+                                                    {orderType === 'SALE' && line.discount > 0 && (
+                                                        <span className="text-[10px] text-orange-500 font-bold">بعد التخفيض: {(line.unitPrice - line.discount).toLocaleString()} دج</span>
+                                                    )}
                                                 </div>
-                                                <input
-                                                    type="number" min="1" dir="ltr"
-                                                    value={line.unitPrice || ''}
-                                                    onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                                                    className={`bg-transparent border-none outline-none font-sans font-black text-right w-28 text-lg ${isPriceWarn ? 'text-rose-400' : 'text-emerald-400'}`}
-                                                />
+                                                {orderType === 'SALE' ? (
+                                                    <span className={`font-sans font-black text-lg ${(line.unitPrice - line.discount) < (selectedProduct?.purchasePrice || 0) ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                        {line.unitPrice.toLocaleString()}
+                                                    </span>
+                                                ) : (
+                                                    <input
+                                                        type="number" min="1" dir="ltr"
+                                                        value={line.unitPrice || ''}
+                                                        onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                                                        onKeyDown={handleInputKeyDown}
+                                                        className={`navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-28 text-lg ${isPriceWarn ? 'text-rose-400' : 'text-emerald-400'}`}
+                                                    />
+                                                )}
                                             </div>
                                         </div>
 
                                         <div className="flex flex-wrap justify-between items-end border-t border-gray-200 pt-4">
                                             <div className="flex flex-col gap-1">
                                                 {isQtyWarn && <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md mb-1 w-fit">⚠️ الكمية المطلوبة تتجاوز المخزون المتاح ({selectedProduct.quantity})</span>}
-                                                {isPriceWarn && <span className="text-[11px] font-black font-sans bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md w-fit">⚠️ تنبيه: سعر البيع أقل من التكلفة ({selectedProduct.purchasePrice} دج)</span>}
-                                                {orderType === 'PURCHASE' && selectedProduct && line.unitPrice > selectedProduct.sellPrice && (
-                                                    <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md w-fit">❌ خطأ: تكلفة الشراء ({line.unitPrice} دج) أكبر من سعر البيع الحالي ({selectedProduct.sellPrice} دج)</span>
+                                                {orderType === 'SALE' && selectedProduct && (line.unitPrice - line.discount) < selectedProduct.purchasePrice && <span className="text-[11px] font-black font-sans bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md w-fit">⚠️ تنبيه: السعر بعد التخفيض ({(line.unitPrice - line.discount)} دج) أقل من التكلفة ({selectedProduct.purchasePrice} دج)</span>}
+                                                {orderType === 'PURCHASE' && selectedProduct && (
+                                                    (() => {
+                                                        const effectiveSellPrice = line.newSellPrice !== undefined ? line.newSellPrice : selectedProduct.sellPrice;
+                                                        if (line.unitPrice > effectiveSellPrice) {
+                                                            return <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md w-fit">❌ خطأ: تكلفة الشراء ({line.unitPrice} دج) أكبر من سعر البيع الافرادي ({effectiveSellPrice} دج)</span>;
+                                                        }
+                                                        if (effectiveSellPrice < Math.max(selectedProduct.purchasePrice, line.unitPrice)) {
+                                                            return <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md w-fit">❌ خطأ: سعر البيع ({effectiveSellPrice} دج) لا يمكن أن يكون أقل من التكلفة ({Math.max(selectedProduct.purchasePrice, line.unitPrice)} دج)</span>;
+                                                        }
+                                                        return null;
+                                                    })()
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <div className="text-left font-sans flex flex-col">
                                                     <span className="text-[10px] uppercase text-gray-600 font-bold tracking-widest block mb-1">المجموع الجزئي (Line Total)</span>
-                                                    <span className="text-2xl font-black text-gray-900">{(line.quantity * line.unitPrice).toLocaleString()} <span className="text-sm text-gray-500">دج</span></span>
+                                                    <span className="text-2xl font-black text-gray-900">{(line.quantity * Math.max(0, line.unitPrice - line.discount)).toLocaleString()} <span className="text-sm text-gray-500">دج</span></span>
                                                 </div>
                                                 {lines.length > 1 && (
                                                     <button onClick={() => handleRemoveLine(line.id)} className="w-10 h-10 flex justify-center items-center rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-gray-900 transition-colors border border-rose-500/20">
@@ -1098,12 +1182,22 @@ function NewOrderPage() {
                         )}
                     </div>
 
-                    {/* STEP 6: NOTES */}
+                    {/* STEP 6: REMISE & NOTES */}
                     <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl mb-24 lg:mb-0">
-                        <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">6. أدرج ملحقات نصية للطباعة <BookOpen size={16} /></h2>
+                        <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">6. إجمالي التخفيض (Remise Total) <Percent size={16} /></h2>
+                        
+                        {orderType === 'SALE' && (
+                            <div className="bg-orange-50/50 border border-orange-200 rounded-xl px-4 py-4 flex justify-between items-center mb-4">
+                                <span className="font-bold text-orange-600">قيمة التخفيض الإجمالية:</span>
+                                <span className="text-2xl font-black text-orange-500 font-sans tracking-tight">
+                                    {lines.reduce((acc, line) => acc + ((line.discount || 0) * line.quantity), 0).toLocaleString()} دج
+                                </span>
+                            </div>
+                        )}
+
                         <textarea
-                            rows={3}
-                            placeholder="ملاحظات تظهر وتُطبع على الفاتورة (مثلا: النقل على عاتق المشتري)..."
+                            rows={2}
+                            placeholder="ملاحظات تظهر وتُطبع على الفاتورة (اختياري)..."
                             value={notes} onChange={e => setNotes(e.target.value)}
                             className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500/50 resize-none font-medium leading-relaxed"
                         />

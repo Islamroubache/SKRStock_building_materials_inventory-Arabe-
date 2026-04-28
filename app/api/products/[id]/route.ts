@@ -64,7 +64,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                     quantity: body.quantity !== undefined ? parseInt(String(body.quantity)) : currentProduct.quantity,
                     minQuantity: body.minQuantity !== undefined ? parseInt(String(body.minQuantity)) : currentProduct.minQuantity,
                     unit: body.unit !== undefined ? body.unit : currentProduct.unit,
-                    isArchived: body.isArchived !== undefined ? body.isArchived : (currentProduct as any).isArchived,
+                    isArchived: (body.isArchived === true && currentProduct.quantity > 0) 
+                        ? (function() { throw new Error('لا يمكن أرشفة منتج لا يزال لديه كمية في المخزون') })()
+                        : (body.isArchived !== undefined ? body.isArchived : (currentProduct as any).isArchived),
                     supplier: (body.supplierId !== undefined)
                         ? (body.supplierId && !isNaN(Number(body.supplierId)) ? { connect: { id: Number(body.supplierId) } } : { disconnect: true })
                         : undefined,
@@ -131,6 +133,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
         if (activeOrders > 0) {
             return NextResponse.json({ error: 'لا يمكن حذف منتج لديه طلبات نشطة' }, { status: 400 });
+        }
+
+        const product = await prisma.product.findUnique({ where: { id }, select: { quantity: true } });
+        if (product && product.quantity > 0) {
+            return NextResponse.json({ error: 'لا يمكن أرشفة منتج لا يزال لديه كمية في المخزون' }, { status: 400 });
         }
 
         // 2. Perform Soft Delete (Archiving)

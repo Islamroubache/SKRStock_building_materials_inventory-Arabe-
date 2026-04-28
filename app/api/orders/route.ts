@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         // --- PURCHASE ORDER LOGIC ---
         if (type === 'PURCHASE') {
             // Check for duplicate external number for the same supplier
-            if (externalNumber && externalNumber !== 'SHR-') {
+            if (externalNumber && externalNumber !== 'ACHAT-') {
                 const existingOrder = await prisma.order.findFirst({
                     where: {
                         supplierId: supplierId || null,
@@ -86,9 +86,24 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Generate orderNumber by combining externalNumber and supplier ID/Guest suffix
-            const supplierSuffix = supplierId ? `S${supplierId}` : `GST-${Date.now().toString().slice(-4)}`;
-            const orderNumber = bodyOrderNumber || `${externalNumber || 'SHR'}-${supplierSuffix}`;
+            // Generate sequence for the month
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            
+            const count = await prisma.order.count({
+                where: {
+                    type: 'PURCHASE',
+                    orderDate: { gte: startOfMonth }
+                }
+            });
+            const aaa = String(count + 1).padStart(3, '0');
+            
+            // Generate orderNumber: [externalNumber]/yymmaaa
+            // Note: externalNumber already includes 'ACHAT-' from the frontend
+            const userRef = externalNumber || 'ACHAT-';
+            const orderNumber = bodyOrderNumber || `${userRef}/${yy}${mm}${aaa}`;
             const result = await prisma.$transaction(async (tx) => {
                 const orderData: any = {
                     type,
@@ -146,14 +161,20 @@ export async function POST(request: Request) {
 
                         const shouldTrackBatch = product.hasBatches || (product as any).hasExpiryDate;
 
+                        const updateData: any = {
+                            quantity: { increment: newQty },
+                            avgPurchasePrice: newAvgPrice,
+                            purchasePrice: newAvgPrice,
+                            hasBatches: shouldTrackBatch ? true : product.hasBatches
+                        };
+
+                        if (item.newSellPrice !== undefined && item.newSellPrice >= Math.max(product.purchasePrice, newUnitCost)) {
+                            updateData.sellPrice = item.newSellPrice;
+                        }
+
                         await tx.product.update({
                             where: { id: item.productId },
-                            data: {
-                                quantity: { increment: newQty },
-                                avgPurchasePrice: newAvgPrice,
-                                purchasePrice: newAvgPrice,
-                                hasBatches: shouldTrackBatch ? true : product.hasBatches
-                            }
+                            data: updateData
                         });
 
                         if (shouldTrackBatch) {

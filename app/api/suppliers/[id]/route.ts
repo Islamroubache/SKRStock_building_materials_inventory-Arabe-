@@ -9,28 +9,105 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         const supplier = await prisma.supplier.findUnique({
             where: { id },
             include: {
-                products: {
-                    select: { id: true, name: true, code: true, quantity: true, unit: true, purchasePrice: true, avgPurchasePrice: true }
-                },
                 orders: {
-                    where: { type: 'PURCHASE' },
+                    where: { type: { in: ['PURCHASE', 'RETURN_PURCHASE'] } },
                     orderBy: { orderDate: 'desc' },
                     include: {
+                        invoice: {
+                            include: { supplierPayments: true }
+                        },
+                        project: { select: { id: true, name: true } },
                         items: {
                             include: {
-                                product: { select: { id: true, name: true, unit: true, quantity: true } }
+                                product: { select: { id: true, name: true, unit: true, quantity: true, code: true, purchasePrice: true, avgPurchasePrice: true } }
                             }
                         }
                     }
                 },
                 payments: {
+                    include: {
+                        invoice: {
+                            include: {
+                                order: {
+                                    include: { project: { select: { id: true, name: true } } }
+                                }
+                            }
+                        }
+                    },
                     orderBy: { paymentDate: 'desc' }
                 }
             }
         });
+
         if (!supplier) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-        return NextResponse.json(supplier);
-    } catch (e) { return NextResponse.json({ error: 'Failed' }, { status: 500 }); }
+
+        // Build a map of product stats and history
+        const productStatsMap = new Map<number, any>();
+
+        (supplier.orders || []).forEach((o: any) => {
+            if (o.type !== 'PURCHASE') return;
+            
+            (o.items || []).forEach((item: any) => {
+                if (!item.product) return;
+                const pid = item.productId;
+                if (!productStatsMap.has(pid)) {
+                    productStatsMap.set(pid, {
+                        ...item.product,
+                        firstPurchase: new Date(o.orderDate),
+                        lastPurchase: new Date(o.orderDate),
+                        totalPurchasedQty: 0,
+                        totalPurchasedAmount: 0,
+                        purchaseHistory: []
+                    });
+                }
+
+                const stats = productStatsMap.get(pid);
+                const orderDate = new Date(o.orderDate);
+                if (orderDate < stats.firstPurchase) stats.firstPurchase = orderDate;
+                if (orderDate > stats.lastPurchase) stats.lastPurchase = orderDate;
+                
+                stats.totalPurchasedQty += item.quantity;
+                stats.totalPurchasedAmount += item.total;
+                
+                stats.purchaseHistory.push({
+                    id: item.id,
+                    date: o.orderDate,
+                    quantity: item.quantity,
+                    returnedQuantity: item.returnedQuantity || 0,
+                    unitPrice: item.unitPrice,
+                    total: item.total,
+                    orderNumber: o.orderNumber,
+                    product: item.product
+                });
+            });
+        });
+
+        // Ensure all products linked to supplier are included even if no orders
+        const directProducts = await prisma.product.findMany({
+            where: { supplierId: id },
+            select: { id: true, name: true, code: true, quantity: true, unit: true, purchasePrice: true, avgPurchasePrice: true }
+        });
+
+        directProducts.forEach(p => {
+            if (!productStatsMap.has(p.id)) {
+                productStatsMap.set(p.id, {
+                    ...p,
+                    firstPurchase: null,
+                    lastPurchase: null,
+                    totalPurchasedQty: 0,
+                    totalPurchasedAmount: 0,
+                    purchaseHistory: []
+                });
+            }
+        });
+
+        const products = Array.from(productStatsMap.values()).sort((a, b) => b.lastPurchase - a.lastPurchase);
+
+        return NextResponse.json({ ...supplier, products });
+    } catch (e) {
+        console.error(e);
+        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> | { id: string } }) {

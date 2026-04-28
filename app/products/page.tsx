@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
-import { Search, Plus, Edit, Activity, Trash2, X, AlertTriangle, CheckCircle, Package, AlertCircle, Printer, FileText, Table as TableIcon, Calendar, ChevronDown } from 'lucide-react';
+import { Search, Plus, Edit, Activity, Trash2, X, AlertTriangle, CheckCircle, Package, AlertCircle, Printer, FileText, Table as TableIcon, Calendar, ChevronDown, Download, Archive } from 'lucide-react';
 import { exportProductsToExcel } from '@/lib/export-products';
 import { exportProductsToPDF } from '@/lib/export-products-pdf';
 import { getExpiryStatus, getDaysRemaining } from '@/lib/product-helpers';
@@ -71,7 +71,7 @@ function ProductsContent() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [formData, setFormData] = useState<Partial<Product>>({
         name: '', category: 'مواد بناء', purchasePrice: 0, sellPrice: 0,
-        quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true
+        quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false
     });
 
     // UI specific states for the panel
@@ -196,7 +196,7 @@ function ProductsContent() {
             setEditingProduct(null);
             setFormData({
                 name: '', category: 'مواد بناء', purchasePrice: 0, sellPrice: 0,
-                quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: true
+                quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false
             });
         }
         setEnableCodeEdit(false);
@@ -255,7 +255,13 @@ function ProductsContent() {
         }
     };
 
-    const handleDeleteClick = (product: Product) => setDeleteDialog({ isOpen: true, product });
+    const handleDeleteClick = (product: Product) => {
+        if (product.quantity > 0) {
+            showToast(`❌ لا يمكن أرشفة المنتج. لا تزال هناك كمية في المخزون (${product.quantity} ${product.unit}). يجب تصفية المخزون أولاً.`, 'error');
+            return;
+        }
+        setDeleteDialog({ isOpen: true, product });
+    };
     const confirmDelete = async () => {
         if (!deleteDialog.product) return;
         try {
@@ -428,8 +434,8 @@ function ProductsContent() {
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end relative">
-                    <button onClick={handlePrint} className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-bold transition-colors">
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end relative">
+                    <button onClick={handlePrint} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg flex items-center gap-2">
                         <Printer size={16} /> طباعة
                     </button>
 
@@ -437,44 +443,43 @@ function ProductsContent() {
                     <div className="relative">
                         <button
                             onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                            onBlur={() => setTimeout(() => setExportMenuOpen(false), 200)}
-                            className="flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-sm font-bold transition-colors"
+                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm flex items-center gap-2"
                         >
-                            تصدير  <ChevronDown size={16} />
+                            <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
                         {exportMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50">
+                            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                                 <button
                                     onClick={() => { exportProductsToExcel(filteredProducts); setExportMenuOpen(false); }}
-                                    className="w-full text-right flex items-center gap-2 px-4 py-2 text-emerald-700 hover:bg-emerald-50 transition-colors text-sm font-bold"
+                                    className="w-full text-right flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-b border-gray-50"
                                 >
-                                    <TableIcon size={16} /> Excel
+                                    <TableIcon size={16} className="text-emerald-600" /> Excel (.xlsx)
                                 </button>
                                 <button
                                     onClick={() => { exportProductsToPDF(filteredProducts); setExportMenuOpen(false); }}
-                                    className="w-full text-right flex items-center gap-2 px-4 py-2 text-red-700 hover:bg-red-50 transition-colors text-sm font-bold border-t border-gray-100"
+                                    className="w-full text-right flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-700 transition-colors"
                                 >
-                                    <FileText size={16} /> PDF
+                                    <FileText size={16} className="text-rose-600" /> PDF (.pdf)
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    <div className="w-px h-8 bg-gray-200 mx-2 hidden sm:block"></div>
+                    <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block"></div>
 
                     <button
                         onClick={() => setViewArchived(!viewArchived)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm border ${viewArchived
-                            ? 'bg-amber-100 text-amber-700 border-amber-200'
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-sm border ${viewArchived
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                             }`}
                         title={viewArchived ? "العودة للمنتجات النشطة" : "عرض المنتجات المؤرشفة"}
                     >
-                        <AlertTriangle size={18} className={viewArchived ? "text-amber-600" : "text-gray-400"} />
+                        <Archive size={16} className={viewArchived ? "text-amber-600" : "text-gray-400"} />
                         {viewArchived ? "عرض النشطة" : "الأرشيف"}
                     </button>
 
-                    <button onClick={() => handleOpenPanel()} className="flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all shadow-md shadow-blue-500/20">
+                    <button onClick={() => handleOpenPanel()} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
                         <Plus size={18} /> منتج جديد
                     </button>
                 </div>
@@ -579,14 +584,6 @@ function ProductsContent() {
                                                 <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => handleOpenPanel(p)} className="text-gray-500 hover:text-blue-600 bg-white shadow-sm border p-1 rounded-md hover:border-blue-200" title="تعديل">
                                                         <Edit size={14} />
-                                                    </button>
-                                                    {p.hasBatches && (
-                                                        <button onClick={() => setBatchesDialog({ isOpen: true, product: p })} className="text-blue-600 hover:text-blue-800 bg-white shadow-sm border p-1 rounded-md hover:border-blue-200" title="تسيير الدفعات">
-                                                            <Package size={14} />
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => openHistory(p)} className="text-gray-500 hover:text-emerald-600 bg-white shadow-sm border p-1 rounded-md hover:border-emerald-200" title="الحركة">
-                                                        <Activity size={14} />
                                                     </button>
 
                                                     {viewArchived ? (

@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 
 interface Product {
@@ -36,6 +39,8 @@ export default function SuppliersPage() {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID'>('ALL');
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
@@ -213,13 +218,91 @@ export default function SuppliersPage() {
         }
     };
 
-    const filteredSuppliers = suppliers.filter(s => s.name.includes(searchTerm) || (s.phone && s.phone.includes(searchTerm)));
+    const handleArchive = async (id: number) => {
+        const supplier = suppliers.find(s => s.id === id);
+        if (supplier && supplier.balanceDue !== 0) {
+            alert('لا يمكن أرشفة مورد لديه مستحقات عالقة (ديون). يجب أن يكون الرصيد 0 دج للأرشفة.');
+            return;
+        }
+
+        if (!confirm('هل أنت متأكد من أرشفة هذا المورد؟ لن يظهر في القوائم النشطة.')) return;
+        try {
+            const res = await fetch(`/api/suppliers/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isArchived: true })
+            });
+            if (res.ok) {
+                fetchSuppliers();
+            } else {
+                alert('فشل في أرشفة المورد');
+            }
+        } catch (e) {
+            alert('خطأ في الاتصال');
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExport = () => {
+        const data = filteredSuppliers.map(s => ({
+            'اسم المورد': s.name,
+            'النشاط': s.activity || '---',
+            'الهاتف': s.phone || '---',
+            'الرصيد الحالي': s.balanceDue,
+            'عدد المنتجات': s._count?.products || 0,
+            'العنوان': s.address || '---',
+            'البلدية': s.commune || '---',
+            'الولاية': s.wilaya || '---'
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "الموردين");
+        XLSX.writeFile(wb, `قائمة_الموردين_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const handleExportPDF = () => {
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(20);
+        doc.text('Liste des Fournisseurs', 14, 22);
+
+        const tableData = filteredSuppliers.map(s => [
+            s.name,
+            s.phone || '---',
+            s.balanceDue + ' DZD',
+            s._count?.products || 0,
+            s.activity || '---',
+            s.wilaya || '---'
+        ]);
+
+        autoTable(doc, {
+            startY: 35,
+            head: [['Nom', 'Telephone', 'Solde (Dette)', 'Produits', 'Activite', 'Wilaya']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [79, 70, 229], textColor: 255 },
+            styles: { fontSize: 8, font: 'helvetica' }
+        });
+
+        doc.save(`fournisseurs_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
+    const filteredSuppliers = suppliers.filter(s => {
+        const matchesSearch = s.name.includes(searchTerm) || (s.phone && s.phone.includes(searchTerm));
+        const matchesBalance =
+            balanceFilter === 'ALL' ? true :
+                balanceFilter === 'DEBT' ? s.balanceDue > 0 :
+                    s.balanceDue <= 0;
+        return matchesSearch && matchesBalance;
+    });
 
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
 
-            {/* HEADER */}
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center no-print">
                 <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
                     <Building className="text-indigo-600" /> إدارة الموردين
                 </h1>
@@ -229,11 +312,55 @@ export default function SuppliersPage() {
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
                             type="text"
-                            placeholder="بحث باسم المورد..."
+                            placeholder="بحث بالاسم أو الهاتف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                         />
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
+                        >
+                            <Printer size={16} /> طباعة
+                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
+                            >
+                                <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isExportMenuOpen && (
+                                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                                    <button
+                                        onClick={() => {
+                                            handleExport();
+                                            setIsExportMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border-b border-gray-100"
+                                    >
+                                        <FileSpreadsheet size={16} className="text-emerald-600" /> Excel (إكسل)
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            handleExportPDF();
+                                            setIsExportMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                    >
+                                        <FileText size={16} className="text-rose-600" /> PDF (بي دي أف)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <Link
+                            href="/suppliers/archive"
+                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
+                        >
+                            <Archive size={16} /> الأرشيف
+                        </Link>
                     </div>
                     <button
                         onClick={() => handleOpenSheet()}
@@ -244,84 +371,104 @@ export default function SuppliersPage() {
                 </div>
             </div>
 
-            {/* TABLE */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-right text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
-                            <tr>
-                                <th className="px-5 py-4 font-semibold">اسم المورد</th>
-                                <th className="px-5 py-4 font-semibold">تواصل</th>
-                                <th className="px-5 py-4 font-semibold">المنتجات توريد</th>
-                                <th className="px-5 py-4 font-semibold">المبلغ المستحق له (دج)</th>
-                                <th className="px-5 py-4 font-semibold text-center">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {loading ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-gray-500 font-medium">جاري التحميل...</td></tr>
-                            ) : filteredSuppliers.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-gray-500 font-medium">لا يوجد موردين</td></tr>
-                            ) : (
-                                filteredSuppliers.map((s) => {
-                                    const isExpanded = expandedRows.includes(s.id);
-                                    return (
-                                        <React.Fragment key={s.id}>
-                                            <tr className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-5 py-4">
-                                                    <div className="flex items-center gap-3 text-right" dir="rtl">
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
-                                                            <img 
-                                                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(s.name)}&backgroundColor=transparent&textColor=4f46e5&fontWeight=900&fontSize=40`} 
-                                                                alt={s.name}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        </div>
-                                                        <span className="font-bold text-gray-900">{s.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-4 text-gray-600">
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span dir="ltr" className="text-right">{s.phone || '-'}</span>
-                                                        <span className="text-xs text-gray-400">{s.email || ''}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded font-bold text-xs">
-                                                        {s._count?.products || 0} منتج
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    {s.balanceDue > 0 ? (
-                                                        <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-200" dir="ltr">
-                                                            {s.balanceDue.toLocaleString()}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-500 font-medium whitespace-nowrap" dir="ltr">0</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    <div className="flex items-center justify-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                        <Link href={`/suppliers/${s.id}`} className="text-gray-400 hover:text-indigo-600 transition-colors" title="عرض التفاصيل">
-                                                            <ExternalLink size={18} />
-                                                        </Link>
-                                                        <button onClick={() => handleOpenSheet(s)} className="text-gray-400 hover:text-indigo-600 transition-colors">
-                                                            <Edit size={18} />
-                                                        </button>
-                                                        <button onClick={() => setDeleteDialog({ isOpen: true, id: s.id })} className="text-gray-400 hover:text-red-600 transition-colors">
-                                                            <Trash2 size={18} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </React.Fragment>
-                                    )
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="flex items-center gap-6 border-b border-gray-200 no-print">
+                <button
+                    onClick={() => setBalanceFilter('ALL')}
+                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'ALL' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                    الكل
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'ALL' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {suppliers.length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('DEBT')}
+                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'DEBT' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                    لهم ديون
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'DEBT' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {suppliers.filter(s => s.balanceDue > 0).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('PAID')}
+                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'PAID' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                    خالصين
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {suppliers.filter(s => s.balanceDue <= 0).length}
+                    </span>
+                </button>
             </div>
+
+            {loading ? (
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium">جاري التحميل...</div>
+            ) : filteredSuppliers.length === 0 ? (
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-xl">لا يوجد موردين مطابقون للبحث</div>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    {filteredSuppliers.map(supplier => (
+                        <div key={supplier.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4 cursor-pointer" onClick={() => window.location.href = `/suppliers/${supplier.id}`}>
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
+                                <img 
+                                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(supplier.name)}&backgroundColor=transparent&textColor=4f46e5&fontWeight=900&fontSize=40`} 
+                                    alt={supplier.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+
+                            <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                                <div className="min-w-0 flex flex-col gap-1">
+                                    <h3 className="font-bold text-gray-900 truncate text-base" title={supplier.name}>{supplier.name}</h3>
+                                    {supplier.activity && (
+                                        <p className="text-gray-500 text-[10px] font-bold truncate leading-tight -mt-0.5">{supplier.activity}</p>
+                                    )}
+                                    {supplier.phone && (
+                                        <p className="text-indigo-600 bg-indigo-50 self-start px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1.5" dir="ltr">
+                                            <Phone size={12} className="text-indigo-500" />
+                                            {supplier.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col justify-center">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                                            <CreditCard size={14} /> الرصيد (مستحقات):
+                                        </span>
+                                        <span className={`text-xs font-bold ${supplier.balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            {supplier.balanceDue.toLocaleString()} دج
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col justify-center text-sm font-bold text-gray-600 gap-1">
+                                    <div className="flex justify-between w-full max-w-[150px]">
+                                        <span>منتجات موَرَّدة:</span>
+                                        <span className="text-indigo-600">{supplier._count?.products || 0}</span>
+                                    </div>
+                                    <div className="flex justify-between w-full max-w-[150px]">
+                                        <span>طلبات شراء:</span>
+                                        <span className="text-gray-500">-</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-2 border-r border-gray-100 pr-4 shrink-0">
+                                {supplier.balanceDue === 0 && (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleArchive(supplier.id); }} 
+                                        className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors"
+                                        title="أرشفة"
+                                    >
+                                        <Archive size={18} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* ADD/EDIT SHEET */}
             {isSheetOpen && (

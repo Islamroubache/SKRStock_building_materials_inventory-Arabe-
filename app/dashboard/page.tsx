@@ -42,80 +42,90 @@ export default function Dashboard() {
     return (
         <div className="space-y-6 font-tajawal">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
-                        <Package size={24} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
+                {/* Products */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-blue-50 p-3.5 rounded-2xl text-blue-600 relative z-10">
+                        <Package size={22} />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">المنتجات</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.totalProducts || 0}</h3>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-                        <TrendingUp size={24} />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">تحصيل مبيعات اليوم</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todayNet?.toLocaleString() || 0} دج</h3>
-                        <p className="text-[10px] text-gray-400 mt-1">المبالغ المدفوعة في طلبيات اليوم</p>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider block mb-0.5">المنتجات</span>
+                        <h3 className="text-2xl font-black text-gray-900 font-sans">{stats?.totalProducts || 0}</h3>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
-                        <CreditCard size={24} />
+                {/* Sales Net Today */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-green-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-green-50 p-3.5 rounded-2xl text-green-600 relative z-10">
+                        <TrendingUp size={22} />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">تحصيلات اليوم</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todayCustomerCollections?.toLocaleString() || 0} دج</h3>
-                        <p className="text-[10px] text-gray-400 mt-1">تحصيل ديون فواتير سابقة</p>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-rose-100 text-rose-600 rounded-lg">
-                        <ArrowDownLeft size={24} />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">مدفوعات الموردين</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.todaySupplierPayments?.toLocaleString() || 0} دج</h3>
-                        <p className="text-[10px] text-gray-400 mt-1">المبالغ المدفوعة للموردين</p>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-green-500 uppercase tracking-wider block mb-0.5">مبيعات اليوم</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todayNet?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
                     </div>
                 </div>
 
-                <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 shadow-xl flex items-center gap-4 group hover:scale-105 transition-all">
-                    <div className="p-3 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-500/20">
-                        <TrendingUp size={24} />
+                {/* Collections Today */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-emerald-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-emerald-50 p-3.5 rounded-2xl text-emerald-600 relative z-10">
+                        <CreditCard size={22} />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-blue-400">سيولة اليوم الفعلية</p>
-                        <h3 className="text-2xl font-black text-white font-sans">
-                            {((stats?.todayNet || 0) + (stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} دج
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider block mb-0.5">تحصيلات اليوم</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todayCustomerCollections?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                    </div>
+                </div>
+
+                {/* Supplier Payments Today */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-rose-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-rose-50 p-3.5 rounded-2xl text-rose-600 relative z-10">
+                        <ArrowDownLeft size={22} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-rose-500 uppercase tracking-wider block mb-0.5">مدفوعات اليوم</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todaySupplierPayments?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                    </div>
+                </div>
+
+                {/* Net Liquidity (Dark Card) */}
+                <div className="bg-gray-900 p-5 rounded-[2rem] border border-gray-800 shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full"></div>
+                    <div className="bg-blue-600 p-3.5 rounded-2xl text-white relative z-10 shadow-lg shadow-blue-500/20">
+                        <TrendingUp size={22} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block mb-0.5">السيولة الفعلية</span>
+                        <h3 className="text-lg font-black text-white font-sans truncate">
+                            {((stats?.todayNet || 0) + (stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} <span className="text-[8px] text-gray-500">دج</span>
                         </h3>
-                        <p className="text-[9px] text-gray-500 mt-1">المبيعات + التحصيلات - المدفوعات</p>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-red-100 text-red-600 rounded-lg">
-                        <AlertTriangle size={24} />
+                {/* Low Stock */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-red-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-red-50 p-3.5 rounded-2xl text-red-600 relative z-10">
+                        <AlertTriangle size={22} />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">مخزون منخفض</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{stats?.lowStockCount || 0}</h3>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-red-500 uppercase tracking-wider block mb-0.5">مخزون منخفض</span>
+                        <h3 className="text-2xl font-black text-gray-900 font-sans">{stats?.lowStockCount || 0}</h3>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-red-100 text-red-600 rounded-lg">
-                        <ArrowDownLeft size={24} />
+                {/* Total Debt */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-amber-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-amber-50 p-3.5 rounded-2xl text-amber-600 relative z-10">
+                        <ArrowDownLeft size={22} />
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">إجمالي الديون</p>
-                        <h3 className="text-2xl font-bold text-gray-900">{(stats?.totalDebt || 0).toLocaleString()} دج</h3>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider block mb-0.5">إجمالي الديون</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalDebt || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
                     </div>
                 </div>
             </div>

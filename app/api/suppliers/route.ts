@@ -3,8 +3,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const onlyArchived = searchParams.get('onlyArchived') === 'true';
+
         const suppliers = await prisma.supplier.findMany({
-            where: { isArchived: false },
+            where: { isArchived: onlyArchived },
             orderBy: { name: 'asc' },
             include: { _count: { select: { products: true, orders: true } } }
         });

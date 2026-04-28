@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
+import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -224,23 +224,23 @@ export default function CustomersPage() {
 
     const handleExport = () => {
         const data = filteredCustomers.map(c => ({
-            'اسم العميل': c.name,
-            'النشاط': c.activity || '---',
-            'الهاتف': c.phone || '---',
-            'النوع': c.type === 'LOYAL' ? 'مقاول معتمد' : 'عميل عادي',
-            'الرصيد الحالي': c.balanceDue,
-            'سقف الائتمان': c.creditLimit || 0,
-            'عدد المشاريع': c._count?.projects || 0,
-            'عدد الطلبيات': c._count?.orders || 0,
-            'العنوان': c.address || '---',
-            'البلدية': c.commune || '---',
-            'الولاية': c.wilaya || '---'
+            'Nom du Client': c.name,
+            'Activité': c.activity || '---',
+            'Téléphone': c.phone || '---',
+            'Type': c.type === 'LOYAL' ? 'Client Fidèle' : 'Client Régulier',
+            'Solde Actuel': c.balanceDue,
+            'Limite de Crédit': c.creditLimit || 0,
+            'Nombre de Projets': c._count?.projects || 0,
+            'Nombre de Commandes': c._count?.orders || 0,
+            'Adresse': c.address || '---',
+            'Commune': c.commune || '---',
+            'Wilaya': c.wilaya || '---'
         }));
 
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "العملاء");
-        XLSX.writeFile(wb, `قائمة_العملاء_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Clients");
+        XLSX.writeFile(wb, `Liste_Clients_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     const handleExportPDF = () => {
@@ -248,35 +248,35 @@ export default function CustomersPage() {
         
         // Add Title
         doc.setFontSize(20);
-        doc.text("قائمة العملاء والمستحقات", 140, 15, { align: 'right' });
+        doc.text("Liste des Clients et Créances", 14, 15);
         doc.setFontSize(10);
-        doc.text(`التاريخ: ${new Date().toLocaleDateString('ar-DZ')}`, 140, 22, { align: 'right' });
+        doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 14, 22);
 
         const tableData = filteredCustomers.map(c => [
-            c.balanceDue.toLocaleString() + " DZD",
-            c._count?.projects || 0,
-            c.phone || "---",
+            c.name,
             c.activity || "---",
-            c.name
+            c.phone || "---",
+            c._count?.projects || 0,
+            c.balanceDue.toLocaleString() + " DZD"
         ]);
 
         autoTable(doc, {
-            head: [['الرصيد الحالي', 'المشاريع', 'الهاتف', 'النشاط', 'اسم العميل']],
+            head: [['Nom du Client', 'Activité', 'Téléphone', 'Projets', 'Solde Actuel']],
             body: tableData,
             startY: 30,
             theme: 'striped',
-            headStyles: { fillColor: [37, 99, 235], halign: 'right' },
+            headStyles: { fillColor: [37, 99, 235], halign: 'left' },
             columnStyles: {
                 0: { halign: 'left', fontStyle: 'bold' },
-                1: { halign: 'center' },
-                2: { halign: 'right' },
-                3: { halign: 'right' },
+                1: { halign: 'left' },
+                2: { halign: 'left' },
+                3: { halign: 'center' },
                 4: { halign: 'right', fontStyle: 'bold' }
             },
-            styles: { font: 'helvetica', halign: 'right' }
+            styles: { font: 'helvetica', halign: 'left' }
         });
 
-        doc.save(`قائمة_العملاء_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`Liste_Clients_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -316,50 +316,50 @@ export default function CustomersPage() {
                             className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                         />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all hover:bg-gray-50"
+                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
                         >
-                            <Printer size={18} /> طباعة
+                            <Printer size={16} /> طباعة
                         </button>
                         <div className="relative">
                             <button
                                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-emerald-600 px-4 py-2 rounded-lg text-sm font-bold transition-all hover:bg-emerald-50"
+                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
                             >
-                                <FileSpreadsheet size={18} /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                                <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {isExportMenuOpen && (
-                                <div className="absolute top-full right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
                                     <button
                                         onClick={() => {
                                             handleExport();
                                             setIsExportMenuOpen(false);
                                         }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border-b border-gray-100"
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border-b border-gray-100"
                                     >
-                                        <FileSpreadsheet size={16} /> Excel (إكسل)
+                                        <FileSpreadsheet size={16} className="text-emerald-600" /> Excel
                                     </button>
                                     <button
                                         onClick={() => {
                                             handleExportPDF();
                                             setIsExportMenuOpen(false);
                                         }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                                     >
-                                        <FileText size={16} /> PDF (بي دي أف)
+                                        <FileText size={16} className="text-rose-600" /> PDF
                                     </button>
                                 </div>
                             )}
                         </div>
+                        <Link
+                            href="/customers/archive"
+                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
+                        >
+                            <Archive size={16} /> الأرشيف
+                        </Link>
                     </div>
-                    <Link
-                        href="/customers/archive"
-                        className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition-all border border-gray-200"
-                    >
-                        <Archive size={18} /> الأرشيف
-                    </Link>
                     <button
                         onClick={() => setIsSheetOpen(true)}
                         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
