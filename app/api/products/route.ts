@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const showArchived = searchParams.get('archived') === 'true';
 
     try {
-        const products = await prisma.product.findMany({
+        const productsRaw = await prisma.product.findMany({
             where: {
                 name: { contains: search },
                 isArchived: showArchived,
@@ -19,11 +19,38 @@ export async function GET(request: Request) {
             },
             include: {
                 supplier: true,
-                _count: {
-                    select: { batches: { where: { remainingQty: { gt: 0 } } } }
+                batches: {
+                    where: { remainingQty: { gt: 0 } },
+                    select: { remainingQty: true, expiryDate: true }
                 }
             },
             orderBy: { name: 'asc' }
+        });
+
+        const now = new Date();
+        const products = productsRaw.map((p: any) => {
+            const activeBatches = p.batches || [];
+            const validQuantity = activeBatches
+                .filter((b: any) => !b.expiryDate || new Date(b.expiryDate) >= now)
+                .reduce((sum: number, b: any) => sum + b.remainingQty, 0);
+            
+            // Calculate dynamic nearest expiry based on remaining active batches
+            const expiries = activeBatches
+                .filter((b: any) => b.expiryDate)
+                .map((b: any) => new Date(b.expiryDate).getTime());
+            
+            const dynamicNearestExpiry = expiries.length > 0 ? new Date(Math.min(...expiries)) : null;
+            
+            // If the product has expiry date tracking, use the batches sum
+            // If it doesn't, use the main quantity
+            const finalValidQty = p.hasExpiryDate ? validQuantity : p.quantity;
+
+            return {
+                ...p,
+                nearestExpiryDate: dynamicNearestExpiry || p.nearestExpiryDate,
+                validQuantity: finalValidQty,
+                batches: undefined 
+            };
         });
         return NextResponse.json(products);
     } catch (error) {
@@ -65,6 +92,7 @@ export async function POST(request: Request) {
                     name: body.name,
                     category: body.category,
                     purchasePrice: parseFloat(String(body.purchasePrice)) || 0,
+                    avgPurchasePrice: parseFloat(String(body.purchasePrice)) || 0,
                     sellPrice: parseFloat(String(body.sellPrice)) || 0,
                     quantity: parseInt(String(body.quantity)) || 0,
                     minQuantity: parseInt(String(body.minQuantity)) || 0,

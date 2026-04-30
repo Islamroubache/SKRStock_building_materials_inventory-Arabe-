@@ -45,13 +45,16 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { productId, batchId, quantity, reason, damageType, supplierRefund, supplierId, refundAmount, reportedBy, notes } = body;
 
+        const pId = parseInt(productId);
+        const qty = parseInt(quantity);
+
         const product = await prisma.product.findUnique({
-            where: { id: productId }
+            where: { id: pId }
         });
 
         if (!product) return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
-        if (quantity > product.quantity) {
-            return NextResponse.json({ error: `الكمية المطلوبة (${quantity}) أكبر من المتوفر (${product.quantity})` }, { status: 400 });
+        if (qty > product.quantity) {
+            return NextResponse.json({ error: `الكمية المطلوبة (${qty}) أكبر من المتوفر (${product.quantity})` }, { status: 400 });
         }
 
         // Validate batch if provided
@@ -63,56 +66,81 @@ export async function POST(request: Request) {
             if (!batch || batch.productId !== productId) {
                 return NextResponse.json({ error: 'الدفعة غير صالحة أو لا تنتمي لهذا المنتج' }, { status: 400 });
             }
-            if (quantity > batch.remainingQty) {
-                return NextResponse.json({ error: `الكمية المطلوبة (${quantity}) أكبر من المتبقي في الدفعة (${batch.remainingQty})` }, { status: 400 });
+            if (qty > batch.remainingQty) {
+                return NextResponse.json({ error: `الكمية المطلوبة (${qty}) أكبر من المتبقي في الدفعة (${batch.remainingQty})` }, { status: 400 });
             }
         }
 
         const avgCost = product.avgPurchasePrice ?? product.purchasePrice;
-        const totalLoss = quantity * avgCost;
+        const totalLoss = qty * avgCost;
 
         const result = await prisma.$transaction(async (tx) => {
             // 1. Create Damaged Record
             const record = await tx.damagedProduct.create({
                 data: {
-                    productId,
+                    productId: pId,
                     batchId: batchId ? parseInt(batchId) : null,
-                    quantity,
+                    quantity: qty,
                     reason,
                     damageType,
                     unitCost: avgCost,
                     totalLoss,
                     reportedBy,
-                    status: 'PENDING',
+                    status: body.status || 'PENDING',
                     supplierRefund: !!supplierRefund,
                     supplierId: supplierId ? parseInt(supplierId) : null,
-                    refundAmount: refundAmount ? parseFloat(refundAmount) : null,
+                    refundAmount: refundAmount ? parseFloat(String(refundAmount)) : null,
                     notes
                 }
             });
 
             // 2. Deduct from Main Stock
             await tx.product.update({
-                where: { id: productId },
-                data: { quantity: { decrement: quantity } }
+                where: { id: pId },
+                data: { quantity: { decrement: qty } }
             });
 
-            // 3. Deduct from Batch Stock if applicable
+            // 3. Deduct from Batch Stock (Consistency Logic)
             if (batchId) {
                 await tx.productBatch.update({
                     where: { id: parseInt(batchId) },
-                    data: { remainingQty: { decrement: quantity } }
+                    data: { remainingQty: { decrement: qty } }
                 });
+            } else {
+                // Consistency: If product has batches, we must deduct from them even if recorded from overview
+                // We prioritize deducting from expired or soonest-to-expire batches
+                const batchesToDeduct = await tx.productBatch.findMany({
+                    where: { 
+                        productId: pId,
+                        remainingQty: { gt: 0 }
+                    },
+                    orderBy: [
+                        { expiryDate: 'asc' },   // Soonest to expire first
+                        { purchaseDate: 'asc' }, // Then oldest batches (by purchase date)
+                        { id: 'asc' }            // Then by ID as fallback
+                    ]
+                });
+
+                let remainingToDeduct = qty;
+                for (const b of batchesToDeduct) {
+                    if (remainingToDeduct <= 0) break;
+                    const deduct = Math.min(b.remainingQty, remainingToDeduct);
+                    await tx.productBatch.update({
+                        where: { id: b.id },
+                        data: { remainingQty: { decrement: deduct } }
+                    });
+                    remainingToDeduct -= deduct;
+                }
             }
 
             // 4. Create Stock Movement
             await tx.stockMovement.create({
                 data: {
-                    productId,
+                    productId: pId,
                     movementType: 'OUT',
-                    quantity,
+                    quantity: qty,
                     quantityBefore: product.quantity,
-                    quantityAfter: product.quantity - quantity,
+                    quantityAfter: product.quantity - qty,
                     reason: `تلف/سحب — ${damageType} — ${reason}${batchId ? ` (دفعة: ${batch?.batchNumber})` : ''}`,
                     unitCost: avgCost,
                     totalCost: totalLoss
@@ -123,7 +151,7 @@ export async function POST(request: Request) {
             if (supplierRefund && supplierId && refundAmount) {
                 await tx.supplier.update({
                     where: { id: parseInt(supplierId) },
-                    data: { balanceDue: { decrement: parseFloat(refundAmount) } }
+                    data: { balanceDue: { decrement: parseFloat(String(refundAmount)) } }
                 });
             }
 

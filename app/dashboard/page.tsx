@@ -1,21 +1,30 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import * as XLSX from 'xlsx';
 
 export default function Dashboard() {
     const [stats, setStats] = useState<any>(null);
     const [chartData, setChartData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('monthly');
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+    const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
-    useEffect(() => {
-        // Run expiry check once on mount
-        fetch('/api/batches/expiry-check', { method: 'POST' }).catch(console.error);
+    const fetchData = () => {
+        setLoading(true);
+        const query = new URLSearchParams({ type: period });
+        if (period === 'custom' && from && to) {
+            query.append('from', from);
+            query.append('to', to);
+        }
 
         Promise.all([
-            fetch('/api/dashboard/stats').then(res => res.json()),
-            fetch('/api/dashboard/sales-chart?days=30').then(res => res.json())
+            fetch(`/api/dashboard/stats?${query.toString()}`).then(res => res.json()),
+            fetch(`/api/dashboard/sales-chart?${query.toString()}`).then(res => res.json())
         ]).then(([statsData, chartResData]) => {
             setStats(statsData);
             setChartData(Array.isArray(chartResData) ? chartResData : []);
@@ -24,23 +33,144 @@ export default function Dashboard() {
             console.error(err);
             setLoading(false);
         });
+    };
+
+    useEffect(() => {
+        fetch('/api/batches/expiry-check', { method: 'POST' }).catch(console.error);
     }, []);
 
-    if (loading) {
-        return (
-            <div className="w-full h-[60vh] flex items-center justify-center">
-                <div className="animate-pulse flex flex-col items-center gap-4">
-                    <div className="h-12 w-12 rounded-full border-4 border-t-[#20b878] border-[#20b878]/20 animate-spin"></div>
-                    <p className="text-gray-500 font-medium font-tajawal">جاري تحميل البيانات...</p>
-                </div>
-            </div>
-        );
-    }
+    useEffect(() => {
+        if (period !== 'custom') fetchData();
+    }, [period]);
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExportExcel = () => {
+        if (!stats) return;
+        
+        // Main Stats
+        const summaryData = [
+            { 'المقياس': 'مبيعات ' + getPeriodLabel(), 'القيمة': stats.todayNet || 0 },
+            { 'المقياس': 'تحصيلات ' + getPeriodLabel(), 'القيمة': stats.todayCustomerCollections || 0 },
+            { 'المقياس': 'مدفوعات ' + getPeriodLabel(), 'القيمة': stats.todaySupplierPayments || 0 },
+            { 'المقياس': 'إجمالي الديون', 'القيمة': stats.totalDebt || 0 },
+            { 'المقياس': 'منتجات منخفضة المخزون', 'القيمة': stats.lowStockCount || 0 },
+            { 'المقياس': 'منتجات منتهية الصلاحية', 'القيمة': stats.expiredCount || 0 },
+        ];
+
+        // Performance Data
+        const performanceData = (stats.productPerformance || []).map((p: any) => ({
+            'المنتج': p.name,
+            'الكمية المباعة': p.sold,
+            'الإيرادات': p.revenue,
+            'الأرباح': p.profit
+        }));
+
+        const wb = XLSX.utils.book_new();
+        
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "ملخص لوحة التحكم");
+
+        if (performanceData.length > 0) {
+            const wsPerformance = XLSX.utils.json_to_sheet(performanceData);
+            XLSX.utils.book_append_sheet(wb, wsPerformance, "أداء المنتجات");
+        }
+
+        XLSX.writeFile(wb, `Dashboard_Report_${getPeriodLabel()}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        setIsExportDropdownOpen(false);
+    };
 
     const COLORS = ['#20b878', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+    const getPeriodLabel = () => {
+        if (period === 'daily') return 'اليوم';
+        if (period === 'weekly') return 'الأسبوع';
+        if (period === 'monthly') return 'الشهر';
+        if (period === 'yearly') return 'السنة';
+        return 'الفترة';
+    };
+
     return (
         <div className="space-y-6 font-tajawal">
+            {/* STICKY FILTER BAR */}
+            <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border border-gray-100 p-3 rounded-2xl shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+                <div className="flex bg-gray-100 p-1 rounded-xl gap-1 w-full lg:w-auto overflow-x-auto">
+                    {[
+                        { id: 'daily', label: 'اليوم' },
+                        { id: 'weekly', label: 'أسبوع' },
+                        { id: 'monthly', label: 'شهر' },
+                        { id: 'yearly', label: 'سنة' },
+                        { id: 'custom', label: 'مخصص' }
+                    ].map(p => (
+                        <button
+                            key={p.id}
+                            onClick={() => setPeriod(p.id as any)}
+                            className={`px-5 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${period === p.id ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white/50'}`}
+                        >
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+
+                {period === 'custom' && (
+                    <div className="flex gap-2 items-center animate-in slide-in-from-right duration-300">
+                        <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                        <span className="text-gray-400 font-bold text-xs">إلى</span>
+                        <input type="date" value={to} onChange={e => setTo(e.target.value)} className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                        <button onClick={fetchData} className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 transition-all shadow-sm"><TrendingUp size={16} /></button>
+                    </div>
+                )}
+
+                {loading && (
+                    <div className="flex items-center gap-2 text-blue-600 animate-pulse">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                        <span className="text-[10px] font-black uppercase tracking-widest">جاري التحديث...</span>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-2 no-print">
+                    <div className="relative">
+                        <button 
+                            onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-all text-xs font-bold border border-emerald-100 shadow-sm"
+                        >
+                            <Download size={16} />
+                            تصدير
+                            <ChevronDown size={14} className={`transition-transform ${isExportDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {isExportDropdownOpen && (
+                            <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
+                                <button 
+                                    onClick={handleExportExcel}
+                                    className="w-full text-right px-5 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50"
+                                >
+                                    <FileText size={16} className="text-emerald-600" />
+                                    تصدير Excel (.xlsx)
+                                </button>
+                                <button 
+                                    onClick={handlePrint}
+                                    className="w-full text-right px-5 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                                >
+                                    <FileText size={16} className="text-rose-600" />
+                                    تصدير PDF / طباعة
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <button 
+                        onClick={handlePrint}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition-all text-xs font-bold border border-gray-100 shadow-sm"
+                    >
+                        <Printer size={16} />
+                        طباعة
+                    </button>
+                </div>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
                 {/* Products */}
@@ -62,7 +192,7 @@ export default function Dashboard() {
                         <TrendingUp size={22} />
                     </div>
                     <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-green-500 uppercase tracking-wider block mb-0.5">مبيعات اليوم</span>
+                        <span className="text-[10px] font-black text-green-500 uppercase tracking-wider block mb-0.5">مبيعات {getPeriodLabel()}</span>
                         <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todayNet?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
                     </div>
                 </div>
@@ -74,7 +204,7 @@ export default function Dashboard() {
                         <CreditCard size={22} />
                     </div>
                     <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider block mb-0.5">تحصيلات اليوم</span>
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider block mb-0.5">تحصيلات {getPeriodLabel()}</span>
                         <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todayCustomerCollections?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
                     </div>
                 </div>
@@ -86,7 +216,7 @@ export default function Dashboard() {
                         <ArrowDownLeft size={22} />
                     </div>
                     <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-rose-500 uppercase tracking-wider block mb-0.5">مدفوعات اليوم</span>
+                        <span className="text-[10px] font-black text-rose-500 uppercase tracking-wider block mb-0.5">مدفوعات {getPeriodLabel()}</span>
                         <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todaySupplierPayments?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
                     </div>
                 </div>
@@ -134,7 +264,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Line Chart */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">المبيعات والمشتريات — آخر 30 يوم</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">المبيعات والمشتريات — {getPeriodLabel()}</h3>
                     <div className="h-80 w-full" dir="ltr">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData}>
@@ -153,70 +283,73 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Pie Chart */}
+                {/* Area Chart for Profit */}
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">المنتجات الأكثر مبيعاً</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">الأرباح التراكمية — {getPeriodLabel()}</h3>
                     <div className="flex-1 w-full" dir="ltr">
-                        {stats?.topProducts?.length > 0 ? (
+                        {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={stats.topProducts}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="sold"
-                                        nameKey="name"
-                                    >
-                                        {stats.topProducts.map((entry: any, index: number) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value: any) => [`${value} قطعة`]} contentStyle={{ fontFamily: 'inherit', textAlign: 'right' }} />
-                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '12px', fontFamily: 'inherit', marginTop: '10px' }} />
-                                </PieChart>
+                                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="date" hide />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                                    <Tooltip 
+                                        formatter={(value: any) => [`${value.toLocaleString()} دج`, 'الربح']}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', textAlign: 'right' }} 
+                                    />
+                                    <Area type="monotone" dataKey="profit" name="الربح" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
+                                </AreaChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400 text-sm font-medium">لا توجد بيانات مبيعات بعد</div>
+                            <div className="h-full flex items-center justify-center text-gray-400 text-sm font-medium">لا توجد بيانات أداء بعد</div>
                         )}
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Recent Orders Table */}
+                {/* Product Performance Table */}
                 <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-900">آخر الطلبات</h3>
+                    <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                        <h3 className="text-lg font-bold text-gray-900">أداء المنتجات (الأكثر ربحاً)</h3>
+                        <TrendingUp className="text-blue-600" size={20} />
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-right">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600">رقم الطلب</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600">العميل</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-left">المبلغ</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-center">الحالة</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600">المنتج</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-center">الكمية</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-left">الإيراد</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-left">الربح الصافي</th>
+                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-center">الهامش</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {stats?.recentOrders?.length > 0 ? stats.recentOrders.map((order: any, idx: number) => (
-                                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900" dir="ltr">{order.orderNumber}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">{order.customerName}</td>
-                                        <td className="px-6 py-4 text-sm font-bold text-gray-900 text-left" dir="ltr">{order.total.toLocaleString()} دج</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                        ${order.status === 'DONE' || order.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>
-                                                {order.status === 'DONE' || order.status === 'COMPLETED' ? 'مكتمل' : 'معلق'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                )) : (
+                                {stats?.productPerformance?.length > 0 ? stats.productPerformance.map((p: any, idx: number) => {
+                                    const margin = (p.profit / p.revenue) * 100;
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-6 py-4 text-sm font-bold text-gray-900">{p.name}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-600 text-center font-sans">{p.sold}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-gray-900 text-left font-sans" dir="ltr">{p.revenue.toLocaleString()} دج</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-left font-sans" dir="ltr">{p.profit.toLocaleString()} دج</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border ${margin >= 15 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                                    %{margin.toFixed(1)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">لا توجد طلبات حديثة</td>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">لا توجد بيانات أداء متاحة</td>
                                     </tr>
                                 )}
                             </tbody>

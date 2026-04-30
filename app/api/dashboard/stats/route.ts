@@ -1,18 +1,33 @@
+// Force Rebuild - ID: dashboard-stats-fix-v3
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') || 'daily';
+    const fromStr = searchParams.get('from');
+    const toStr = searchParams.get('to');
+
+    const today = new Date();
+    let start = startOfDay(today);
+    let end = endOfDay(today);
+
+    if (fromStr && toStr) {
+        start = startOfDay(new Date(fromStr));
+        end = endOfDay(new Date(toStr));
+    } else {
+        if (type === 'weekly') { start = startOfWeek(today, { weekStartsOn: 6 }); end = endOfWeek(today, { weekStartsOn: 6 }); }
+        else if (type === 'monthly') { start = startOfMonth(today); end = endOfMonth(today); }
+        else if (type === 'yearly') { start = startOfYear(today); end = endOfYear(today); }
+    }
+
     try {
-        const today = new Date();
-        const start = startOfDay(today);
-        const end = endOfDay(today);
-
         const totalProducts = await prisma.product.count();
         const totalSuppliers = await prisma.supplier.count();
         const totalCustomers = await prisma.customer.count();
 
-        // 1. Calculate Today's Sales Collected (Initial payments or full payments for orders created today)
+        // 1. Calculate Period Sales Collected
         const todaySaleOrders = await prisma.order.findMany({
             where: { 
                 type: 'SALE', 
@@ -37,11 +52,6 @@ export async function GET() {
             include: { invoice: true }
         });
 
-        // Sum payments where the invoice was created before today OR if there is no invoice (direct customer payment)
-        // Actually, if it's an initial payment for a today's order, it's already in todayNet.
-        // So we want payments where the invoice.order.orderDate < start.
-        
-        // Let's get order dates for these payments
         const paymentInvoiceIds = allTodayPayments.map(p => p.invoiceId).filter(id => id !== null) as number[];
         const invoices = await prisma.invoice.findMany({
             where: { id: { in: paymentInvoiceIds } },
@@ -50,15 +60,13 @@ export async function GET() {
 
         const todayOldDebtCollections = allTodayPayments.reduce((sum, p) => {
             const inv = invoices.find(i => i.id === p.invoiceId);
-            // If invoice exists and order was before today, count it.
-            // If no invoice, it might be a general credit, we can count it as collection too.
             if (!inv || !inv.order || inv.order.orderDate < start) {
                 return sum + p.amount;
             }
             return sum;
         }, 0);
 
-        const todayCustomerCollections = todayOldDebtCollections; // Renaming for consistency in Dashboard formula
+        const todayCustomerCollections = todayOldDebtCollections; 
 
         // 3. Calculate Today's Payments (Money OUT to suppliers)
         const todaySupplierPaymentsData = await prisma.supplierPayment.aggregate({
@@ -74,7 +82,7 @@ export async function GET() {
 
         const [thisMonthCollectionsData, lastMonthCollectionsData] = await Promise.all([
             prisma.payment.aggregate({
-                where: { paymentDate: { gte: startOfThisMonth, lte: end } },
+                where: { paymentDate: { gte: startOfThisMonth, lte: today } },
                 _sum: { amount: true }
             }),
             prisma.payment.aggregate({
@@ -90,7 +98,7 @@ export async function GET() {
         if (lastMonthCol > 0) {
             collectionGrowth = ((thisMonthCol - lastMonthCol) / lastMonthCol) * 100;
         } else if (thisMonthCol > 0) {
-            collectionGrowth = 100; // 100% growth if there was nothing last month
+            collectionGrowth = 100; 
         }
         
         const monthlyGrowth = {
@@ -120,6 +128,43 @@ export async function GET() {
             };
         });
 
+        // 5. Product Performance (Revenue/Profit) for the selected period
+        const periodOrderItems = await prisma.orderItem.findMany({
+            where: { 
+                order: { 
+                    type: 'SALE',
+                    status: { in: ['COMPLETED', 'DONE'] },
+                    orderDate: { gte: start, lte: end }
+                } 
+            },
+            include: { 
+                product: true,
+                batchAllocations: true
+            }
+        });
+
+        const performanceMap: Record<number, any> = {};
+        periodOrderItems.forEach(item => {
+            if (!performanceMap[item.productId]) {
+                performanceMap[item.productId] = { id: item.productId, name: item.product.name, sold: 0, revenue: 0, cost: 0, profit: 0 };
+            }
+            let cost = 0;
+            if (item.batchAllocations && item.batchAllocations.length > 0) {
+                cost = item.batchAllocations.reduce((sum, b) => sum + (b.unitCost * b.quantity), 0);
+            } else {
+                cost = ((item.product as any).avgPurchasePrice || item.product.purchasePrice) * item.quantity;
+            }
+            
+            performanceMap[item.productId].sold += item.quantity;
+            performanceMap[item.productId].revenue += item.total;
+            performanceMap[item.productId].cost += cost;
+            performanceMap[item.productId].profit += (item.total - cost);
+        });
+
+        const productPerformance = Object.values(performanceMap)
+            .sort((a: any, b: any) => b.revenue - a.revenue)
+            .slice(0, 5);
+
         const recentOrdersQuery = await prisma.order.findMany({
             take: 5,
             orderBy: { orderDate: 'desc' },
@@ -144,7 +189,6 @@ export async function GET() {
         }));
         const lowStockCount = lowStockProducts.length;
 
-        // Outstanding Debts
         const outstandingCustomers = await prisma.customer.findMany({
             where: { balanceDue: { gt: 0 } },
             select: { id: true, name: true, balanceDue: true, creditLimit: true }
@@ -155,16 +199,13 @@ export async function GET() {
             totalAmount: outstandingCustomers.reduce((sum, c) => sum + c.balanceDue, 0)
         };
 
-        // Credit Alerts
         const creditAlerts = outstandingCustomers.filter(c => c.creditLimit > 0 && c.balanceDue >= c.creditLimit).map(c => ({
             name: c.name,
             balanceDue: c.balanceDue,
             creditLimit: c.creditLimit
         }));
 
-        // Expiry Stats (from Batches)
-        const now = new Date();
-        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
         const expiredBatches = await prisma.productBatch.findMany({
             where: {
@@ -173,7 +214,7 @@ export async function GET() {
                     {
                         status: 'ACTIVE',
                         remainingQty: { gt: 0 },
-                        expiryDate: { lte: now }
+                        expiryDate: { lte: today }
                     }
                 ]
             },
@@ -185,7 +226,7 @@ export async function GET() {
                 status: 'ACTIVE',
                 remainingQty: { gt: 0 },
                 expiryDate: {
-                    gt: now,
+                    gt: today,
                     lte: thirtyDaysFromNow
                 }
             }
@@ -200,19 +241,17 @@ export async function GET() {
             quantity: b.remainingQty
         }));
 
-        // Damage Stats for Dashboard
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         const damageRecords = await prisma.damagedProduct.findMany({
             where: { createdAt: { gte: monthStart } },
             select: { totalLoss: true }
         });
         const totalLossThisMonth = damageRecords.reduce((sum, r) => sum + r.totalLoss, 0);
 
-        // Overdue Invoices
         const overdueInvoicesQuery = await prisma.invoice.findMany({
             where: {
                 status: { in: ['UNPAID', 'PARTIAL'] },
-                dueDate: { lt: startOfDay(now) }
+                dueDate: { lt: startOfDay(today) }
             },
             include: {
                 order: {
@@ -229,7 +268,6 @@ export async function GET() {
         }));
         const overdueInvoicesCount = overdueInvoices.length;
 
-        // 5. Total Debt Calculation (Sync with Invoices Page Logic)
         const allSaleOrders = await prisma.order.findMany({
             where: { type: 'SALE' },
             include: {
@@ -245,12 +283,6 @@ export async function GET() {
             const remaining = Math.max(0, (order.grandTotal - returnsValue) - paid);
             totalDebt += remaining;
         });
-        
-        const allSalesTotal = allSaleOrders.reduce((sum, o) => sum + o.grandTotal, 0);
-        const allPaymentsTotal = await prisma.payment.aggregate({ _sum: { amount: true } }).then(res => res._sum.amount || 0);
-        const allReturnsTotal = allSaleOrders.reduce((sum, o) => {
-            return sum + o.items.reduce((iSum, item) => iSum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
-        }, 0);
 
         return NextResponse.json({
             totalProducts,
@@ -264,6 +296,7 @@ export async function GET() {
             creditAlerts,
             pendingInvoicesTotal,
             topProducts,
+            productPerformance,
             recentOrders,
             expiredCount,
             expiringSoonCount,

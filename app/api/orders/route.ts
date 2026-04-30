@@ -164,7 +164,7 @@ export async function POST(request: Request) {
                         const updateData: any = {
                             quantity: { increment: newQty },
                             avgPurchasePrice: newAvgPrice,
-                            purchasePrice: newAvgPrice,
+                            purchasePrice: newUnitCost,
                             hasBatches: shouldTrackBatch ? true : product.hasBatches
                         };
 

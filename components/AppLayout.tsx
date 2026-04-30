@@ -18,14 +18,13 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     }, [])
 
     const navItems = [
-        { icon: '🏠', label: 'لوحة التحكم', href: '/dashboard' },
-        { icon: '📦', label: 'المنتجات', href: '/products' },
-        { icon: '🏗️', label: 'الموردون', href: '/suppliers' },
-        { icon: '👥', label: 'العملاء', href: '/customers' },
         { icon: '🛒', label: 'الطلبات', href: '/orders' },
         { icon: '🧾', label: 'الفواتير', href: '/invoices' },
+        { icon: '👥', label: 'العملاء', href: '/customers' },
+        { icon: '🏗️', label: 'الموردون', href: '/suppliers' },
         { icon: '📊', label: 'المخزون', href: '/inventory' },
-        { icon: '📈', label: 'التقارير', href: '/reports' },
+        { icon: '📦', label: 'المنتجات', href: '/products' },
+        { icon: '🏠', label: 'التقارير', href: '/dashboard' },
         { icon: '🤖', label: 'الذكاء الاصطناعي', href: '/ai' },
         { icon: '⚙️', label: 'الإعدادات', href: '/settings' },
     ]
@@ -40,16 +39,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         ${open ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
       `}
         >
-            <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                    <Logo className="w-21.5 h-21 shrink-0" />
-                    <div>
-                        <h1 className="text-xl font-bold text-[#20b878] tracking-wider">
-                            سوكر
-                        </h1>
-                        <p className="text-xs text-gray-500">نظام إدارة المخزون</p>
-                    </div>
-                </div>
+            <div className="p-6 border-b border-gray-200 flex justify-center items-center">
+                <Logo className="w-21.5 h-21" />
             </div>
 
             {/* Navigation Items */}
@@ -96,14 +87,13 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
     const [dropdownOpen, setDropdownOpen] = useState(false)
 
     const pageMap: { [key: string]: string } = {
-        '/dashboard': 'لوحة التحكم',
+        '/dashboard': 'التقارير',
         '/products': 'المنتجات',
         '/suppliers': 'الموردون',
         '/customers': 'العملاء',
         '/orders': 'الطلبات',
         '/invoices': 'الفواتير',
         '/inventory': 'المخزون',
-        '/reports': 'التقارير',
         '/ai': 'الذكاء الاصطناعي',
         '/settings': 'الإعدادات',
     }
@@ -111,8 +101,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
     const currentPageTitle = pageMap[pathname] || 'سوكر'
 
     return (
-        <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between gap-4">
-            {/* Left Side - Menu & Title */}
+        <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <button
                     onClick={onMenuClick}
@@ -120,24 +109,11 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
                 >
                     <Menu size={20} />
                 </button>
-                <h1 className="text-xl font-bold text-gray-900 w-32">{currentPageTitle}</h1>
+                <h1 className="text-xl font-bold text-gray-900">{currentPageTitle}</h1>
             </div>
 
-            {/* Center - Search Bar */}
-            <div className="hidden md:flex flex-1 max-w-sm">
-                <div className="relative w-full">
-                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input
-                        type="search"
-                        placeholder="بحث..."
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 pr-10 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[#20b878]/50"
-                    />
-                </div>
-            </div>
-
-            {/* Right Side - Notifications & User Menu */}
+            {/* Right Side - User Menu */}
             <div className="flex items-center gap-4">
-                {/* User Menu */}
                 <div className="relative">
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}

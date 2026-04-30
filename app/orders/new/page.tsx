@@ -47,6 +47,9 @@ interface Product {
     purchasePrice: number;
     unit: string;
     hasBatches?: boolean;
+    hasExpiryDate?: boolean;
+    nearestExpiryDate?: string | null;
+    validQuantity: number;
 }
 
 interface OrderLine {
@@ -57,6 +60,7 @@ interface OrderLine {
     unitPrice: number;
     discount: number;
     newSellPrice?: number;
+    expiryDate?: string;
 }
 
 // --- Utilities ---
@@ -319,7 +323,7 @@ function NewOrderPage() {
         return Math.min(100, Math.round(((selectedCustomer.balanceDue + remaining) / selectedCustomer.creditLimit) * 100));
     }, [selectedCustomer, remaining]);
 
-    const handleAddLine = () => setLines([...lines, { id: Math.random().toString(), productId: '', quantity: 1, unitPrice: 0, discount: 0 }]);
+    const handleAddLine = () => setLines([...lines, { id: Math.random().toString(), productId: '', quantity: 1, unitPrice: 0, discount: 0, expiryDate: '' }]);
     const handleRemoveLine = (id: string) => setLines(lines.filter(l => l.id !== id));
     function updateLine(id: string, updates: Partial<OrderLine>) {
         setLines(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
@@ -406,7 +410,8 @@ function NewOrderPage() {
                 productId: l.productId,
                 quantity: l.quantity,
                 unitPrice: Math.max(0, l.unitPrice - l.discount),
-                newSellPrice: l.newSellPrice
+                newSellPrice: l.newSellPrice,
+                expiryDate: l.expiryDate
             }))
         };
 
@@ -916,7 +921,7 @@ function NewOrderPage() {
                         <div className="p-6 flex flex-col gap-4 bg-gray-50">
                             {lines.map((line, index) => {
                                 const selectedProduct = line.product;
-                                const isQtyWarn = orderType === 'SALE' && selectedProduct && line.quantity > selectedProduct.quantity;
+                                const isQtyWarn = orderType === 'SALE' && selectedProduct && line.quantity > (selectedProduct.validQuantity ?? selectedProduct.quantity);
                                 const isPriceWarn = orderType === 'SALE' && selectedProduct && line.unitPrice < selectedProduct.purchasePrice;
 
                                 return (
@@ -924,11 +929,17 @@ function NewOrderPage() {
                                         <div className="flex items-start justify-between gap-4 mb-4">
                                             <div className="flex-1">
                                                 <SearchableSelect
-                                                    options={products.map(p => ({
-                                                        id: p.id,
-                                                        label: p.name,
-                                                        subLabel: `متوفر: ${p.quantity} ${p.unit} | متوسط التكلفة: ${p.purchasePrice} دج`
-                                                    }))}
+                                                    options={products.map(p => {
+                                                        const vQty = p.validQuantity ?? p.quantity;
+                                                        const diff = Math.max(0, p.quantity - vQty);
+                                                        return {
+                                                            id: p.id,
+                                                            label: p.name,
+                                                            subLabel: orderType === 'SALE' 
+                                                                ? `الرصيد الصالح: ${vQty} ${p.unit}${diff > 0 ? ` (⚠️ ${diff} قطعة منتهية محجوبة)` : ''}`
+                                                                : `المخزون الكلي: ${p.quantity} ${p.unit} | التكلفة: ${p.purchasePrice} دج`
+                                                        };
+                                                    })}
                                                     value={line.productId}
                                                     onChange={(val) => updateLine(line.id, { productId: val })}
                                                     placeholder="[🔍] انقر للبحث عن المخزون وإدراجه..."
@@ -998,6 +1009,21 @@ function NewOrderPage() {
                                                     />
                                                 </div>
                                             )}
+
+                                            {/* Expiry Date Field (For Purchases if product has it) */}
+                                            {orderType === 'PURCHASE' && selectedProduct && selectedProduct.hasExpiryDate !== false && (
+                                                <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-amber-500/50 relative">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-amber-500">تاريخ انتهاء الصلاحية</span>
+                                                    </div>
+                                                    <input
+                                                        type="date"
+                                                        value={line.expiryDate || ''}
+                                                        onChange={e => updateLine(line.id, { expiryDate: e.target.value })}
+                                                        className="navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-32 text-sm text-gray-900"
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-gray-500">{orderType === 'SALE' ? 'سعر البيع الافرادي' : 'تكلفة الشراء (دج)'}</span>
@@ -1026,7 +1052,12 @@ function NewOrderPage() {
 
                                         <div className="flex flex-wrap justify-between items-end border-t border-gray-200 pt-4">
                                             <div className="flex flex-col gap-1">
-                                                {isQtyWarn && <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md mb-1 w-fit">⚠️ الكمية المطلوبة تتجاوز المخزون المتاح ({selectedProduct.quantity})</span>}
+                                                {isQtyWarn && <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md mb-1 w-fit">⚠️ الكمية المطلوبة تتجاوز المخزون الصالح للبيع ({selectedProduct.validQuantity})</span>}
+                                                {orderType === 'SALE' && selectedProduct && selectedProduct.hasExpiryDate && selectedProduct.nearestExpiryDate && new Date(selectedProduct.nearestExpiryDate) < new Date() && (
+                                                    <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md mb-1 w-fit flex items-center gap-1">
+                                                        <AlertTriangle size={12} /> {selectedProduct.validQuantity === 0 ? '❌ هذا المنتج منتهي الصلاحية بالكامل ولا يمكن بيعه!' : '⚠️ تنبيه: يحتوي هذا المنتج على قطع منتهية الصلاحية تم استبعادها تلقائياً.'}
+                                                    </span>
+                                                )}
                                                 {orderType === 'SALE' && selectedProduct && (line.unitPrice - line.discount) < selectedProduct.purchasePrice && <span className="text-[11px] font-black font-sans bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md w-fit">⚠️ تنبيه: السعر بعد التخفيض ({(line.unitPrice - line.discount)} دج) أقل من التكلفة ({selectedProduct.purchasePrice} دج)</span>}
                                                 {orderType === 'PURCHASE' && selectedProduct && (
                                                     (() => {

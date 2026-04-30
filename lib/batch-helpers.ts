@@ -39,10 +39,15 @@ export async function updateNearestExpiry(productId: number, tx: any = globalPri
  * Returns an array of batch allocations: { batchId, quantity, unitCost }
  */
 export async function getFIFOBatches(productId: number, totalQty: number, tx: any = globalPrisma) {
+    const now = new Date();
     const batches = await tx.productBatch.findMany({
         where: {
             productId,
-            remainingQty: { gt: 0 }
+            remainingQty: { gt: 0 },
+            OR: [
+                { expiryDate: null },
+                { expiryDate: { gte: now } }
+            ]
         },
         orderBy: [
             { expiryDate: { sort: 'asc', nulls: 'last' } },
