@@ -84,6 +84,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
     const pathname = usePathname()
+    const router = useRouter()
     const [dropdownOpen, setDropdownOpen] = useState(false)
 
     const pageMap: { [key: string]: string } = {
@@ -134,11 +135,14 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
                             <div className="p-3 border-b border-gray-200">
                                 <p className="text-sm font-medium text-gray-900">حسابي</p>
                             </div>
-                            <button className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors">
+                            <button 
+                                onClick={() => {
+                                    router.push('/profile');
+                                    setDropdownOpen(false);
+                                }}
+                                className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
                                 الملف الشخصي
-                            </button>
-                            <button className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors">
-                                الإعدادات
                             </button>
                             <button className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors">
                                 المساعدة

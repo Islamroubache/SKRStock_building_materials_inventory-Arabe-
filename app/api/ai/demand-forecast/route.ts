@@ -6,6 +6,7 @@ import { calculateDemandStats, forecastNextPeriod, calculateEOQ } from '@/lib/ai
 export async function GET() {
     try {
         const products = await prisma.product.findMany({
+            where: { isArchived: false },
             include: {
                 supplier: true,
                 stockMovements: {
@@ -32,13 +33,19 @@ export async function GET() {
             const forecast30Days = forecastNextPeriod(history, 30) * 30;
             const daysUntilStockout = stats.avgDailySales > 0 ? Math.floor(product.quantity / stats.avgDailySales) : null;
 
+            const isBelowMin = product.quantity <= product.minQuantity;
+            const reorderRecommended = (daysUntilStockout !== null && daysUntilStockout <= 14) || isBelowMin;
+
             // EOQ Constants (Assumed for this scale)
             const annualDemand = stats.avgDailySales * 365;
             const orderCost = 500; // Fixed cost per order
             const holdingCostPct = 15; // 15% annual holding cost
-            const recommendedOrderQty = calculateEOQ(annualDemand, orderCost, holdingCostPct, product.purchasePrice);
+            let recommendedOrderQty = calculateEOQ(annualDemand, orderCost, holdingCostPct, product.purchasePrice);
 
-            const reorderRecommended = (daysUntilStockout !== null && daysUntilStockout <= 14) || product.quantity <= product.minQuantity;
+            // If recommended for reorder, ensure a meaningful quantity
+            if (reorderRecommended && recommendedOrderQty < 10) {
+                recommendedOrderQty = Math.max(product.minQuantity * 2, 10);
+            }
 
             return {
                 productId: product.id,
@@ -49,6 +56,7 @@ export async function GET() {
                 forecast30Days: Math.round(forecast30Days),
                 daysUntilStockout,
                 reorderRecommended,
+                isBelowMin,
                 recommendedOrderQty,
                 lastSupplierName: product.supplier?.name || null
             };

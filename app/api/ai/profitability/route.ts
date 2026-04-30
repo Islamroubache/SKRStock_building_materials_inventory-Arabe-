@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { classifyABC } from '@/lib/ai-analytics';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -70,6 +71,15 @@ export async function GET(request: Request) {
             ...s,
             margin: s.totalRevenue > 0 ? (s.profit / s.totalRevenue) * 100 : 0
         })).sort((a, b) => b.profit - a.profit);
+
+        // Add ABC Classification if grouping by product
+        if (groupBy === 'product' && result.length > 0) {
+            const abcInput = result.map(r => ({ id: r.name, value: r.profit }));
+            const abcMap = classifyABC(abcInput);
+            result.forEach(r => {
+                (r as any).abcClass = abcMap[r.name];
+            });
+        }
 
         return NextResponse.json(result);
     } catch (error) {
