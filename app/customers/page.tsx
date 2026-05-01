@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
+import { printDocument } from '@/lib/print-helper';
 
 interface Customer {
     id: number;
@@ -36,6 +37,7 @@ export default function CustomersPage() {
 
     const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID'>('ALL');
     const [searchTerm, setSearchTerm] = useState('');
+    const [activities, setActivities] = useState<string[]>([]);
 
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -113,8 +115,19 @@ export default function CustomersPage() {
         }
     };
 
+    const fetchSettings = async () => {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.activities) setActivities(data.activities.split(','));
+            }
+        } catch (e) {}
+    };
+
     useEffect(() => {
         fetchCustomers();
+        fetchSettings();
     }, []);
 
     const filteredCustomers = customers.filter(c => {
@@ -219,7 +232,7 @@ export default function CustomersPage() {
     };
 
     const handlePrint = () => {
-        window.print();
+        printDocument();
     };
 
     const handleExport = () => {
@@ -519,15 +532,14 @@ export default function CustomersPage() {
                                     required
                                 />
                                 {touched.name && !validations.name && (
-                                    <p className="text-[10px] text-red-500 font-bold mt-1">يجب إدخال اسم العميل (كلمتان على الأقل، كل كلمة 3 أحرف على الأقل).</p>
+                                    <p className="text-[10px] text-red-500 font-bold mt-1">يجب إدخال اسم العميل (كلمتان على الأقل، مثلاً: أحمد محمد).</p>
                                 )}
                             </div>
 
-                            {/* ACTIVITY FIELD */}
                             <div className="space-y-1.5">
                                 <label className="text-sm font-bold text-gray-700">النشاط التجاري <span className="text-red-500">*</span></label>
                                 {(() => {
-                                    const predefinedActivities = [
+                                    const predefinedActivities = activities.length > 0 ? activities : [
                                         "شركة خاصة",
                                         "Entreprise de Bâtiment Tous Corps d'État",
                                         "Entreprise d'Électricité Générale",

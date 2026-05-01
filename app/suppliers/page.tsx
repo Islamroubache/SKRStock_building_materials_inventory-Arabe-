@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
+import { printDocument } from '@/lib/print-helper';
 
 interface Product {
     id: number;
@@ -41,6 +42,7 @@ export default function SuppliersPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID'>('ALL');
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [activities, setActivities] = useState<string[]>([]);
 
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
@@ -113,8 +115,23 @@ export default function SuppliersPage() {
         }
     };
 
+    const fetchSettings = async () => {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.activities) {
+                    const acts = data.activities.split(',');
+                    setActivities(acts);
+                    if (!editingSupplier) setFormData(prev => ({ ...prev, activity: acts[0] }));
+                }
+            }
+        } catch (e) {}
+    };
+
     useEffect(() => {
         fetchSuppliers();
+        fetchSettings();
     }, []);
 
     const toggleExpand = async (supplierId: number) => {
@@ -243,7 +260,7 @@ export default function SuppliersPage() {
     };
 
     const handlePrint = () => {
-        window.print();
+        printDocument();
     };
 
     const handleExport = () => {
@@ -500,18 +517,10 @@ export default function SuppliersPage() {
                             <div>
                                 <label className="text-sm font-bold text-gray-700 mb-1 block">النشاط التجاري <span className="text-red-500">*</span></label>
                                 {(() => {
-                                    const predefinedActivities = [
-                                        "Fabricant de Câbles & Fils Électriques",
-                                        "Fabricant de Matériel Électrique",
-                                        "Fabricant d'Éclairage & LED",
-                                        "Fabricant d'Appareillage Électrique",
+                                    const predefinedActivities = activities.length > 0 ? activities : [
                                         "Grossiste en Matériel Électrique",
-                                        "Importateur de Matériel Électrique",
-                                        "Commerce en Gros d'Électricité",
-                                        "Distributeur Agréé",
-                                        "Fabricant de Coffrets & Tableaux",
-                                        "Fabricant de Gaines & Tubes",
-                                        "Fournisseur d'Équipements Industriels",
+                                        "Importateur",
+                                        "Fabricant"
                                     ];
                                     const currentActivity = (formData as any).activity || '';
                                     const isCustom = currentActivity === 'Autre' || (currentActivity && !predefinedActivities.includes(currentActivity));

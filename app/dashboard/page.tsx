@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText } from 'lucide-react';
+import { printDocument } from '@/lib/print-helper';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import * as XLSX from 'xlsx';
 
@@ -44,7 +45,7 @@ export default function Dashboard() {
     }, [period]);
 
     const handlePrint = () => {
-        window.print();
+        printDocument();
     };
 
     const handleExportExcel = () => {

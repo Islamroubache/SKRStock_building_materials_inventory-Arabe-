@@ -14,6 +14,7 @@ import autoTable from 'jspdf-autotable';
 import { numberToArabicWords } from '@/lib/number-to-arabic-words';
 import { numberToFrenchWords } from '@/lib/number-to-french-words';
 import { formatDate } from '@/lib/utils';
+import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable } from '@/components/InvoicesTable';
 
 // --- Types ---
@@ -328,7 +329,7 @@ export default function InvoicesPage() {
     };
 
     const handlePrintList = () => {
-        window.print();
+        printDocument();
     };
 
     return (
@@ -710,7 +711,7 @@ export default function InvoicesPage() {
                                         if (printContent) {
                                             const originalContent = document.body.innerHTML;
                                             document.body.innerHTML = printContent.innerHTML;
-                                            window.print();
+                                            printDocument();
                                             document.body.innerHTML = originalContent;
                                             window.location.reload();
                                         }
@@ -802,7 +803,7 @@ export default function InvoicesPage() {
                                                                   if (printContent) {
                                                                       const originalContent = document.body.innerHTML;
                                                                       document.body.innerHTML = printContent.innerHTML;
-                                                                      window.print();
+                                                                      printDocument();
                                                                       document.body.innerHTML = originalContent;
                                                                       window.location.reload();
                                                                   }
@@ -964,7 +965,7 @@ export default function InvoicesPage() {
                                         if (printContent) {
                                             const original = document.body.innerHTML;
                                             document.body.innerHTML = printContent.innerHTML;
-                                            window.print();
+                                            printDocument();
                                             document.body.innerHTML = original;
                                             window.location.reload();
                                         }
@@ -1036,7 +1037,7 @@ export default function InvoicesPage() {
                                                                 if (printContent) {
                                                                     const original = document.body.innerHTML;
                                                                     document.body.innerHTML = printContent.innerHTML;
-                                                                    window.print();
+                                                                    printDocument();
                                                                     document.body.innerHTML = original;
                                                                     window.location.reload();
                                                                 }
@@ -1145,7 +1146,7 @@ export default function InvoicesPage() {
                                     if (printContent) {
                                         const original = document.body.innerHTML;
                                         document.body.innerHTML = printContent.innerHTML;
-                                        window.print();
+                                        printDocument();
                                         document.body.innerHTML = original;
                                         window.location.reload();
                                     }

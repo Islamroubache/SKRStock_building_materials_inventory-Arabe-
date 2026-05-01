@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { BonDeCommande } from '@/components/documents/BonDeCommande';
 import { Facture } from '@/components/documents/Facture';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
+import { printDocument } from '@/lib/print-helper';
 
 // --- Types ---
 interface Customer {
@@ -459,7 +460,7 @@ function NewOrderPage() {
 
     const handlePrint = () => {
         if (!invoiceData) return;
-        window.print();
+        printDocument();
     };
 
     if (invoiceData) {

@@ -9,6 +9,7 @@ import {
 import { formatDate } from '@/lib/utils';
 import * as xlsx from 'xlsx';
 import { exportOrdersToPDF } from '@/lib/export-orders-pdf';
+import { printDocument } from '@/lib/print-helper';
 
 interface OrderItem {
     id: number;
@@ -319,7 +320,7 @@ export default function OrdersPage() {
                                 </div>
                             </div>
                             <button 
-                                onClick={() => window.print()}
+                                onClick={() => printDocument()}
                                 className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg active:scale-95"
                             >
                                 <Printer size={16} /> طباعة القائمة

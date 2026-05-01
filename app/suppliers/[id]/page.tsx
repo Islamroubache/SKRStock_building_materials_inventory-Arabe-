@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { formatDate } from '@/lib/utils';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
+import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable, StatusBadge } from '@/components/InvoicesTable';
 
 interface OrderItem {
@@ -536,7 +537,7 @@ export default function SupplierDetailPage() {
     };
 
     const handlePrint = () => {
-        window.print();
+        printDocument();
     };
 
     return (
@@ -779,7 +780,7 @@ export default function SupplierDetailPage() {
                                                             <button 
                                                                 onClick={() => {
                                                                     setIsExportDropdownOpen(false);
-                                                                    window.print();
+                                                                    printDocument();
                                                                 }}
                                                                 className="w-full px-5 py-3 text-right text-xs font-black text-gray-700 hover:bg-red-50 hover:text-red-700 border-t border-gray-50 flex items-center gap-3 transition-colors"
                                                             >
@@ -1542,7 +1543,7 @@ export default function SupplierDetailPage() {
                                             if (printContent) {
                                                 const original = document.body.innerHTML;
                                                 document.body.innerHTML = printContent.innerHTML;
-                                                window.print();
+                                                printDocument();
                                                 document.body.innerHTML = original;
                                                 window.location.reload();
                                             }
@@ -1650,7 +1651,7 @@ export default function SupplierDetailPage() {
                                             if (printContent) {
                                                 const original = document.body.innerHTML;
                                                 document.body.innerHTML = printContent.innerHTML;
-                                                window.print();
+                                                printDocument();
                                                 document.body.innerHTML = original;
                                                 window.location.reload();
                                             }
@@ -1685,7 +1686,7 @@ export default function SupplierDetailPage() {
                                                                     if (printContent) {
                                                                         const original = document.body.innerHTML;
                                                                         document.body.innerHTML = printContent.innerHTML;
-                                                                        window.print();
+                                                                        printDocument();
                                                                         document.body.innerHTML = original;
                                                                         window.location.reload();
                                                                     }

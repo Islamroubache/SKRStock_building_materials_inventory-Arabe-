@@ -26,7 +26,6 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         { icon: '📦', label: 'المنتجات', href: '/products' },
         { icon: '🏠', label: 'التقارير', href: '/dashboard' },
         { icon: '🤖', label: 'الذكاء الاصطناعي', href: '/ai' },
-        { icon: '⚙️', label: 'الإعدادات', href: '/settings' },
     ]
 
     const isActive = (href: string) => pathname === href
@@ -96,10 +95,9 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
         '/invoices': 'الفواتير',
         '/inventory': 'المخزون',
         '/ai': 'الذكاء الاصطناعي',
-        '/settings': 'الإعدادات',
     }
 
-    const currentPageTitle = pageMap[pathname] || 'سوكر'
+    const currentPageTitle = pageMap[pathname] || 'برنامج إدارة محل'
 
     return (
         <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between">

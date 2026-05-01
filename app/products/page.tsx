@@ -7,6 +7,7 @@ import { exportProductsToPDF } from '@/lib/export-products-pdf';
 import { getExpiryStatus, getDaysRemaining } from '@/lib/product-helpers';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
+import { printDocument } from '@/lib/print-helper';
 
 interface Supplier {
     id: number;
@@ -62,8 +63,8 @@ function ProductsContent() {
     const [viewArchived, setViewArchived] = useState(false);
 
     // Options
-    const categories = ['مواد بناء', 'كهرباء', 'سباكة', 'دهانات', 'أخرى'];
-    const units = ['كيس', 'قضيب', 'متر', 'لتر', 'كرتون', 'قطعة'];
+    const [categories, setCategories] = useState<string[]>(['مواد بناء', 'كهرباء', 'سباكة', 'دهانات', 'أخرى']);
+    const [units, setUnits] = useState<string[]>(['كيس', 'قضيب', 'متر', 'لتر', 'كرتون', 'قطعة']);
 
     // Dialogs & Panel
     const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -107,8 +108,28 @@ function ProductsContent() {
 
 
 
+    const fetchSettings = async () => {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.categories) {
+                    const cats = data.categories.split(',');
+                    setCategories(cats);
+                    if (!editingProduct) setFormData(prev => ({ ...prev, category: cats[0] }));
+                }
+                if (data.units) {
+                    const un = data.units.split(',');
+                    setUnits(un);
+                    if (!editingProduct) setFormData(prev => ({ ...prev, unit: un[0] }));
+                }
+            }
+        } catch (e) {}
+    };
+
     useEffect(() => {
         fetchProducts();
+        fetchSettings();
     }, [viewArchived]);
 
     useEffect(() => {
@@ -120,14 +141,13 @@ function ProductsContent() {
     }, [urlFilter, router]);
 
     // Derived Data & Filters
-    const knownCategories = ['مواد بناء', 'كهرباء', 'سباكة', 'دهانات', 'أخرى'];
-
     const filteredProducts = products.filter(p => {
-        // Search by name or code
-        const matchesSearch = p.name.includes(searchTerm) || (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase()));
+
         const matchesCategory = categoryFilter
             ? categoryFilter === 'أخرى'
-                ? p.category === 'أخرى' || !knownCategories.includes(p.category)
+                ? p.category === 'أخرى' || !categories.includes(p.category)
                 : p.category === categoryFilter
             : true;
 
@@ -171,7 +191,7 @@ function ProductsContent() {
 
     // Exports
     const handlePrint = () => {
-        window.print();
+        printDocument();
     };
 
     // Form Handlers
@@ -802,16 +822,7 @@ function ProductsContent() {
                             </div>
 
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">المورد المفضل</label>
-                                <select
-                                    value={formData.supplierId || ''} onChange={e => setFormData({ ...formData, supplierId: e.target.value ? parseInt(e.target.value) : undefined })}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
-                                >
-                                    <option value="">-- بدون مورد --</option>
-                                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
-                            </div>
+
                         </div>
 
                         <div className="px-6 py-4 flex flex-col sm:flex-row gap-3 bg-white border-t border-gray-100">

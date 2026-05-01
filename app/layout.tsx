@@ -10,7 +10,7 @@ const tajawal = Tajawal({
 })
 
 export const metadata: Metadata = {
-  title: 'سوكر - نظام إدارة المخزون',
+  title: 'برنامج إدارة محل - نظام إدارة المخزون',
   description: 'نظام إدارة مخزون متقدم للمتاجر والمستودعات',
   generator: 'v0.app',
   icons: {

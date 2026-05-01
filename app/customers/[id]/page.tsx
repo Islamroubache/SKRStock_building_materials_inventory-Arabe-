@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 import { numberToFrenchWords } from '@/lib/number-to-french-words';
+import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable, StatusBadge } from '@/components/InvoicesTable';
 
 
@@ -1227,7 +1228,7 @@ export default function CustomerDetailPage() {
                                         </div>
                                     </div>
                                     <div className="flex gap-4">
-                                        <button onClick={() => window.print()} className="bg-gray-900 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg hover:scale-105 transition-all">
+                                        <button onClick={() => printDocument()} className="bg-gray-900 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg hover:scale-105 transition-all">
                                             <Printer size={16} /> طباعة الكشف
                                         </button>
                                     </div>
@@ -1579,7 +1580,7 @@ export default function CustomerDetailPage() {
                                                             if (printContent) {
                                                                 const original = document.body.innerHTML;
                                                                 document.body.innerHTML = printContent.innerHTML;
-                                                                window.print();
+                                                                printDocument();
                                                                 document.body.innerHTML = original;
                                                                 window.location.reload();
                                                             }
@@ -1599,7 +1600,7 @@ export default function CustomerDetailPage() {
                                             if (printContent) {
                                                 const original = document.body.innerHTML;
                                                 document.body.innerHTML = printContent.innerHTML;
-                                                window.print();
+                                                printDocument();
                                                 document.body.innerHTML = original;
                                                 window.location.reload();
                                             }
@@ -1710,7 +1711,7 @@ export default function CustomerDetailPage() {
                                             if (printContent) {
                                                 const original = document.body.innerHTML;
                                                 document.body.innerHTML = printContent.innerHTML;
-                                                window.print();
+                                                printDocument();
                                                 document.body.innerHTML = original;
                                                 window.location.reload();
                                             }
@@ -1861,7 +1862,7 @@ export default function CustomerDetailPage() {
                                             if (printContent) {
                                                 const original = document.body.innerHTML;
                                                 document.body.innerHTML = printContent.innerHTML;
-                                                window.print();
+                                                printDocument();
                                                 document.body.innerHTML = original;
                                                 window.location.reload();
                                             }
@@ -1897,7 +1898,7 @@ export default function CustomerDetailPage() {
                                                                         if (printContent) {
                                                                             const original = document.body.innerHTML;
                                                                             document.body.innerHTML = printContent.innerHTML;
-                                                                            window.print();
+                                                                            printDocument();
                                                                             document.body.innerHTML = original;
                                                                             window.location.reload();
                                                                         }
@@ -2094,7 +2095,7 @@ export default function CustomerDetailPage() {
                                             if (printContent) {
                                                 const original = document.body.innerHTML;
                                                 document.body.innerHTML = printContent.innerHTML;
-                                                window.print();
+                                                printDocument();
                                                 document.body.innerHTML = original;
                                                 window.location.reload();
                                             }
@@ -2125,7 +2126,7 @@ export default function CustomerDetailPage() {
                                                                 if (printContent) {
                                                                     const original = document.body.innerHTML;
                                                                     document.body.innerHTML = printContent.innerHTML;
-                                                                    window.print();
+                                                                    printDocument();
                                                                     document.body.innerHTML = original;
                                                                     window.location.reload();
                                                                 }

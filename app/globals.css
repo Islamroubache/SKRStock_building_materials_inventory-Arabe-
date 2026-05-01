@@ -137,3 +137,23 @@
     animation: shimmer 2s infinite linear;
   }
 }
+
+@media print {
+  /* 
+   * IMPORTANT: Per-page @media print rules defined with <style jsx global>
+   * inside each component handle what content to show/hide.
+   * This global block only adds safe, non-destructive utilities.
+   */
+
+  /* Preserve background colors and images when printing */
+  body {
+    background-color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide common UI-only elements that are never part of a document */
+  .no-print {
+    display: none !important;
+  }
+}

@@ -84,7 +84,7 @@ export default function AIDashboard() {
                     <h1>مقترحات طلبات الشراء الذكية</h1>
                     <p>تاريخ التقرير: ${new Date().toLocaleDateString('ar-DZ')}</p>
                     ${tableContent}
-                    <div class="footer">تم إنشاء هذا التقرير بواسطة نظام الذكاء الاصطناعي - سوكر</div>
+                    <div class="footer">تم إنشاء هذا التقرير بواسطة نظام الذكاء الاصطناعي - برنامج إدارة محل</div>
                     <script>window.onload = () => { window.print(); window.close(); }</script>
                 </body>
             </html>
