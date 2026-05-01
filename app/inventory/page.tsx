@@ -681,7 +681,7 @@ export default function InventoryPage() {
                     <Package className="text-emerald-600" /> إدارة المخزون
                 </h1>
 
-                <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm overflow-x-auto gap-1">
+                <div className="flex bg-white rounded-xl p-1 border border-gray-200 shadow-sm overflow-x-auto gap-1">
                     <button onClick={() => setActiveTab('overview')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>📦 المخزون الحالي</button>
                     <button onClick={() => setActiveTab('batches')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'batches' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>📦 دفعات بصلاحية</button>
                     <button onClick={() => setActiveTab('damaged')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'damaged' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>⚠️ التالف والضياع</button>
@@ -697,7 +697,7 @@ export default function InventoryPage() {
                         {/* Summary Card for Inventory Value */}
                         <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl flex justify-between items-center shadow-sm">
                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white rounded-xl shadow-sm text-emerald-600">
+                                <div className="p-3 bg-white rounded-2xl shadow-sm text-emerald-600">
                                     <DollarSign size={24} />
                                 </div>
                                 <div>
@@ -715,7 +715,7 @@ export default function InventoryPage() {
                         {/* Summary Card for Low Stock Alert */}
                         <div className={`p-6 rounded-2xl flex justify-between items-center shadow-sm border ${products.filter(p => p.quantity <= p.minQuantity).length > 0 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="flex items-center gap-4">
-                                <div className={`p-3 bg-white rounded-xl shadow-sm ${products.filter(p => p.quantity <= p.minQuantity).length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                                <div className={`p-3 bg-white rounded-2xl shadow-sm ${products.filter(p => p.quantity <= p.minQuantity).length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                                     <AlertTriangle size={24} />
                                 </div>
                                 <div>
@@ -731,13 +731,13 @@ export default function InventoryPage() {
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between no-print">
                         <div className="relative max-w-sm w-full">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <input type="text" placeholder="بحث بالاسم أو الكود..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-white border border-gray-200 rounded-lg pr-10 pl-3 py-2.5 text-sm" />
+                            <input type="text" placeholder="بحث بالاسم أو الكود..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl pr-10 pl-3 py-2.5 text-sm" />
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="relative">
                                 <button 
                                     onClick={() => setIsOverviewExportDropdownOpen(!isOverviewExportDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all text-xs font-bold border border-blue-200"
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-all text-xs font-bold border border-blue-200"
                                 >
                                     <Download size={14} />
                                     تصدير
@@ -745,7 +745,7 @@ export default function InventoryPage() {
                                 </button>
                                 
                                 {isOverviewExportDropdownOpen && (
-                                    <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
+                                    <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
                                         <button 
                                             onClick={() => { handleExportOverviewExcel(); setIsOverviewExportDropdownOpen(false); }}
                                             className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
@@ -766,7 +766,7 @@ export default function InventoryPage() {
 
                             <button 
                                 onClick={handlePrintOverviewTable}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
                             >
                                 <Printer size={14} /> طباعة
                             </button>
@@ -780,7 +780,7 @@ export default function InventoryPage() {
                                 <select 
                                     value={sortBy} 
                                     onChange={e => setSortBy(e.target.value)}
-                                    className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                                    className="text-xs font-bold bg-white border border-gray-200 rounded-xl px-2 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
                                 >
                                     <option value="name">🔤 الاسم</option>
                                     <option value="code">🔢 الكود</option>
@@ -792,7 +792,7 @@ export default function InventoryPage() {
                                 </select>
                                 <button 
                                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                                    className="p-1.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500"
+                                    className="p-1.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500"
                                     title={sortOrder === 'asc' ? 'ترتيب تصاعدي' : 'ترتيب تنازلي'}
                                 >
                                     {sortOrder === 'asc' ? <ArrowUpAZ size={14} /> : <ArrowDownZA size={14} />}
@@ -802,14 +802,14 @@ export default function InventoryPage() {
                             <div className="w-px h-6 bg-gray-200 mx-1"></div>
 
                             <span className="text-xs font-bold text-gray-500">تصفية:</span>
-                            <select value={alertFilter} onChange={e => setAlertFilter(e.target.value as any)} className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[120px]">
+                            <select value={alertFilter} onChange={e => setAlertFilter(e.target.value as any)} className="text-xs font-bold bg-white border border-gray-200 rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[120px]">
                                 <option value="ALL">الكل</option>
                                 <option value="BELOW_MIN">⚠️ أقل من الحد الأدنى</option>
                                 <option value="ABOVE_MIN">✅ كمية كافية</option>
                             </select>
                         </div>
                     </div>
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+                    <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
                         <table className="w-full text-right text-sm">
                             <thead className="bg-gray-50 border-b">
                                 <tr>
@@ -868,7 +868,7 @@ export default function InventoryPage() {
                                                     <span className={`font-bold text-lg ${isLowStock ? 'text-amber-600' : ''}`}>{p.quantity}</span> <span className="text-xs">{p.unit}</span>
                                                 </td>
                                                 <td className="px-4 py-4 text-center">
-                                                    <span className={`font-bold px-2 py-1 rounded-lg border ${isLowStock ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                                                    <span className={`font-bold px-2 py-1 rounded-xl border ${isLowStock ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                                                         {p.minQuantity}
                                                     </span>
                                                 </td>
@@ -884,7 +884,7 @@ export default function InventoryPage() {
 
                                                     <button 
                                                         onClick={() => openProductHistory(p)}
-                                                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" 
+                                                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" 
                                                         title="عرض تفاصيل الحركة"
                                                     >
                                                         <FileText size={18} />
@@ -901,7 +901,7 @@ export default function InventoryPage() {
                                                             });
                                                             setIsDamageModalOpen(true);
                                                         }}
-                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all" 
                                                         title="تسجيل تلف"
                                                     >
                                                         <AlertTriangle size={18} />
@@ -947,14 +947,14 @@ export default function InventoryPage() {
                         {/* Batch Stats Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Package size={24} /></div>
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Package size={24} /></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 mb-1">إجمالي المنتجات المراقبة</p>
                                     <h3 className="text-2xl font-black text-gray-900">{products.filter(p => p.hasExpiryDate).length}</h3>
                                 </div>
                             </div>
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                <div className="p-3 bg-amber-50 text-amber-600 rounded-xl"><AlertTriangle size={24} /></div>
+                                <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl"><AlertTriangle size={24} /></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 mb-1">منتجات تنتهي قريباً</p>
                                     <h3 className="text-2xl font-black text-amber-600">
@@ -968,7 +968,7 @@ export default function InventoryPage() {
                                 </div>
                             </div>
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                <div className="p-3 bg-red-50 text-red-600 rounded-xl"><Trash2 size={24} /></div>
+                                <div className="p-3 bg-red-50 text-red-600 rounded-2xl"><Trash2 size={24} /></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 mb-1">منتجات منتهية الصلاحية</p>
                                     <h3 className="text-2xl font-black text-red-600">
@@ -982,7 +982,7 @@ export default function InventoryPage() {
                                 </div>
                             </div>
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><DollarSign size={24} /></div>
+                                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={24} /></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 mb-1">إجمالي القطع المنتهية</p>
                                     <h3 className="text-2xl font-black text-emerald-600">
@@ -1008,7 +1008,7 @@ export default function InventoryPage() {
                                     <div className="relative">
                                         <button 
                                             onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all text-xs font-bold border border-blue-200"
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-all text-xs font-bold border border-blue-200"
                                         >
                                             <Download size={14} />
                                             تصدير
@@ -1016,7 +1016,7 @@ export default function InventoryPage() {
                                         </button>
                                         
                                         {isExportDropdownOpen && (
-                                            <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
+                                            <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
                                                 <button 
                                                     onClick={handleExportExpiryExcel}
                                                     className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
@@ -1037,7 +1037,7 @@ export default function InventoryPage() {
 
                                     <button 
                                         onClick={handlePrintExpiryTable}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
                                     >
                                         <Printer size={14} />
                                         طباعة
@@ -1049,7 +1049,7 @@ export default function InventoryPage() {
                                     <select 
                                         value={expiryStatusFilter}
                                         onChange={(e) => setExpiryStatusFilter(e.target.value)}
-                                        className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[120px]"
+                                        className="text-xs font-bold bg-white border border-gray-200 rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[120px]"
                                     >
                                         <option value="ALL">الكل</option>
                                         <option value="EXPIRED" className="text-red-600 font-bold">🔴 منتهي</option>
@@ -1156,7 +1156,7 @@ export default function InventoryPage() {
                                                                 const diffTime = nearestBatchExpiry.getTime() - new Date().getTime();
                                                                 const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                                                                 return (
-                                                                    <span className={`font-black font-sans px-2 py-0.5 rounded-lg border ${
+                                                                    <span className={`font-black font-sans px-2 py-0.5 rounded-xl border ${
                                                                         days < 0 ? 'bg-red-100 text-red-700 border-red-200' : 
                                                                         days <= 30 ? 'bg-amber-100 text-amber-700 border-amber-200' : 
                                                                         'bg-emerald-100 text-emerald-700 border-emerald-200'
@@ -1183,7 +1183,7 @@ export default function InventoryPage() {
                                                                         setSelectedProductForBatches(p);
                                                                         setIsBatchDetailModalOpen(true);
                                                                     }}
-                                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" 
+                                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" 
                                                                     title="عرض تفاصيل الدفعات"
                                                                 >
                                                                         <Package size={18} />
@@ -1201,7 +1201,7 @@ export default function InventoryPage() {
                                                                             });
                                                                             setIsDamageModalOpen(true);
                                                                         }}
-                                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition-all" 
                                                                         title="تسجيل تلف للمنتهي"
                                                                     >
                                                                         <Trash2 size={18} />
@@ -1227,7 +1227,7 @@ export default function InventoryPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white p-5 rounded-2xl border-r-4 border-r-red-500 shadow-sm">
                             <div className="flex justify-between items-start mb-2">
-                                <div className="p-2 bg-red-50 rounded-lg"><TrendingUp className="text-red-500" size={20} /></div>
+                                <div className="p-2 bg-red-50 rounded-xl"><TrendingUp className="text-red-500" size={20} /></div>
                                 <span className="text-xs font-bold text-red-500">هذا الشهر</span>
                             </div>
                             <div className="text-xs text-gray-500 mb-1">إجمالي الخسائر</div>
@@ -1235,7 +1235,7 @@ export default function InventoryPage() {
                         </div>
                         <div className="bg-white p-5 rounded-2xl border-r-4 border-r-red-600 shadow-sm">
                             <div className="flex justify-between items-start mb-2">
-                                <div className="p-2 bg-red-50 rounded-lg"><Activity className="text-red-600" size={20} /></div>
+                                <div className="p-2 bg-red-50 rounded-xl"><Activity className="text-red-600" size={20} /></div>
                                 <span className="text-xs font-bold text-red-600">هذا العام</span>
                             </div>
                             <div className="text-xs text-gray-500 mb-1">إجمالي الخسائر السنوية</div>
@@ -1246,7 +1246,7 @@ export default function InventoryPage() {
                     {/* Toolbar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between no-print">
                         <div className="flex items-center gap-3 w-full md:w-auto">
-                            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="bg-white border rounded-lg p-2 text-sm flex-1 md:w-40">
+                            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="bg-white border rounded-xl p-2 text-sm flex-1 md:w-40">
                                 <option value="ALL">كل أنواع المشاكل</option>
                                 <option value="DAMAGED">تالف</option>
                                 <option value="EXPIRED">منتهي الصلاحية</option>
@@ -1258,7 +1258,7 @@ export default function InventoryPage() {
                             <div className="relative">
                                 <button 
                                     onClick={() => setIsDamagedExportDropdownOpen(!isDamagedExportDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-all text-xs font-bold border border-red-200"
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-xl hover:bg-red-100 transition-all text-xs font-bold border border-red-200"
                                 >
                                     <Download size={14} />
                                     تصدير
@@ -1266,7 +1266,7 @@ export default function InventoryPage() {
                                 </button>
                                 
                                 {isDamagedExportDropdownOpen && (
-                                    <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
+                                    <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
                                         <button 
                                             onClick={() => { handleExportDamagedExcel(); setIsDamagedExportDropdownOpen(false); }}
                                             className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
@@ -1286,7 +1286,7 @@ export default function InventoryPage() {
                             </div>
                             <button 
                                 onClick={handlePrintDamagedTable}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
                             >
                                 <Printer size={14} /> طباعة
                             </button>
@@ -1294,7 +1294,7 @@ export default function InventoryPage() {
                     </div>
 
                     {/* Damaged List */}
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto shadow-sm">
+                    <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto shadow-sm">
                         <table className="w-full text-right text-sm">
                             <thead className="bg-gray-50 border-b">
                                 <tr>
@@ -1323,7 +1323,7 @@ export default function InventoryPage() {
                                             <div className="flex items-center justify-center gap-2">
                                                 <button 
                                                     onClick={() => handlePrintDamageReceipt(d)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-1 text-xs font-bold" 
+                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-xl flex items-center gap-1 text-xs font-bold" 
                                                     title="طباعة الوصل"
                                                 >
                                                     <Printer size={16} /> وصل
@@ -1368,7 +1368,7 @@ export default function InventoryPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-sm font-bold">المنتج*</label>
-                                                <div className="bg-gray-100 border rounded-lg p-2.5 text-sm font-bold text-gray-700">
+                                                <div className="bg-gray-100 border rounded-xl p-2.5 text-sm font-bold text-gray-700">
                                                     {selectedProduct?.name || 'لم يتم اختيار منتج'} 
                                                     {selectedProduct && (
                                                         <span className="text-blue-600 mr-2">
@@ -1385,7 +1385,7 @@ export default function InventoryPage() {
                                                     readOnly={newDamage.damageType === 'EXPIRED'}
                                                     value={newDamage.quantity} 
                                                     onChange={e => setNewDamage({ ...newDamage, quantity: parseInt(e.target.value) || 0 })} 
-                                                    className={`bg-white border rounded-lg p-2.5 text-sm ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 font-bold' : ''} ${isOverLimit ? 'border-red-500 focus:ring-red-500 bg-red-50' : ''}`} 
+                                                    className={`bg-white border rounded-xl p-2.5 text-sm ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 font-bold' : ''} ${isOverLimit ? 'border-red-500 focus:ring-red-500 bg-red-50' : ''}`} 
                                                 />
                                                 {isOverLimit && (
                                                     <p className="text-[10px] text-red-600 font-bold animate-pulse">يرجى إدخال رقم أصغر من {newDamage.damageType === 'EXPIRED' ? 'الكمية المنتهية' : 'المتوفر في المخزون'}</p>
@@ -1398,7 +1398,7 @@ export default function InventoryPage() {
                                                     disabled={newDamage.damageType === 'EXPIRED'}
                                                     value={newDamage.damageType} 
                                                     onChange={e => setNewDamage({ ...newDamage, damageType: e.target.value })} 
-                                                    className={`bg-white border rounded-lg p-2.5 text-sm ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 font-bold opacity-100' : ''}`}
+                                                    className={`bg-white border rounded-xl p-2.5 text-sm ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 font-bold opacity-100' : ''}`}
                                                 >
                                                     <option value="DAMAGED">🔴 تالف (فيزيائياً)</option>
                                                     <option value="WITHDRAWN">🟡 مسحوب (بقرار)</option>
@@ -1410,7 +1410,7 @@ export default function InventoryPage() {
 
 
 
-                                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex justify-between items-center mt-2">
+                                        <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex justify-between items-center mt-2">
                                             <div className="flex-1">
                                                 <div className="text-xs text-red-600 font-bold">الخسارة المحتملة</div>
                                                 <div className="text-xl font-black text-red-700">
@@ -1423,7 +1423,7 @@ export default function InventoryPage() {
                                         <button 
                                             type="submit" 
                                             disabled={isOverLimit}
-                                            className={`font-bold py-3 rounded-xl shadow-lg transition-all mt-2 text-white ${isOverLimit ? 'bg-gray-400 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-red-700 shadow-red-100'}`}
+                                            className={`font-bold py-3 rounded-2xl shadow-lg transition-all mt-2 text-white ${isOverLimit ? 'bg-gray-400 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-red-700 shadow-red-100'}`}
                                         >
                                             {isOverLimit ? (newDamage.damageType === 'EXPIRED' ? 'تجاوزت الكمية المنتهية' : 'الكمية غير متوفرة') : 'حفظ السجل وخصم المخزون'}
                                         </button>
@@ -1446,7 +1446,7 @@ export default function InventoryPage() {
                         <form onSubmit={handleReturnToSupplier} className="p-6 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-bold">المورد</label>
-                                <select required value={returnForm.supplierId} onChange={e => setReturnForm({ ...returnForm, supplierId: e.target.value })} className="bg-white border rounded-lg p-2.5 text-sm">
+                                <select required value={returnForm.supplierId} onChange={e => setReturnForm({ ...returnForm, supplierId: e.target.value })} className="bg-white border rounded-xl p-2.5 text-sm">
                                     <option value="">اختر المورد...</option>
                                     {suppliers.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
@@ -1455,13 +1455,13 @@ export default function InventoryPage() {
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-bold">المبلغ المسترد</label>
-                                <input required type="number" value={returnForm.refundAmount} onChange={e => setReturnForm({ ...returnForm, refundAmount: parseFloat(e.target.value) || 0 })} className="bg-white border rounded-lg p-2.5 text-sm" />
+                                <input required type="number" value={returnForm.refundAmount} onChange={e => setReturnForm({ ...returnForm, refundAmount: parseFloat(e.target.value) || 0 })} className="bg-white border rounded-xl p-2.5 text-sm" />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-bold">ملاحظات</label>
-                                <textarea value={returnForm.notes} onChange={e => setReturnForm({ ...returnForm, notes: e.target.value })} className="bg-white border rounded-lg p-2.5 text-sm min-h-[80px]" />
+                                <textarea value={returnForm.notes} onChange={e => setReturnForm({ ...returnForm, notes: e.target.value })} className="bg-white border rounded-xl p-2.5 text-sm min-h-[80px]" />
                             </div>
-                            <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all">
+                            <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl shadow-lg transition-all">
                                 تأكيد الإرجاع وتحديث حساب المورد
                             </button>
                         </form>
@@ -1486,26 +1486,26 @@ export default function InventoryPage() {
                             <div className="flex items-center gap-3">
                                 <button 
                                     onClick={handlePrintHistory}
-                                    className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-gray-800 transition-all shadow-md"
+                                    className="bg-gray-900 text-white px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-2 hover:bg-gray-800 transition-all shadow-md"
                                 >
                                     <Printer size={16} /> طباعة السجل
                                 </button>
-                                <button onClick={() => setIsHistoryModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 bg-white border rounded-xl hover:shadow-sm transition-all"><X /></button>
+                                <button onClick={() => setIsHistoryModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 bg-white border rounded-2xl hover:shadow-sm transition-all"><X /></button>
                             </div>
                         </div>
 
                         <div className="p-6 border-b bg-white flex flex-wrap gap-4 items-center no-print">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-gray-500">من:</span>
-                                <input type="date" value={historyFilters.from} onChange={e => setHistoryFilters({...historyFilters, from: e.target.value})} className="border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                                <input type="date" value={historyFilters.from} onChange={e => setHistoryFilters({...historyFilters, from: e.target.value})} className="border rounded-2xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-gray-500">إلى:</span>
-                                <input type="date" value={historyFilters.to} onChange={e => setHistoryFilters({...historyFilters, to: e.target.value})} className="border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                                <input type="date" value={historyFilters.to} onChange={e => setHistoryFilters({...historyFilters, to: e.target.value})} className="border rounded-2xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-gray-500">النوع:</span>
-                                <select value={historyFilters.type} onChange={e => setHistoryFilters({...historyFilters, type: e.target.value})} className="border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20">
+                                <select value={historyFilters.type} onChange={e => setHistoryFilters({...historyFilters, type: e.target.value})} className="border rounded-2xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20">
                                     <option value="ALL">الكل</option>
                                     <option value="IN">دخول 🟢</option>
                                     <option value="OUT">خروج 🔴</option>
@@ -1584,11 +1584,11 @@ export default function InventoryPage() {
                             <div className="flex items-center gap-3">
                                 <button 
                                     onClick={handlePrintBatches}
-                                    className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-gray-800 transition-all shadow-md"
+                                    className="bg-gray-900 text-white px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-2 hover:bg-gray-800 transition-all shadow-md"
                                 >
                                     <Printer size={16} /> طباعة التقرير
                                 </button>
-                                <button onClick={() => setIsBatchDetailModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 bg-white border rounded-xl hover:shadow-sm transition-all"><X /></button>
+                                <button onClick={() => setIsBatchDetailModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 bg-white border rounded-2xl hover:shadow-sm transition-all"><X /></button>
                             </div>
                         </div>
 

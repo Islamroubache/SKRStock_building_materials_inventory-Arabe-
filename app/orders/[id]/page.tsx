@@ -151,7 +151,7 @@ export default function OrderDetailsPage() {
             {/* TOP NAVIGATION & ACTIONS */}
             <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => router.push('/orders')} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+                    <button onClick={() => router.push('/orders')} className="p-2 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 transition-colors shadow-sm">
                         <ArrowRight size={20} className="text-gray-600" />
                     </button>
                     <div className="bg-blue-600/20 p-3 rounded-2xl border border-blue-500/30">
@@ -160,7 +160,7 @@ export default function OrderDetailsPage() {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-3xl font-black text-gray-900 tracking-tight">طلبية رقم: {order.orderNumber}</h1>
-                            <span className={`px-3 py-1 rounded-lg text-xs font-black border ${
+                            <span className={`px-3 py-1 rounded-xl text-xs font-black border ${
                                 order.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
                                 order.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
                                 'bg-rose-500/10 text-rose-500 border-rose-500/20'
@@ -175,7 +175,7 @@ export default function OrderDetailsPage() {
                 <div className="flex gap-3 no-print">
                     <Link 
                         href={`/orders/${orderId}/print`}
-                        className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+                        className="bg-gray-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg active:scale-95"
                     >
                         <Printer size={16} /> طباعة المستند
                     </Link>
@@ -227,7 +227,7 @@ export default function OrderDetailsPage() {
                                                             <button 
                                                                 onClick={() => handleQuickReturn(item)}
                                                                 title="استرجاع"
-                                                                className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all flex items-center gap-1 border border-amber-200"
+                                                                className="p-2 text-amber-600 hover:bg-amber-50 rounded-xl transition-all flex items-center gap-1 border border-amber-200"
                                                             >
                                                                 <RotateCcw size={16} />
                                                                 <span className="text-[10px] font-black">استرجاع</span>

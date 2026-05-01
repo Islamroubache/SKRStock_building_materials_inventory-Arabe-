@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className={tajawal.variable}>
-      <body className="font-tajawal antialiased bg-white text-slate-900">
+      <body className="font-tajawal antialiased bg-white text-gray-900">
         <AppLayout>
           {children}
         </AppLayout>

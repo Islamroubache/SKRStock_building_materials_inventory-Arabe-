@@ -338,7 +338,7 @@ export default function InvoicesPage() {
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                 <div>
                     <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3">
-                        <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-200">
+                        <div className="bg-blue-600 p-2 rounded-2xl text-white shadow-lg shadow-blue-200">
                             <FileText size={28} />
                         </div>
                         إدارة الديون والفواتير
@@ -350,13 +350,13 @@ export default function InvoicesPage() {
                     <div className="flex p-1 bg-white border border-gray-200 rounded-2xl shadow-sm">
                         <button 
                             onClick={() => setInvoiceType('SALE')} 
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all ${invoiceType === 'SALE' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-400 hover:text-gray-900'}`}
+                            className={`px-6 py-3 rounded-2xl text-sm font-black transition-all ${invoiceType === 'SALE' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-400 hover:text-gray-900'}`}
                         >
                             🛍️ فواتير المبيعات
                         </button>
                         <button 
                             onClick={() => setInvoiceType('PURCHASE')} 
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all ${invoiceType === 'PURCHASE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-gray-400 hover:text-gray-900'}`}
+                            className={`px-6 py-3 rounded-2xl text-sm font-black transition-all ${invoiceType === 'PURCHASE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-gray-400 hover:text-gray-900'}`}
                         >
                             📦 فواتير المشتريات
                         </button>
@@ -447,12 +447,12 @@ export default function InvoicesPage() {
                     </div>
                     
                     <div className="flex gap-2">
-                        <button onClick={() => setStatusFilter('ALL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'ALL' ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}>الكل</button>
-                        <button onClick={() => setStatusFilter('UNPAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'UNPAID' ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'}`}>لم يدفع</button>
-                        <button onClick={() => setStatusFilter('PARTIAL')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}>جزئي</button>
-                        <button onClick={() => setStatusFilter('PAID')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'text-gray-400 hover:text-green-500'}`}>خالص</button>
-                        <button onClick={() => setStatusFilter('CREDIT')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'text-gray-400 hover:text-purple-500'}`}>رصيد زائد للعميل</button>
-                        <button onClick={() => setStatusFilter('OVERDUE')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${statusFilter === 'OVERDUE' ? 'bg-rose-100/50 border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>🚨 متجاوزة</button>
+                        <button onClick={() => setStatusFilter('ALL')} className={`px-4 py-2 rounded-2xl text-xs font-black transition-all ${statusFilter === 'ALL' ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}>الكل</button>
+                        <button onClick={() => setStatusFilter('UNPAID')} className={`px-4 py-2 rounded-2xl text-xs font-black transition-all ${statusFilter === 'UNPAID' ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'}`}>لم يدفع</button>
+                        <button onClick={() => setStatusFilter('PARTIAL')} className={`px-4 py-2 rounded-2xl text-xs font-black transition-all ${statusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}>جزئي</button>
+                        <button onClick={() => setStatusFilter('PAID')} className={`px-4 py-2 rounded-2xl text-xs font-black transition-all ${statusFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'text-gray-400 hover:text-green-500'}`}>خالص</button>
+                        <button onClick={() => setStatusFilter('CREDIT')} className={`px-4 py-2 rounded-2xl text-xs font-black transition-all ${statusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'text-gray-400 hover:text-purple-500'}`}>رصيد زائد للعميل</button>
+                        <button onClick={() => setStatusFilter('OVERDUE')} className={`px-4 py-2 rounded-2xl text-xs font-black transition-all border ${statusFilter === 'OVERDUE' ? 'bg-rose-100/50 border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>🚨 متجاوزة</button>
                     </div>
 
                     {/* Customer Type Dropdown */}
@@ -461,7 +461,7 @@ export default function InvoicesPage() {
                         <select 
                             value={customerTypeFilter} 
                             onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
-                            className="bg-white border-2 border-gray-100 rounded-xl px-4 py-2 text-xs font-black text-gray-700 outline-none focus:border-orange-400 transition-all cursor-pointer shadow-sm"
+                            className="bg-white border-2 border-gray-100 rounded-2xl px-4 py-2 text-xs font-black text-gray-700 outline-none focus:border-orange-400 transition-all cursor-pointer shadow-sm"
                         >
                             <option value="ALL">الكل (الزبائن)</option>
                             <option value="FIDEL">👤 زبائن مسجلون</option>
@@ -474,7 +474,7 @@ export default function InvoicesPage() {
                         <div className="relative">
                             <button
                                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                                className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"
+                                className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"
                             >
                                 <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -499,7 +499,7 @@ export default function InvoicesPage() {
 
                         <button
                             onClick={handlePrintList}
-                            className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
+                            className="bg-gray-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
                         >
                             <Printer size={16} /> طباعة القائمة
                         </button>
@@ -539,7 +539,7 @@ export default function InvoicesPage() {
                         {(dateRange.start || dateRange.end) && (
                             <button 
                                 onClick={() => setDateRange({ start: '', end: '' })}
-                                className="mr-4 flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-amber-600 hover:bg-amber-50 font-black text-[10px] transition-all shadow-sm"
+                                className="mr-4 flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-2xl text-amber-600 hover:bg-amber-50 font-black text-[10px] transition-all shadow-sm"
                             >
                                 <RotateCcw size={14} /> إعادة تعيين التاريخ
                             </button>
@@ -595,8 +595,8 @@ export default function InvoicesPage() {
                                             />
                                         </div>
                                         <div className="flex gap-2 mt-3">
-                                            <button onClick={() => setPaymentAmount(showPaymentModal.remaining)} className="text-[10px] font-black bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition-all">دفع الكل</button>
-                                            <button onClick={() => setPaymentAmount(Math.round(showPaymentModal.remaining / 2))} className="text-[10px] font-black bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-all">نصف المبلغ</button>
+                                            <button onClick={() => setPaymentAmount(showPaymentModal.remaining)} className="text-[10px] font-black bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl hover:bg-blue-200 transition-all">دفع الكل</button>
+                                            <button onClick={() => setPaymentAmount(Math.round(showPaymentModal.remaining / 2))} className="text-[10px] font-black bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl hover:bg-gray-200 transition-all">نصف المبلغ</button>
                                         </div>
                                     </div>
 
@@ -715,7 +715,7 @@ export default function InvoicesPage() {
                                             window.location.reload();
                                         }
                                     }}
-                                    className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg no-print"
+                                    className="bg-gray-900 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg no-print"
                                 >
                                     <Printer size={16} /> طباعة السجل
                                 </button>
@@ -807,7 +807,7 @@ export default function InvoicesPage() {
                                                                       window.location.reload();
                                                                   }
                                                               }}
-                                                              className={`flex items-center gap-1.5 px-3 py-1.5 ${p.isReturn ? 'bg-orange-600' : (p.amount < 0 ? 'bg-purple-600' : 'bg-blue-600')} text-white rounded-lg hover:opacity-90 transition-all shadow-md no-print`}
+                                                              className={`flex items-center gap-1.5 px-3 py-1.5 ${p.isReturn ? 'bg-orange-600' : (p.amount < 0 ? 'bg-purple-600' : 'bg-blue-600')} text-white rounded-xl hover:opacity-90 transition-all shadow-md no-print`}
                                                           >
                                                               <Printer size={12} />
                                                               <span className="text-[10px] font-black">طباعة الوصل</span>
@@ -822,7 +822,7 @@ export default function InvoicesPage() {
                                                     <Clock size={12} />
                                                 </div>
                                                 {(p.paymentMethod === 'CHEQUE' || p.paymentMethod === 'BANK_TRANSFER' || p.chequeNumber) && (
-                                                    <div className="mt-2 flex flex-col gap-1 bg-blue-50 border border-blue-100 p-3 rounded-xl text-right" dir="rtl">
+                                                    <div className="mt-2 flex flex-col gap-1 bg-blue-50 border border-blue-100 p-3 rounded-2xl text-right" dir="rtl">
                                                         {p.bankName && <div className="text-[10px] font-black text-blue-700 flex items-center gap-1 justify-end">🏛️ {p.bankName}</div>}
                                                         {p.chequeNumber && <div className="text-[11px] font-black text-gray-900 font-sans">№ {p.chequeNumber}</div>}
                                                     </div>
@@ -937,7 +937,7 @@ export default function InvoicesPage() {
                                 {showHistoryModal.remaining < 0 && (
                                     <button
                                         onClick={() => handleRefundExcess(showHistoryModal)}
-                                        className="mt-2 text-[10px] font-black bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 ml-auto"
+                                        className="mt-2 text-[10px] font-black bg-purple-600 text-white px-3 py-1.5 rounded-xl hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 ml-auto"
                                     >
                                         <Banknote size={12} /> إرجاع الفائض نقداً
                                     </button>
@@ -969,11 +969,11 @@ export default function InvoicesPage() {
                                             window.location.reload();
                                         }
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl hover:bg-black transition-all shadow-lg text-xs font-bold"
+                                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-2xl hover:bg-black transition-all shadow-lg text-xs font-bold"
                                 >
                                     <Printer size={16} /> طباعة السجل
                                 </button>
-                                <button onClick={() => setShowReturnsModal(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm"><X size={24} /></button>
+                                <button onClick={() => setShowReturnsModal(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-2xl border border-gray-100 shadow-sm"><X size={24} /></button>
                             </div>
                         </div>
 
@@ -1041,7 +1041,7 @@ export default function InvoicesPage() {
                                                                     window.location.reload();
                                                                 }
                                                             }}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all shadow-md"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-all shadow-md"
                                                         >
                                                             <Printer size={12} />
                                                             <span className="text-[10px] font-black uppercase">Imprimer</span>
@@ -1053,7 +1053,7 @@ export default function InvoicesPage() {
                                                     <span>{new Date(r.orderDate).toLocaleString('ar-DZ')}</span>
                                                     <Clock size={12} />
                                                 </div>
-                                                <div className="bg-orange-50/50 rounded-xl p-3 border border-orange-100/50">
+                                                <div className="bg-orange-50/50 rounded-2xl p-3 border border-orange-100/50">
                                                     <p className="text-[10px] font-black text-orange-800 mb-2 border-b border-orange-100 pb-1">السلع المسترجعة / PRODUITS RETOURNÉS</p>
                                                     <div className="space-y-1">
                                                         {r.items?.map((item: any, i: number) => (
@@ -1150,12 +1150,12 @@ export default function InvoicesPage() {
                                         window.location.reload();
                                     }
                                 }} 
-                                className="bg-blue-600 text-white p-3 rounded-xl shadow-xl hover:scale-105 transition-all flex items-center gap-2"
+                                className="bg-blue-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all flex items-center gap-2"
                             >
                                 <Printer size={20} />
                                 <span className="font-black text-xs uppercase">Imprimer</span>
                             </button>
-                            <button onClick={() => setSelectedInvoice(null)} className="bg-white text-gray-900 p-3 rounded-xl shadow-xl hover:scale-105 transition-all"><X size={20} /></button>
+                            <button onClick={() => setSelectedInvoice(null)} className="bg-white text-gray-900 p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><X size={20} /></button>
                         </div>
 
                         <div id="invoice-print-area" className="bg-white shadow-2xl p-6 md:p-12 min-h-[1056px] text-gray-900 border border-gray-100">
@@ -1166,7 +1166,7 @@ export default function InvoicesPage() {
                             </div>
 
                             <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
-                                <div className="bg-gray-50 border border-gray-200 p-5 rounded-xl flex-1 w-full order-2 md:order-1">
+                                <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl flex-1 w-full order-2 md:order-1">
                                     <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tighter uppercase">
                                         {selectedInvoice.invoiceNumber.startsWith('PUR') ? 'Bon de Réception' : 'Facture de Vente'}
                                     </h2>
@@ -1244,7 +1244,7 @@ export default function InvoicesPage() {
                                                     <span className="font-sans">{(selectedInvoice.originalTotal || 0).toLocaleString()}</span>
                                                 </div>
                                                 {selectedInvoice.returnsValue > 0 && (
-                                                    <div className="flex justify-between w-full text-red-400 text-xs mb-2 font-black bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+                                                    <div className="flex justify-between w-full text-red-400 text-xs mb-2 font-black bg-red-500/10 p-2 rounded-xl border border-red-500/20">
                                                         <span>Retours (-):</span>
                                                         <span className="font-sans">- {selectedInvoice.returnsValue.toLocaleString()} DZD</span>
                                                     </div>

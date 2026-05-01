@@ -118,7 +118,7 @@ const SearchableSelect = ({
                                 type="text"
                                 autoFocus
                                 placeholder="بحث..."
-                                className="w-full bg-gray-50 border border-gray-200 rounded-xl pr-10 pl-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500/50"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-2xl pr-10 pl-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500/50"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 onClick={e => e.stopPropagation()}
@@ -484,7 +484,7 @@ function NewOrderPage() {
                     <div className="bg-white/50 border border-gray-200 rounded-2xl p-6 text-right space-y-4 mb-8">
                         <div className="flex justify-between items-center pb-4 border-b border-gray-200">
                             <span className="text-gray-500 font-bold text-sm">رقم الفاتورة:</span>
-                            <span className="font-black text-gray-900 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20 font-sans tracking-widest">
+                            <span className="font-black text-gray-900 bg-blue-500/10 px-3 py-1 rounded-xl border border-blue-500/20 font-sans tracking-widest">
                                 {orderType === 'SALE' ? invoiceData.newOrder?.orderNumber : invoiceData.orderNumber}
                             </span>
                         </div>
@@ -513,10 +513,10 @@ function NewOrderPage() {
                     <div className="flex flex-col gap-3">
                         {orderType === 'SALE' && (
                             <>
-                                <button onClick={() => { setDocType('INVOICE'); setTimeout(() => handlePrint(), 100); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/50">
+                                <button onClick={() => { setDocType('INVOICE'); setTimeout(() => handlePrint(), 100); }} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/50">
                                     <Printer size={20} /> طباعة كـ فاتورة (Invoice)
                                 </button>
-                                <button onClick={() => { setDocType('BON'); setTimeout(() => handlePrint(), 100); }} className="w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/50">
+                                <button onClick={() => { setDocType('BON'); setTimeout(() => handlePrint(), 100); }} className="w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/50">
                                     <Printer size={20} /> طباعة كـ وصل استلام (Bon)
                                 </button>
                             </>
@@ -581,13 +581,13 @@ function NewOrderPage() {
                                 <div className="flex p-1.5 bg-gray-50 border border-gray-200 rounded-2xl w-full">
                                     <button
                                         onClick={() => setOrderStatus('DONE')}
-                                        className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'DONE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
+                                        className={`flex-1 py-3 rounded-2xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'DONE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
                                     >
                                         <CheckCircle size={18} /> تسليم فوري (مكتملة)
                                     </button>
                                     <button
                                         onClick={() => setOrderStatus('PENDING')}
-                                        className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
+                                        className={`flex-1 py-3 rounded-2xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
                                     >
                                         <AlertTriangle size={18} /> معلقة
                                     </button>
@@ -627,9 +627,9 @@ function NewOrderPage() {
 
                         {orderType === 'SALE' && (
                             <>
-                                <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-xl w-fit">
-                                    <button onClick={() => setCustomerType('REGISTERED')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${customerType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 عميل مسجل</button>
-                                    <button onClick={() => setCustomerType('GUEST')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${customerType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🚶 زبون عابر</button>
+                                <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-2xl w-fit">
+                                    <button onClick={() => setCustomerType('REGISTERED')} className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${customerType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 عميل مسجل</button>
+                                    <button onClick={() => setCustomerType('GUEST')} className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${customerType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🚶 زبون عابر</button>
                                 </div>
 
                                 {customerType === 'REGISTERED' ? (
@@ -673,7 +673,7 @@ function NewOrderPage() {
                                             <div className="pt-2">
                                                 <label className="text-sm font-bold text-gray-400 block mb-2">تأطير الطلبية ضمن مشروع (اختياري)</label>
                                                 <select
-                                                    className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:border-blue-500 outline-none transition-colors"
+                                                    className="w-full bg-white/50 border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-900 focus:border-blue-500 outline-none transition-colors"
                                                     value={projectId}
                                                     onChange={(e) => setProjectId(e.target.value ? parseInt(e.target.value) : '')}
                                                 >
@@ -685,9 +685,9 @@ function NewOrderPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4" onKeyDown={handleKeyDown}>
-                                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded-xl border border-gray-200 mb-2">
+                                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded-2xl border border-gray-200 mb-2">
                                             <span className="text-xs font-bold text-gray-700 mx-2">معلومات الزبون العابر</span>
-                                            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
+                                            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-2xl border border-blue-100">
                                                 <Landmark size={14} className="text-blue-600" />
                                                 <span className="text-[10px] font-black text-blue-600 uppercase">التطبيق الضريبي الرسمي</span>
                                                 <button
@@ -701,18 +701,18 @@ function NewOrderPage() {
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div className="md:col-span-2">
-                                                <div className={showErrors && !guestName.trim() ? "ring-2 ring-rose-500/50 rounded-xl" : ""}>
+                                                <div className={showErrors && !guestName.trim() ? "ring-2 ring-rose-500/50 rounded-2xl" : ""}>
                                                     <input
                                                         type="text"
                                                         placeholder="* الاسم الكامل للزبون العابر..."
                                                         value={guestName}
                                                         onChange={e => setGuestName(e.target.value.toUpperCase())}
-                                                        className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase ${showErrors && !guestName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
+                                                        className={`w-full bg-white/50 border rounded-2xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase ${showErrors && !guestName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
                                                     />
                                                 </div>
                                                 {showErrors && !guestName.trim() && <p className="text-rose-500 text-xs font-bold px-2 mt-1">⚠️ اسم الزبون العابر إلزامي!</p>}
                                             </div>
-                                            <input type="tel" dir="ltr" placeholder="رقم الهاتف (اختياري)" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} onFocus={() => setFocusedField('guestPhone')} onBlur={() => setFocusedField(null)} className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500 transition-colors" />
+                                            <input type="tel" dir="ltr" placeholder="رقم الهاتف (اختياري)" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} onFocus={() => setFocusedField('guestPhone')} onBlur={() => setFocusedField(null)} className="w-full bg-white/50 border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500 transition-colors" />
                                             {focusedField === 'guestPhone' && (
                                                 <div className="md:col-span-2 flex gap-1 mt-1 font-mono text-xs" dir="ltr">
                                                     {[...Array(10)].map((_, i) => (
@@ -729,7 +729,7 @@ function NewOrderPage() {
                                                         placeholder="* العنوان (Cité / الحي / الشارع)..."
                                                         value={guestAddress}
                                                         onChange={e => setGuestAddress(e.target.value.toUpperCase())}
-                                                        className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase font-black ${showErrors && !guestAddress.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
+                                                        className={`w-full bg-white/50 border rounded-2xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase font-black ${showErrors && !guestAddress.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
                                                     />
                                                     {showErrors && !guestAddress.trim() && <p className="text-rose-500 text-xs font-bold px-2 mt-1">⚠️ العنوان إلزامي!</p>}
                                                 </div>
@@ -752,7 +752,7 @@ function NewOrderPage() {
                                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                                 dir="ltr"
                                                             />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-1.5 z-10 text-[10px]" dir="ltr">
+                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-xl px-2 py-1.5 z-10 text-[10px]" dir="ltr">
                                                                 {[...Array(10)].map((_, i) => (
                                                                     <div key={i} className={`flex-1 flex justify-center border-b ${guestRC[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestRC.length && focusedField === 'guestRC' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
                                                                         {guestRC[i] || 'x'}
@@ -773,7 +773,7 @@ function NewOrderPage() {
                                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                                 dir="ltr"
                                                             />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1 py-1.5 z-10 text-[9px]" dir="ltr">
+                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-xl px-1 py-1.5 z-10 text-[9px]" dir="ltr">
                                                                 {[...Array(15)].map((_, i) => (
                                                                     <div key={i} className={`flex-1 flex justify-center border-b ${guestNIF[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestNIF.length && focusedField === 'guestNIF' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
                                                                         {guestNIF[i] || 'x'}
@@ -794,7 +794,7 @@ function NewOrderPage() {
                                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                                 dir="ltr"
                                                             />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-1.5 z-10 text-[10px]" dir="ltr">
+                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-xl px-2 py-1.5 z-10 text-[10px]" dir="ltr">
                                                                 {[...Array(11)].map((_, i) => (
                                                                     <div key={i} className={`flex-1 flex justify-center border-b ${guestAI[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestAI.length && focusedField === 'guestAI' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
                                                                         {guestAI[i] || 'x'}
@@ -815,7 +815,7 @@ function NewOrderPage() {
                                                                 className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
                                                                 dir="ltr"
                                                             />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1 py-1.5 z-10 text-[9px]" dir="ltr">
+                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-xl px-1 py-1.5 z-10 text-[9px]" dir="ltr">
                                                                 {[...Array(15)].map((_, i) => (
                                                                     <div key={i} className={`flex-1 flex justify-center border-b ${guestNIS[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestNIS.length && focusedField === 'guestNIS' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
                                                                         {guestNIS[i] || 'x'}
@@ -829,7 +829,7 @@ function NewOrderPage() {
                                                 <div className="pt-2 space-y-3">
                                                     <div className="space-y-1">
                                                         <label className="text-[9px] font-bold text-gray-500">العنوان الكامل (الشارع / الحي ) <span className="text-red-500">*</span></label>
-                                                        <input type="text" placeholder="Cité, Street, Ave..." value={guestAddress} onChange={e => setGuestAddress(e.target.value.toUpperCase())} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 uppercase font-black" required />
+                                                        <input type="text" placeholder="Cité, Street, Ave..." value={guestAddress} onChange={e => setGuestAddress(e.target.value.toUpperCase())} className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 uppercase font-black" required />
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div className="space-y-1">
@@ -841,7 +841,7 @@ function NewOrderPage() {
                                                                     setGuestWilaya(e.target.value);
                                                                     setGuestCommune((w as any)?.communes?.[0] || '');
                                                                 }}
-                                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold"
+                                                                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold"
                                                             >
                                                                 {ALGERIA_LOCATIONS.map(w => (
                                                                     <option key={w.id} value={w.arabicName}>{w.id} - {w.arabicName}</option>
@@ -855,7 +855,7 @@ function NewOrderPage() {
                                                                 placeholder="البلدية..."
                                                                 value={guestCommune}
                                                                 onChange={e => setGuestCommune(e.target.value.toUpperCase())}
-                                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold uppercase"
+                                                                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold uppercase"
                                                                 required
                                                             />
                                                         </div>
@@ -870,9 +870,9 @@ function NewOrderPage() {
 
                         {orderType === 'PURCHASE' && (
                             <>
-                                <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-xl w-fit">
-                                    <button onClick={() => setSupplierType('REGISTERED')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${supplierType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🏢 مورد مسجل</button>
-                                    <button onClick={() => setSupplierType('GUEST')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${supplierType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 مورد غير مسجل</button>
+                                <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-2xl w-fit">
+                                    <button onClick={() => setSupplierType('REGISTERED')} className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${supplierType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🏢 مورد مسجل</button>
+                                    <button onClick={() => setSupplierType('GUEST')} className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${supplierType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 مورد غير مسجل</button>
                                 </div>
 
                                 {supplierType === 'REGISTERED' ? (
@@ -887,7 +887,7 @@ function NewOrderPage() {
                                         </div>
                                         {showErrors && !supplierId && <p className="text-rose-500 text-xs font-bold px-2">⚠️ يرجى تحديد المورد الذي ستشتري منه لإكمال الطلبية</p>}
                                         {selectedSupplier && (
-                                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex justify-between items-center text-sm font-bold mt-2">
+                                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 flex justify-between items-center text-sm font-bold mt-2">
                                                 <span className="text-gray-400">الديون المستحقة له:</span>
                                                 <span className="text-emerald-400 font-sans font-black text-xl tracking-tight">{selectedSupplier.balanceDue.toLocaleString()} دج</span>
                                             </div>
@@ -895,13 +895,13 @@ function NewOrderPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <div className={showErrors && !guestSupplierName.trim() ? "ring-2 ring-rose-500 rounded-xl" : ""}>
+                                        <div className={showErrors && !guestSupplierName.trim() ? "ring-2 ring-rose-500 rounded-2xl" : ""}>
                                             <input
                                                 type="text"
                                                 placeholder="* اسم المورد اليدوي..."
                                                 value={guestSupplierName}
                                                 onChange={e => setGuestSupplierName(e.target.value)}
-                                                className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors ${showErrors && !guestSupplierName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
+                                                className={`w-full bg-white/50 border rounded-2xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors ${showErrors && !guestSupplierName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
                                             />
                                         </div>
                                         {showErrors && !guestSupplierName.trim() && <p className="text-rose-500 text-xs font-bold px-2">⚠️ اسم المورد إلزامي!</p>}
@@ -949,13 +949,13 @@ function NewOrderPage() {
                                                     }}
                                                 />
                                             </div>
-                                            <div className="bg-white/50 px-4 py-3 rounded-xl border border-gray-200 shrink-0 min-w-28 text-center text-xs font-black text-gray-500">
+                                            <div className="bg-white/50 px-4 py-3 rounded-2xl border border-gray-200 shrink-0 min-w-28 text-center text-xs font-black text-gray-500">
                                                 {selectedProduct ? selectedProduct.unit : 'وحدة القياس'}
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                            <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50">
+                                            <div className="bg-white/50 border border-gray-200 rounded-2xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50">
                                                 <span className="text-xs font-bold text-gray-500">الكمية</span>
                                                 <input
                                                     type="number" min="1" dir="ltr"
@@ -967,7 +967,7 @@ function NewOrderPage() {
                                             </div>
                                             {/* Remise Field (For Sales) */}
                                             {orderType === 'SALE' && selectedProduct && (
-                                                <div className={`border rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-orange-400 ${
+                                                <div className={`border rounded-2xl p-2 px-3 flex items-center justify-between focus-within:border-orange-400 ${
                                                     line.discount > 0 ? 'bg-orange-50/50 border-orange-200' : 'bg-white/50 border-gray-200'
                                                 }`}>
                                                     <div className="flex flex-col">
@@ -993,7 +993,7 @@ function NewOrderPage() {
 
                                             {/* New Sell Price Field (For Purchases) */}
                                             {orderType === 'PURCHASE' && selectedProduct && (
-                                                <div className={`bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50 relative ${
+                                                <div className={`bg-white/50 border border-gray-200 rounded-2xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50 relative ${
                                                     (line.newSellPrice !== undefined && line.newSellPrice < Math.max(selectedProduct.purchasePrice, line.unitPrice)) ? 'ring-2 ring-rose-500/50' : ''
                                                 }`}>
                                                     <div className="flex flex-col">
@@ -1012,7 +1012,7 @@ function NewOrderPage() {
 
                                             {/* Expiry Date Field (For Purchases if product has it) */}
                                             {orderType === 'PURCHASE' && selectedProduct && selectedProduct.hasExpiryDate !== false && (
-                                                <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-amber-500/50 relative">
+                                                <div className="bg-white/50 border border-gray-200 rounded-2xl p-2 px-3 flex items-center justify-between focus-within:border-amber-500/50 relative">
                                                     <div className="flex flex-col">
                                                         <span className="text-xs font-bold text-amber-500">تاريخ انتهاء الصلاحية</span>
                                                     </div>
@@ -1024,7 +1024,7 @@ function NewOrderPage() {
                                                     />
                                                 </div>
                                             )}
-                                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between">
+                                            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 px-3 flex items-center justify-between">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-gray-500">{orderType === 'SALE' ? 'سعر البيع الافرادي' : 'تكلفة الشراء (دج)'}</span>
                                                     {orderType === 'PURCHASE' && selectedProduct && (
@@ -1078,7 +1078,7 @@ function NewOrderPage() {
                                                     <span className="text-2xl font-black text-gray-900">{(line.quantity * Math.max(0, line.unitPrice - line.discount)).toLocaleString()} <span className="text-sm text-gray-500">دج</span></span>
                                                 </div>
                                                 {lines.length > 1 && (
-                                                    <button onClick={() => handleRemoveLine(line.id)} className="w-10 h-10 flex justify-center items-center rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-gray-900 transition-colors border border-rose-500/20">
+                                                    <button onClick={() => handleRemoveLine(line.id)} className="w-10 h-10 flex justify-center items-center rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-gray-900 transition-colors border border-rose-500/20">
                                                         <Trash2 size={16} />
                                                     </button>
                                                 )}
@@ -1122,7 +1122,7 @@ function NewOrderPage() {
                                         <label className="text-xs font-bold text-gray-400 block mb-2">الدفع الأولي (المُقدم)</label>
                                         <input
                                             type="number" dir="ltr"
-                                            className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 font-sans font-black text-2xl outline-none focus:border-blue-500 text-left"
+                                            className="w-full bg-gray-50 border border-gray-300 rounded-2xl px-4 py-3 text-gray-900 font-sans font-black text-2xl outline-none focus:border-blue-500 text-left"
                                             value={initialPayment || ''}
                                             onChange={e => setInitialPayment(Math.min(grandTotal, parseFloat(e.target.value) || 0))}
                                         />
@@ -1137,10 +1137,10 @@ function NewOrderPage() {
                                 )}
 
                                 <label className="text-xs font-bold text-gray-400 block mb-3">حالة ووسيلة الدفع:</label>
-                                <div className="flex gap-2 p-1 bg-gray-50 rounded-xl mb-4 w-fit border border-gray-200">
-                                    <button onClick={() => setPaymentMethod('CASH')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'CASH' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>💵 كاش النقدي</button>
-                                    <button onClick={() => setPaymentMethod('BANK_TRANSFER')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'BANK_TRANSFER' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>🏦 الحوالة البنكية</button>
-                                    <button onClick={() => setPaymentMethod('CHEQUE')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'CHEQUE' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>📄 الشيك البنكي</button>
+                                <div className="flex gap-2 p-1 bg-gray-50 rounded-2xl mb-4 w-fit border border-gray-200">
+                                    <button onClick={() => setPaymentMethod('CASH')} className={`px-5 py-2 rounded-xl text-sm font-black transition-colors ${paymentMethod === 'CASH' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>💵 كاش النقدي</button>
+                                    <button onClick={() => setPaymentMethod('BANK_TRANSFER')} className={`px-5 py-2 rounded-xl text-sm font-black transition-colors ${paymentMethod === 'BANK_TRANSFER' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>🏦 الحوالة البنكية</button>
+                                    <button onClick={() => setPaymentMethod('CHEQUE')} className={`px-5 py-2 rounded-xl text-sm font-black transition-colors ${paymentMethod === 'CHEQUE' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>📄 الشيك البنكي</button>
                                 </div>
 
                                 {(paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') && (
@@ -1155,12 +1155,12 @@ function NewOrderPage() {
                                                     placeholder={paymentMethod === 'CHEQUE' ? 'أدخل رقم الشيك...' : 'أدخل رقم العملية / المرجع...'}
                                                     value={chequeNumber}
                                                     onChange={e => setChequeNumber(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50"
+                                                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50"
                                                 />
                                             </div>
                                             <div>
                                                 <label className="text-[10px] font-bold text-gray-400 block mb-1">🏛️ البنك أو المؤسسة المالية</label>
-                                                <select value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50">
+                                                <select value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50">
                                                     <option value="" disabled>اختر البنك...</option>
                                                     <option value="Algérie Poste (بريد الجزائر)">Algérie Poste (بريد الجزائر)</option>
                                                     <option value="BNA (البنك الوطني الجزائري)">BNA (البنك الوطني الجزائري)</option>
@@ -1202,10 +1202,10 @@ function NewOrderPage() {
                                     lang="fr-FR"
                                     min={new Date().toISOString().split('T')[0]}
                                     value={dueDate} onChange={e => setDueDate(e.target.value)}
-                                    className={`bg-white border-2 rounded-xl px-5 py-4 text-base font-sans w-full max-w-sm outline-none transition-all shadow-sm ${isDueDateInvalid ? 'border-rose-500 text-rose-600 focus:ring-4 focus:ring-rose-500/20' : 'border-gray-200 text-gray-900 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'}`}
+                                    className={`bg-white border-2 rounded-2xl px-5 py-4 text-base font-sans w-full max-w-sm outline-none transition-all shadow-sm ${isDueDateInvalid ? 'border-rose-500 text-rose-600 focus:ring-4 focus:ring-rose-500/20' : 'border-gray-200 text-gray-900 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'}`}
                                 />
                                 {isDueDateInvalid && (
-                                    <p className="text-xs font-black text-rose-500 mt-3 flex items-center gap-1.5 bg-rose-500/10 p-2 rounded-lg">
+                                    <p className="text-xs font-black text-rose-500 mt-3 flex items-center gap-1.5 bg-rose-500/10 p-2 rounded-xl">
                                         <AlertTriangle size={16} /> تنبيه: لا يمكن اختيار تاريخ سابق لليوم!
                                     </p>
                                 )}
@@ -1218,7 +1218,7 @@ function NewOrderPage() {
                         <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">6. إجمالي التخفيض (Remise Total) <Percent size={16} /></h2>
                         
                         {orderType === 'SALE' && (
-                            <div className="bg-orange-50/50 border border-orange-200 rounded-xl px-4 py-4 flex justify-between items-center mb-4">
+                            <div className="bg-orange-50/50 border border-orange-200 rounded-2xl px-4 py-4 flex justify-between items-center mb-4">
                                 <span className="font-bold text-orange-600">قيمة التخفيض الإجمالية:</span>
                                 <span className="text-2xl font-black text-orange-500 font-sans tracking-tight">
                                     {lines.reduce((acc, line) => acc + ((line.discount || 0) * line.quantity), 0).toLocaleString()} دج
@@ -1230,7 +1230,7 @@ function NewOrderPage() {
                             rows={2}
                             placeholder="ملاحظات تظهر وتُطبع على الفاتورة (اختياري)..."
                             value={notes} onChange={e => setNotes(e.target.value)}
-                            className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500/50 resize-none font-medium leading-relaxed"
+                            className="w-full bg-white/50 border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500/50 resize-none font-medium leading-relaxed"
                         />
                     </div>
                 </div>
@@ -1316,18 +1316,18 @@ function NewOrderPage() {
                                     <span className="text-sm font-black text-gray-400">الإجمالي (TTC)</span>
                                     <span className="text-4xl font-black text-white">{grandTotal.toLocaleString()} دج</span>
                                 </div>
-                                <div className="flex justify-between items-center bg-[#1a2333] p-2 rounded-xl border border-gray-800/50">
+                                <div className="flex justify-between items-center bg-[#1a2333] p-2 rounded-2xl border border-gray-800/50">
                                     <span className="text-xs font-bold text-gray-500">المدفوع سلفاً</span>
                                     <span className="text-lg font-black text-emerald-400">{initialPayment.toLocaleString()} دج 🟢</span>
                                 </div>
-                                <div className={`flex justify-between items-center p-2 rounded-xl border ${remaining > 0 ? 'bg-rose-950/20 border-rose-900/30' : 'bg-emerald-950/20 border-emerald-900/30'}`}>
+                                <div className={`flex justify-between items-center p-2 rounded-2xl border ${remaining > 0 ? 'bg-rose-950/20 border-rose-900/30' : 'bg-emerald-950/20 border-emerald-900/30'}`}>
                                     <span className={`text-xs font-bold ${remaining > 0 ? 'text-rose-500/50' : 'text-emerald-500/50'}`}>المتبقي الصافي</span>
                                     <span className={`text-lg font-black ${remaining > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{remaining.toLocaleString()} دج {remaining > 0 ? '🔴' : '🟢'}</span>
                                 </div>
                             </div>
 
                             {/* Tafqeet preview */}
-                            <div className="bg-[#1a2333]/50 border border-gray-800/50 rounded-xl p-4 text-center">
+                            <div className="bg-[#1a2333]/50 border border-gray-800/50 rounded-2xl p-4 text-center">
                                 <p className="text-[10px] font-bold text-blue-500/80 mb-1">تفقيط القيمة أوتوماتيكياً للطباعة المعيارية</p>
                                 <p className="text-sm font-black text-blue-300 leading-tight">"{tafqeet(grandTotal)} دينار جزائري"</p>
                             </div>

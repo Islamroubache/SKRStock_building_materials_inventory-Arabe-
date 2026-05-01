@@ -194,7 +194,7 @@ export default function ReturnOrderPage() {
         <div className="font-tajawal min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
-                <Link href="/orders" className="p-2 rounded-xl hover:bg-gray-200 transition-colors text-gray-500">
+                <Link href="/orders" className="p-2 rounded-2xl hover:bg-gray-200 transition-colors text-gray-500">
                     <ArrowRight size={20} />
                 </Link>
                 <div className="flex items-center gap-3">
@@ -248,7 +248,7 @@ export default function ReturnOrderPage() {
                                 }
 
                                 return (
-                                    <span className={`px-3 py-1 rounded-lg text-xs font-black border inline-block ${colorClass}`}>
+                                    <span className={`px-3 py-1 rounded-xl text-xs font-black border inline-block ${colorClass}`}>
                                         {label}
                                     </span>
                                 );
@@ -266,7 +266,7 @@ export default function ReturnOrderPage() {
                         </div>
                         <button 
                             onClick={handleReturnAll}
-                            className="text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-xl border border-rose-100 transition-all flex items-center gap-1"
+                            className="text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-2xl border border-rose-100 transition-all flex items-center gap-1"
                         >
                             استرجاع الكل 🔄
                         </button>
@@ -294,7 +294,7 @@ export default function ReturnOrderPage() {
                                         <td className="px-6 py-4 text-center font-sans text-gray-600 font-medium">
                                             {item.quantity} {item.product.unit}
                                             {!isSale && item.product.quantity < (item.quantity - alreadyReturned) && (
-                                                <div className="text-[10px] text-rose-600 font-black mt-2 bg-rose-100/50 p-2 rounded-xl border border-rose-200 animate-pulse">
+                                                <div className="text-[10px] text-rose-600 font-black mt-2 bg-rose-100/50 p-2 rounded-2xl border border-rose-200 animate-pulse">
                                                     ⚠️ المتاح بالمخزون: {item.product.quantity}
                                                 </div>
                                             )}
@@ -311,7 +311,7 @@ export default function ReturnOrderPage() {
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button
                                                         onClick={() => handleQtyChange(item.id, currentReturnQty - 1, maxReturnable)}
-                                                        className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-rose-100 text-gray-600 hover:text-rose-600 font-black transition-colors flex items-center justify-center"
+                                                        className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-rose-100 text-gray-600 hover:text-rose-600 font-black transition-colors flex items-center justify-center"
                                                     >−</button>
                                                     <input
                                                         type="number"
@@ -319,11 +319,11 @@ export default function ReturnOrderPage() {
                                                         max={maxReturnable}
                                                         value={currentReturnQty}
                                                         onChange={e => handleQtyChange(item.id, parseInt(e.target.value) || 0, maxReturnable)}
-                                                        className="w-16 text-center border border-gray-200 rounded-lg py-1 font-black font-sans text-gray-900 focus:ring-2 focus:ring-rose-400 outline-none"
+                                                        className="w-16 text-center border border-gray-200 rounded-xl py-1 font-black font-sans text-gray-900 focus:ring-2 focus:ring-rose-400 outline-none"
                                                     />
                                                     <button
                                                         onClick={() => handleQtyChange(item.id, currentReturnQty + 1, maxReturnable)}
-                                                        className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-rose-100 text-gray-600 hover:text-rose-600 font-black transition-colors flex items-center justify-center"
+                                                        className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-rose-100 text-gray-600 hover:text-rose-600 font-black transition-colors flex items-center justify-center"
                                                     >+</button>
                                                 </div>
                                             )}

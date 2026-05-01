@@ -313,20 +313,20 @@ export default function CustomersPage() {
                             placeholder="بحث بالاسم أو الهاتف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                            className="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                         />
                     </div>
                     <div className="flex gap-3">
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
+                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
                         >
                             <Printer size={16} /> طباعة
                         </button>
                         <div className="relative">
                             <button
                                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
+                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
                             >
                                 <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
@@ -355,14 +355,14 @@ export default function CustomersPage() {
                         </div>
                         <Link
                             href="/customers/archive"
-                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
+                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
                         >
                             <Archive size={16} /> الأرشيف
                         </Link>
                     </div>
                     <button
                         onClick={() => setIsSheetOpen(true)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm"
                     >
                         <Plus size={18} /> عميل جديد
                     </button>
@@ -402,7 +402,7 @@ export default function CustomersPage() {
             {loading ? (
                 <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium">جاري التحميل...</div>
             ) : filteredCustomers.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-xl">لا يوجد عملاء مطابقون للبحث</div>
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-2xl">لا يوجد عملاء مطابقون للبحث</div>
             ) : (
                 <div className="flex flex-col gap-3">
                     {filteredCustomers.map(customer => {
@@ -411,7 +411,7 @@ export default function CustomersPage() {
                         const isWarning = progress >= 90;
 
                         return (
-                            <div key={customer.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4">
+                            <div key={customer.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4">
                                 <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
                                     <img 
                                         src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name)}&backgroundColor=transparent&textColor=1e293b&fontWeight=900&fontSize=40`} 
@@ -473,7 +473,7 @@ export default function CustomersPage() {
                                                 e.stopPropagation();
                                                 handleArchive(customer.id);
                                             }}
-                                            className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                            className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
                                             title="أرشفة العميل"
                                         >
                                             <Archive size={18} />
@@ -481,7 +481,7 @@ export default function CustomersPage() {
                                     )}
                                     <Link 
                                         href={`/customers/${customer.id}`}
-                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                                     >
                                         <ChevronLeft size={20} />
                                     </Link>
@@ -514,7 +514,7 @@ export default function CustomersPage() {
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
                                     onBlur={() => setFieldTouched('name')}
-                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 uppercase transition-all
+                                    className={`w-full bg-white border rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 uppercase transition-all
                                         ${touched.name && !validations.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
                                     required
                                 />
@@ -559,7 +559,7 @@ export default function CustomersPage() {
                                                         setFormData({ ...formData, activity: e.target.value });
                                                     }
                                                 }}
-                                                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                                className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                                             >
                                                 {predefinedActivities.map(a => (
                                                     <option key={a} value={a}>{a}</option>
@@ -574,7 +574,7 @@ export default function CustomersPage() {
                                                         onChange={e => setFormData({ ...formData, activity: e.target.value || 'Autre' })}
                                                         onBlur={() => setFieldTouched('activity')}
                                                         placeholder="أدخل النشاط التجاري يدوياً..."
-                                                        className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all mt-2
+                                                        className={`w-full bg-white border rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all mt-2
                                                             ${touched.activity && !validations.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50'}`}
                                                         autoFocus
                                                     />
@@ -588,7 +588,7 @@ export default function CustomersPage() {
                                 })()}
                             </div>
 
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start gap-3">
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
                                 <User className="text-blue-600 shrink-0" size={20} />
                                 <div>
                                     <p className="text-sm font-bold text-blue-900">حساب عميل معتمد</p>
@@ -608,7 +608,7 @@ export default function CustomersPage() {
                                             setFormData({ ...formData, type: 'LOYAL', creditLimit: raw });
                                         }}
                                         onBlur={() => setFieldTouched('creditLimit')}
-                                        className={`w-full bg-white border rounded-lg pr-16 pl-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all font-sans text-right
+                                        className={`w-full bg-white border rounded-xl pr-16 pl-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all font-sans text-right
                                             ${touched.creditLimit && !validations.creditLimit ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
                                         placeholder="100 000"
                                         required
@@ -643,7 +643,7 @@ export default function CustomersPage() {
                                         }}
                                         autoFocus
                                     />
-                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
+                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-xl px-3 py-2.5 z-10 font-mono text-lg transition-all
                                         ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !validations.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
                                         {[...Array(10)].map((_, i) => (
                                             <React.Fragment key={i}>
@@ -674,7 +674,7 @@ export default function CustomersPage() {
                                     value={formData.email}
                                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                                     onBlur={() => setFieldTouched('email')}
-                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 font-sans transition-all
+                                    className={`w-full bg-white border rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 font-sans transition-all
                                         ${touched.email && !validations.email ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
                                     placeholder="example@domain.com"
                                 />
@@ -703,7 +703,7 @@ export default function CustomersPage() {
                                                     setFieldTouched('rc');
                                                 }}
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-2 py-2 z-10 text-[10px] transition-all
                                                 ${focusedField === 'rc' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.rc && !validations.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(10)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -731,7 +731,7 @@ export default function CustomersPage() {
                                                     setFieldTouched('nif');
                                                 }}
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-1.5 py-2 z-10 text-[9px] transition-all
                                                 ${focusedField === 'nif' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nif && !validations.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(15)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -759,7 +759,7 @@ export default function CustomersPage() {
                                                     setFieldTouched('ai');
                                                 }}
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-2 py-2 z-10 text-[10px] transition-all
                                                 ${focusedField === 'ai' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.ai && !validations.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(11)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -787,7 +787,7 @@ export default function CustomersPage() {
                                                     setFieldTouched('nis');
                                                 }}
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-1.5 py-2 z-10 text-[9px] transition-all
                                                 ${focusedField === 'nis' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nis && !validations.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(15)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -808,7 +808,7 @@ export default function CustomersPage() {
                                             value={formData.address}
                                             onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })}
                                             onBlur={() => setFieldTouched('address')}
-                                            className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all uppercase font-black
+                                            className={`w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 transition-all uppercase font-black
                                                 ${touched.address && !validations.address ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
                                             placeholder="الشارع, الحي, الطريق..." required
                                         />
@@ -825,7 +825,7 @@ export default function CustomersPage() {
                                                     const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
                                                     setFormData({ ...formData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
                                                 }}
-                                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold"
+                                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold"
                                             >
                                                 {ALGERIA_LOCATIONS.map(w => (
                                                     <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
@@ -839,7 +839,7 @@ export default function CustomersPage() {
                                                 value={formData.commune}
                                                 onChange={e => setFormData({ ...formData, commune: e.target.value.toUpperCase() })}
                                                 onBlur={() => setFieldTouched('commune')}
-                                                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all font-bold uppercase
+                                                className={`w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 transition-all font-bold uppercase
                                                     ${touched.commune && !validations.commune ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
                                                 placeholder="البلدية..." required
                                             />
@@ -855,14 +855,14 @@ export default function CustomersPage() {
                         <div className="p-5 border-t border-gray-200 bg-gray-50 flex gap-3 shadow-sm">
                             <button
                                 onClick={() => setIsSheetOpen(false)}
-                                className="flex-[0.5] bg-white text-gray-700 border border-gray-300 py-2.5 rounded-lg font-bold text-sm transition-colors"
+                                className="flex-[0.5] bg-white text-gray-700 border border-gray-300 py-2.5 rounded-xl font-bold text-sm transition-colors"
                             >
                                 إلغاء
                             </button>
                             <button
                                 onClick={handleSaveCustomer}
                                 disabled={Object.values(validations).some(v => !v)}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all"
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all"
                             >
                                 تسجيل العميل
                             </button>

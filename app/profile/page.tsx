@@ -26,7 +26,7 @@ export default function ProfilePage() {
                     <div className="relative z-10">
                         <div className="h-32 w-32 rounded-3xl bg-gradient-to-br from-[#20b878] to-emerald-600 flex items-center justify-center text-5xl font-black text-white shadow-xl shadow-emerald-100 relative group">
                             {user.name.charAt(0)}
-                            <button className="absolute -bottom-2 -left-2 bg-white p-2 rounded-xl shadow-lg border border-gray-100 text-gray-400 hover:text-[#20b878] transition-all">
+                            <button className="absolute -bottom-2 -left-2 bg-white p-2 rounded-2xl shadow-lg border border-gray-100 text-gray-400 hover:text-[#20b878] transition-all">
                                 <Camera size={18} />
                             </button>
                         </div>
@@ -38,10 +38,10 @@ export default function ProfilePage() {
                             <Shield size={16} /> {user.role}
                         </p>
                         <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-4 text-sm font-bold text-gray-500">
-                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100">
                                 <MapPin size={14} className="text-gray-400" /> {user.address}
                             </div>
-                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                            <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100">
                                 <Calendar size={14} className="text-gray-400" /> انضم في {user.joinedDate}
                             </div>
                         </div>
@@ -55,7 +55,7 @@ export default function ProfilePage() {
                             <h3 className="text-lg font-black text-gray-900 mb-6 border-b border-gray-50 pb-4">معلومات التواصل</h3>
                             <div className="space-y-6">
                                 <div className="flex items-start gap-4">
-                                    <div className="bg-blue-50 p-3 rounded-xl text-blue-600">
+                                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
                                         <Mail size={20} />
                                     </div>
                                     <div>
@@ -64,7 +64,7 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-4">
-                                    <div className="bg-green-50 p-3 rounded-xl text-green-600">
+                                    <div className="bg-green-50 p-3 rounded-2xl text-green-600">
                                         <Phone size={20} />
                                     </div>
                                     <div>
@@ -94,7 +94,7 @@ export default function ProfilePage() {
                                     <h4 className="text-sm font-black text-gray-900">أمان الحساب</h4>
                                     <p className="text-[10px] font-bold text-gray-400 mt-1">آخر تغيير لكلمة المرور: منذ شهرين</p>
                                 </div>
-                                <button className="bg-gray-900 text-white px-6 py-3 rounded-xl text-xs font-black hover:bg-black transition-all shadow-lg shadow-gray-200">
+                                <button className="bg-gray-900 text-white px-6 py-3 rounded-2xl text-xs font-black hover:bg-black transition-all shadow-lg shadow-gray-200">
                                     تغيير كلمة المرور
                                 </button>
                             </div>
@@ -103,7 +103,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex items-start gap-4">
-                    <div className="bg-white p-2 rounded-xl text-amber-500 shadow-sm">
+                    <div className="bg-white p-2 rounded-2xl text-amber-500 shadow-sm">
                         <User size={24} />
                     </div>
                     <div>

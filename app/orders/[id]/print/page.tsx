@@ -51,7 +51,7 @@ export default function OrderPrintPage() {
                 <div className="flex gap-4 items-center">
                     <button 
                         onClick={() => window.close()} 
-                        className="p-3 bg-gray-50 text-gray-500 hover:bg-gray-100 rounded-xl transition-all"
+                        className="p-3 bg-gray-50 text-gray-500 hover:bg-gray-100 rounded-2xl transition-all"
                     >
                         <ArrowLeft size={20} />
                     </button>
@@ -61,16 +61,16 @@ export default function OrderPrintPage() {
                     </div>
                 </div>
 
-                <div className="flex bg-gray-100 p-1 rounded-xl">
+                <div className="flex bg-gray-100 p-1 rounded-2xl">
                     <button 
                         onClick={() => setPrintMode('A4')} 
-                        className={`px-6 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 ${printMode === 'A4' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-6 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${printMode === 'A4' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
                     >
                         <FileText size={14} /> فاتورة قياسية (A4)
                     </button>
                     <button 
                         onClick={() => setPrintMode('THERMAL')} 
-                        className={`px-6 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 ${printMode === 'THERMAL' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-6 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${printMode === 'THERMAL' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
                     >
                         <Receipt size={14} /> وصل حراري (80mm)
                     </button>
@@ -78,7 +78,7 @@ export default function OrderPrintPage() {
 
                 <button 
                     onClick={() => window.print()} 
-                    className="bg-gray-900 text-white px-8 py-3 rounded-xl text-sm font-black flex items-center gap-2 hover:bg-black transition-all shadow-lg shadow-gray-200"
+                    className="bg-gray-900 text-white px-8 py-3 rounded-2xl text-sm font-black flex items-center gap-2 hover:bg-black transition-all shadow-lg shadow-gray-200"
                 >
                     <Printer size={16} /> ابدأ الطباعة
                 </button>
@@ -96,7 +96,7 @@ export default function OrderPrintPage() {
                                 <h1 className="text-4xl font-black mb-1">Makhzoun</h1>
                                 <p className="text-xs font-bold text-gray-500 tracking-widest uppercase">نظام إدارة المخزون المتقدم</p>
                             </div>
-                            <div className="text-left bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <div className="text-left bg-gray-50 p-4 rounded-2xl border border-gray-200">
                                 <h2 className="text-3xl font-black uppercase tracking-widest text-gray-900 mb-2">فاتورة</h2>
                                 <p className="text-sm font-bold text-gray-600"><span className="text-gray-400 pl-2">رقم الفاتورة:</span> {invoice?.invoiceNumber || order.orderNumber}</p>
                                 <p className="text-sm font-bold text-gray-600"><span className="text-gray-400 pl-2">تاريخ الإصدار:</span> {formatDate(order.orderDate)}</p>

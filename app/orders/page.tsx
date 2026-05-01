@@ -306,7 +306,7 @@ export default function OrdersPage() {
                         </div>
                         <div className="flex gap-2 w-full lg:w-auto justify-end">
                             <div className="relative group">
-                                <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50">
+                                <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-2xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50">
                                     <Download size={14} className="text-blue-600"/> تصدير
                                 </button>
                                 <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
@@ -320,7 +320,7 @@ export default function OrdersPage() {
                             </div>
                             <button 
                                 onClick={() => window.print()}
-                                className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+                                className="bg-gray-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg active:scale-95"
                             >
                                 <Printer size={16} /> طباعة القائمة
                             </button>
@@ -338,16 +338,16 @@ export default function OrdersPage() {
                                         placeholder="ابحث برقم الطلبية أو اسم الجهة..." 
                                         value={searchTerm} 
                                         onChange={(e) => setSearchTerm(e.target.value)} 
-                                        className="w-full border border-gray-200 rounded-xl pr-10 pl-3 py-2.5 text-sm text-gray-900 focus:ring-2 focus:ring-blue-400 outline-none font-sans transition-all"
+                                        className="w-full border border-gray-200 rounded-2xl pr-10 pl-3 py-2.5 text-sm text-gray-900 focus:ring-2 focus:ring-blue-400 outline-none font-sans transition-all"
                                     />
                                 </div>
-                                <div className="flex p-1 bg-gray-50 rounded-xl border border-gray-200 w-fit">
-                                    <button onClick={() => { setTypeFilter('SALE'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${typeFilter === 'SALE' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>🛒 مبيعات</button>
-                                    <button onClick={() => { setTypeFilter('PURCHASE'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${typeFilter === 'PURCHASE' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>📦 مشتريات</button>
-                                    <button onClick={() => { setTypeFilter('RETURN'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${typeFilter === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>🔄 استرجاع</button>
+                                <div className="flex p-1 bg-gray-50 rounded-2xl border border-gray-200 w-fit">
+                                    <button onClick={() => { setTypeFilter('SALE'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${typeFilter === 'SALE' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>🛒 مبيعات</button>
+                                    <button onClick={() => { setTypeFilter('PURCHASE'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${typeFilter === 'PURCHASE' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>📦 مشتريات</button>
+                                    <button onClick={() => { setTypeFilter('RETURN'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${typeFilter === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>🔄 استرجاع</button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 w-fit">
+                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-2xl border border-gray-200 w-fit">
                                 <span className="text-[10px] font-black text-gray-400 px-1">الفترة من</span>
                                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none border-none focus:ring-0 cursor-pointer"/>
                                 <div className="w-px h-4 bg-gray-200"/>
@@ -364,7 +364,7 @@ export default function OrdersPage() {
                                 <select 
                                     value={statusFilter} 
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[10px] font-black text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer shadow-sm"
+                                    className="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-[10px] font-black text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer shadow-sm"
                                 >
                                     <option value="ALL">الكل</option>
                                     {typeFilter === 'SALE' && (<>
@@ -390,7 +390,7 @@ export default function OrdersPage() {
                                 <div className="w-px h-4 bg-gray-200 mx-1 self-center"/>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-black text-gray-400 uppercase">نوع العميل:</span>
-                                    <div className="flex p-1 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="flex p-1 bg-gray-50 rounded-xl border border-gray-200">
                                         <button onClick={() => setCustomerTypeFilter('ALL')} className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${customerTypeFilter === 'ALL' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>الكل</button>
                                         <button onClick={() => setCustomerTypeFilter('FIDEL')} className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${customerTypeFilter === 'FIDEL' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>👤 مسجل</button>
                                         <button onClick={() => setCustomerTypeFilter('GUEST')} className={`px-3 py-1 rounded-md text-[10px] font-black transition-all ${customerTypeFilter === 'GUEST' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>👥 عابر</button>
@@ -508,17 +508,17 @@ export default function OrdersPage() {
                             <button 
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
-                                className="p-2 hover:bg-gray-50 rounded-xl disabled:opacity-30 transition-all border border-gray-100"
+                                className="p-2 hover:bg-gray-50 rounded-2xl disabled:opacity-30 transition-all border border-gray-100"
                             >
                                 <ChevronUp className="-rotate-90" size={18} />
                             </button>
-                            <div className="flex items-center px-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex items-center px-4 bg-gray-50 rounded-2xl border border-gray-100">
                                 <span className="text-xs font-black text-gray-900 font-sans">{currentPage}</span>
                             </div>
                             <button 
                                 onClick={() => setCurrentPage(prev => prev + 1)}
                                 disabled={currentPage * itemsPerPage >= filteredOrders.length}
-                                className="p-2 hover:bg-gray-50 rounded-xl disabled:opacity-30 transition-all border border-gray-100"
+                                className="p-2 hover:bg-gray-50 rounded-2xl disabled:opacity-30 transition-all border border-gray-100"
                             >
                                 <ChevronDown className="-rotate-90" size={18} />
                             </button>

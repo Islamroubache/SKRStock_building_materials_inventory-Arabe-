@@ -86,7 +86,7 @@ export default function CustomersArchivePage() {
                             placeholder="بحث في الأرشيف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                            className="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                         />
                     </div>
                 </div>
@@ -103,7 +103,7 @@ export default function CustomersArchivePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {filteredCustomers.map(customer => (
                         <div key={customer.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex items-start gap-4 group">
-                            <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0 group-hover:bg-amber-50 group-hover:border-amber-100 group-hover:text-amber-600 transition-colors">
+                            <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0 group-hover:bg-amber-50 group-hover:border-amber-100 group-hover:text-amber-600 transition-colors">
                                 <User size={24} />
                             </div>
                             <div className="flex-1 min-w-0">

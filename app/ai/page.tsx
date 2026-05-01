@@ -110,11 +110,11 @@ export default function AIDashboard() {
 
             {/* TABS */}
             <div className="flex bg-gray-200/50 p-1.5 rounded-2xl gap-1 self-start">
-                <button onClick={() => setActiveTab('forecast')} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'forecast' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🔮 توقع الطلب</button>
-                <button onClick={() => setActiveTab('profit')} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'profit' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>💰 تحليل الربحية</button>
-                <button onClick={() => setActiveTab('replenish')} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'replenish' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🛒 إعادة التوريد</button>
-                <button onClick={() => setActiveTab('anomalies')} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'anomalies' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>⚠️ كشف الأنماط</button>
-                <button onClick={() => setActiveTab('timing')} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'timing' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🕒 توقيت المبيعات</button>
+                <button onClick={() => setActiveTab('forecast')} className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'forecast' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🔮 توقع الطلب</button>
+                <button onClick={() => setActiveTab('profit')} className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'profit' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>💰 تحليل الربحية</button>
+                <button onClick={() => setActiveTab('replenish')} className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'replenish' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🛒 إعادة التوريد</button>
+                <button onClick={() => setActiveTab('anomalies')} className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'anomalies' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>⚠️ كشف الأنماط</button>
+                <button onClick={() => setActiveTab('timing')} className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === 'timing' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>🕒 توقيت المبيعات</button>
             </div>
 
             {/* CONTENT */}
@@ -226,7 +226,7 @@ export default function AIDashboard() {
                                             <td className="px-6 py-4 font-black">{p.name}</td>
                                             {groupBy === 'product' && (
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${
+                                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black border ${
                                                         p.abcClass === 'A' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                                                         p.abcClass === 'B' ? 'bg-blue-100 text-blue-700 border-blue-200' :
                                                         'bg-gray-100 text-gray-400 border-gray-200'
@@ -238,7 +238,7 @@ export default function AIDashboard() {
                                             <td className="px-6 py-4 font-medium font-sans">{p.totalRevenue.toLocaleString()}</td>
                                             <td className="px-6 py-4 font-black text-purple-600 font-sans">{p.profit.toLocaleString()}</td>
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-black bg-purple-50 text-purple-700 px-2 py-1 rounded-lg">%{p.margin.toFixed(1)}</span>
+                                                <span className="text-[10px] font-black bg-purple-50 text-purple-700 px-2 py-1 rounded-xl">%{p.margin.toFixed(1)}</span>
                                             </td>
                                         </tr>
                                     ))}
@@ -273,7 +273,7 @@ export default function AIDashboard() {
                             </div>
                         ) : replenishItems.map((p, i) => (
                             <div key={i} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm relative group hover:shadow-2xl transition-all">
-                                <div className="absolute -top-3 -left-3 bg-red-600 text-white p-2 rounded-xl shadow-lg ring-4 ring-white">
+                                <div className="absolute -top-3 -left-3 bg-red-600 text-white p-2 rounded-2xl shadow-lg ring-4 ring-white">
                                     <AlertTriangle size={20} />
                                 </div>
 
@@ -330,7 +330,7 @@ export default function AIDashboard() {
                         ) : anomalies.map((a, i) => (
                             <div key={i} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all border-r-4 border-r-purple-600">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="bg-purple-100 text-purple-700 p-2 rounded-xl">
+                                    <div className="bg-purple-100 text-purple-700 p-2 rounded-2xl">
                                         <Zap size={20} />
                                     </div>
                                     <span className="text-[10px] font-black text-gray-400">{new Date(a.date).toLocaleDateString('ar-DZ')}</span>
@@ -376,7 +376,7 @@ export default function AIDashboard() {
                             </div>
                             <button 
                                 onClick={() => setIsReplenishModalOpen(false)}
-                                className="bg-white p-2 rounded-xl text-gray-400 hover:text-gray-900 transition-all border border-gray-100 shadow-sm"
+                                className="bg-white p-2 rounded-2xl text-gray-400 hover:text-gray-900 transition-all border border-gray-100 shadow-sm"
                             >
                                 <X size={24} />
                             </button>
@@ -515,7 +515,7 @@ export default function AIDashboard() {
                                 </h4>
                                 <div className="space-y-4">
                                     {timingData.recommendations.peakPeriods.map((p: any, i: number) => (
-                                        <div key={i} className="flex justify-between items-center bg-white p-3 rounded-xl border border-emerald-100 shadow-sm">
+                                        <div key={i} className="flex justify-between items-center bg-white p-3 rounded-2xl border border-emerald-100 shadow-sm">
                                             <span className="text-emerald-700 font-bold text-sm">{p.label}</span>
                                             <span className="text-emerald-900 font-black font-sans">{p.peak}</span>
                                         </div>

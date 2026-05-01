@@ -575,7 +575,7 @@ export default function SupplierDetailPage() {
                     <div className="flex gap-3 no-print">
                         <button
                             onClick={() => setIsEditSheetOpen(true)}
-                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all no-print"
+                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all no-print"
                         >
                             <Edit size={16} /> تعديل البيانات
                         </button>
@@ -591,19 +591,19 @@ export default function SupplierDetailPage() {
                             <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">معلومات المورد</h3>
                             <div className="space-y-3">
                                 {supplier.phone && (
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                                         <Phone size={16} className="text-gray-400" />
                                         <span className="font-bold font-sans text-gray-900" dir="ltr">{supplier.phone}</span>
                                     </div>
                                 )}
                                 {supplier.email && (
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                                         <Mail size={16} className="text-gray-400" />
                                         <span className="font-bold text-gray-900 font-sans" dir="ltr">{supplier.email}</span>
                                     </div>
                                 )}
                                 {supplier.address && (
-                                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl relative group overflow-hidden">
+                                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-2xl relative group overflow-hidden">
                                         <div className="absolute inset-y-0 right-0 w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         <MapPin size={16} className="text-gray-400 mt-1 shrink-0" />
                                         <div className="flex flex-col gap-0.5">
@@ -625,25 +625,25 @@ export default function SupplierDetailPage() {
                                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الهوية الجبائية والقانونية</span>
                                         <div className="grid grid-cols-2 gap-2">
                                             {supplier.rc && (
-                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
                                                     <p className="text-[9px] font-black text-gray-400 mb-0.5">RC</p>
                                                     <p className="text-xs font-bold font-sans text-gray-900">{supplier.rc}</p>
                                                 </div>
                                             )}
                                             {supplier.nif && (
-                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
                                                     <p className="text-[9px] font-black text-gray-400 mb-0.5">NIF</p>
                                                     <p className="text-xs font-bold font-sans text-gray-900">{supplier.nif}</p>
                                                 </div>
                                             )}
                                             {supplier.ai && (
-                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
                                                     <p className="text-[9px] font-black text-gray-400 mb-0.5">AI</p>
                                                     <p className="text-xs font-bold font-sans text-gray-900">{supplier.ai}</p>
                                                 </div>
                                             )}
                                             {supplier.nis && (
-                                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                                <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
                                                     <p className="text-[9px] font-black text-gray-400 mb-0.5">NIS</p>
                                                     <p className="text-xs font-bold font-sans text-gray-900">{supplier.nis}</p>
                                                 </div>
@@ -684,7 +684,7 @@ export default function SupplierDetailPage() {
                                 {supplier.balanceDue !== 0 && (
                                     <button
                                         onClick={() => { setPayModal(true); setPayAmount(Math.abs(supplier.balanceDue).toString()); }}
-                                        className={`mt-2 text-xs font-black px-3 py-2 rounded-xl transition-all w-fit shadow-sm ${supplier.balanceDue > 0 ? 'bg-white text-red-600 hover:bg-red-50' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                                        className={`mt-2 text-xs font-black px-3 py-2 rounded-2xl transition-all w-fit shadow-sm ${supplier.balanceDue > 0 ? 'bg-white text-red-600 hover:bg-red-50' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                                     >
                                         {supplier.balanceDue > 0 ? 'دفع المستحقات' : 'استرجاع المستحقات'}
                                     </button>
@@ -698,10 +698,10 @@ export default function SupplierDetailPage() {
                 <div className="flex flex-col gap-6">
                     {/* TABS */}
                     <div className="flex bg-gray-100 p-1 rounded-2xl w-fit no-print">
-                            <button onClick={() => setActiveTab('orders')} className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'orders' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>سجل الطلبيات</button>
-                            <button onClick={() => setActiveTab('payments')} className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'payments' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>كشف الحساب</button>
-                            <button onClick={() => setActiveTab('analytics')} className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'analytics' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>التحليلات</button>
-                            <button onClick={() => setActiveTab('products')} className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'products' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>المنتجات الموردة</button>
+                            <button onClick={() => setActiveTab('orders')} className={`px-5 py-2.5 rounded-2xl text-sm font-black transition-all ${activeTab === 'orders' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>سجل الطلبيات</button>
+                            <button onClick={() => setActiveTab('payments')} className={`px-5 py-2.5 rounded-2xl text-sm font-black transition-all ${activeTab === 'payments' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>كشف الحساب</button>
+                            <button onClick={() => setActiveTab('analytics')} className={`px-5 py-2.5 rounded-2xl text-sm font-black transition-all ${activeTab === 'analytics' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>التحليلات</button>
+                            <button onClick={() => setActiveTab('products')} className={`px-5 py-2.5 rounded-2xl text-sm font-black transition-all ${activeTab === 'products' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>المنتجات الموردة</button>
                         </div>
 
                         {/* CONTENT SECTION */}
@@ -806,7 +806,7 @@ export default function SupplierDetailPage() {
                                                     placeholder="مثلاً: 2026/04/..."
                                                     value={soaSearchQuery || ''}
                                                     onChange={(e) => setSoaSearchQuery(e.target.value)}
-                                                    className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pr-10 pl-4 text-xs font-bold outline-none focus:border-gray-900 transition-all"
+                                                    className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 pr-10 pl-4 text-xs font-bold outline-none focus:border-gray-900 transition-all"
                                                 />
                                             </div>
                                         </div>
@@ -815,7 +815,7 @@ export default function SupplierDetailPage() {
                                             <select 
                                                 value={soaMotifFilter || 'ALL'}
                                                 onChange={(e) => setSoaMotifFilter(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                                className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
                                             >
                                                 <option value="ALL">كل الأنواع</option>
                                                 <option value="PURCHASE">مشتريات</option>
@@ -829,7 +829,7 @@ export default function SupplierDetailPage() {
                                             <select 
                                                 value={soaMethodFilter || 'ALL'}
                                                 onChange={(e) => setSoaMethodFilter(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                                className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
                                             >
                                                 <option value="ALL">كل الطرق</option>
                                                 <option value="CASH">نقداً (CASH)</option>
@@ -842,7 +842,7 @@ export default function SupplierDetailPage() {
                                             <select 
                                                 value={soaProjectFilter || 'ALL'}
                                                 onChange={(e) => setSoaProjectFilter(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                                className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
                                             >
                                                 <option value="ALL">كل المشاريع</option>
                                                 <option value="GENERAL">عام / بدون مشروع</option>
@@ -858,7 +858,7 @@ export default function SupplierDetailPage() {
                                                 type="date" 
                                                 value={soaDateFrom || ''}
                                                 onChange={(e) => setSoaDateFrom(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
+                                                className="w-full bg-white border border-gray-200 rounded-2xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
@@ -867,7 +867,7 @@ export default function SupplierDetailPage() {
                                                 type="date" 
                                                 value={soaDateTo || ''}
                                                 onChange={(e) => setSoaDateTo(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
+                                                className="w-full bg-white border border-gray-200 rounded-2xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
                                             />
                                         </div>
                                     </div>
@@ -993,7 +993,7 @@ export default function SupplierDetailPage() {
                                             <div className="flex flex-col">
                                                 <div className="bg-gray-900 text-white p-6 rounded-t-[2rem] flex justify-between items-center shadow-lg no-print">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="bg-white/10 p-2 rounded-xl"><Activity size={18} /></div>
+                                                        <div className="bg-white/10 p-2 rounded-2xl"><Activity size={18} /></div>
                                                         <span className="text-xs font-black uppercase tracking-widest opacity-70">الرصيد الابتدائي (Solde Initial)</span>
                                                     </div>
                                                     <span className={`text-2xl font-black font-sans ${initialBalance > 0.01 ? 'text-red-400' : (initialBalance < -0.01 ? 'text-emerald-400' : 'text-white')}`}>
@@ -1029,10 +1029,10 @@ export default function SupplierDetailPage() {
                                                                     ) : '---'}
                                                                 </td>
                                                                 <td className="p-4 text-xs">
-                                                                    {tx.method !== '---' ? <span className="bg-gray-100 px-2 py-1 rounded-lg">{tx.method}</span> : '---'}
+                                                                    {tx.method !== '---' ? <span className="bg-gray-100 px-2 py-1 rounded-xl">{tx.method}</span> : '---'}
                                                                 </td>
                                                                 <td className="p-4">
-                                                                    <span className={`text-[10px] px-2 py-1 rounded-lg ${
+                                                                    <span className={`text-[10px] px-2 py-1 rounded-xl ${
                                                                         tx.type === 'PURCHASE' ? 'bg-red-50 text-red-700' :
                                                                         tx.type === 'RETURN' ? 'bg-orange-50 text-orange-700' :
                                                                         tx.type === 'REFUND' ? 'bg-purple-50 text-purple-700' :
@@ -1088,7 +1088,7 @@ export default function SupplierDetailPage() {
 
                                         <div className="p-6">
                                             <div className="mb-6 flex items-center gap-3">
-                                                <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><ShoppingCart size={18} /></div>
+                                                <div className="bg-blue-50 p-2 rounded-2xl text-blue-600"><ShoppingCart size={18} /></div>
                                                 <div>
                                                     <h3 className="font-black text-gray-900">طلبيات عامة / بدون مشروع</h3>
                                                     <p className="text-[10px] text-gray-400 font-bold mt-0.5">طلبيات لم تُربط بأي مشروع</p>
@@ -1151,13 +1151,13 @@ export default function SupplierDetailPage() {
                                                     placeholder="بحث عن منتج..."
                                                     value={productSearchQuery}
                                                     onChange={(e) => setProductSearchQuery(e.target.value)}
-                                                    className="bg-white border border-gray-200 text-gray-700 pr-12 pl-5 py-2.5 rounded-xl text-xs font-black shadow-sm focus:ring-4 focus:ring-purple-100 outline-none w-64 transition-all hover:border-purple-300"
+                                                    className="bg-white border border-gray-200 text-gray-700 pr-12 pl-5 py-2.5 rounded-2xl text-xs font-black shadow-sm focus:ring-4 focus:ring-purple-100 outline-none w-64 transition-all hover:border-purple-300"
                                                 />
                                             </div>
                                             <div className="relative">
                                                 <button 
                                                     onClick={() => setIsProductExportDropdownOpen(!isProductExportDropdownOpen)}
-                                                    className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm hover:border-gray-900 transition-all"
+                                                    className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-sm hover:border-gray-900 transition-all"
                                                 >
                                                     <FileDown size={18} /> تصدير البيانات <ChevronDown size={14} />
                                                 </button>
@@ -1174,7 +1174,7 @@ export default function SupplierDetailPage() {
                                             </div>
                                             <button 
                                                 onClick={() => window.print()}
-                                                className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
+                                                className="bg-gray-900 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
                                             >
                                                 <Printer size={18} /> طباعة القائمة
                                             </button>
@@ -1236,14 +1236,14 @@ export default function SupplierDetailPage() {
                                                                 </div>
                                                             </td>
                                                             <td className="p-6 text-center">
-                                                                <span className={`inline-block px-3 py-1 rounded-xl text-[11px] font-black ${p.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                                                <span className={`inline-block px-3 py-1 rounded-2xl text-[11px] font-black ${p.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                                                                     {p.quantity.toLocaleString()} {p.unit}
                                                                 </span>
                                                             </td>
                                                             <td className="p-6 text-center no-print">
                                                                 <button 
                                                                     onClick={() => setSelectedProductForBatches(p)}
-                                                                    className="bg-gray-900 text-white px-4 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 mx-auto hover:bg-purple-700 transition-all shadow-md"
+                                                                    className="bg-gray-900 text-white px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 mx-auto hover:bg-purple-700 transition-all shadow-md"
                                                                 >
                                                                     <History size={14} /> سجل مشتريات
                                                                 </button>
@@ -1292,16 +1292,16 @@ export default function SupplierDetailPage() {
                                         className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 font-black font-sans text-2xl text-center focus:ring-4 focus:ring-amber-100 outline-none"
                                     />
                                     <div className="flex gap-2 mt-3 justify-center">
-                                        <button onClick={() => setReturnQty(returnModal.maxQty)} className="text-[10px] font-black bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-200">تحديد الكل ({returnModal.maxQty})</button>
+                                        <button onClick={() => setReturnQty(returnModal.maxQty)} className="text-[10px] font-black bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl hover:bg-amber-200">تحديد الكل ({returnModal.maxQty})</button>
                                     </div>
                                 </div>
 
-                                <div className="bg-gray-50 p-4 rounded-xl text-sm font-bold flex justify-between">
+                                <div className="bg-gray-50 p-4 rounded-2xl text-sm font-bold flex justify-between">
                                     <span className="text-gray-500">قيمة الإرجاع:</span>
                                     <span className="text-green-600 font-black">{(returnQty * returnModal.item.unitPrice).toLocaleString()} دج</span>
                                 </div>
 
-                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs font-bold text-blue-800">
+                                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 text-xs font-bold text-blue-800">
                                     ℹ️ سيتم تلقائياً: سحب الكمية من المخزون + تخفيض رصيد المورد المستحق
                                 </div>
 
@@ -1351,13 +1351,13 @@ export default function SupplierDetailPage() {
                                         placeholder="0"
                                     />
                                     <div className="flex gap-2 mt-3 justify-center">
-                                        <button onClick={() => setPayAmount((supplier.balanceDue / 2).toString())} className="text-[10px] font-black bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200">نصف المبلغ</button>
-                                        <button onClick={() => setPayAmount(supplier.balanceDue.toString())} className="text-[10px] font-black bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200">دفع الكل</button>
+                                        <button onClick={() => setPayAmount((supplier.balanceDue / 2).toString())} className="text-[10px] font-black bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl hover:bg-gray-200">نصف المبلغ</button>
+                                        <button onClick={() => setPayAmount(supplier.balanceDue.toString())} className="text-[10px] font-black bg-green-100 text-green-700 px-3 py-1.5 rounded-xl hover:bg-green-200">دفع الكل</button>
                                     </div>
                                 </div>
 
                                 {parseFloat(payAmount) > 0 && (
-                                    <div className="bg-gray-50 p-4 rounded-xl text-sm font-bold flex justify-between">
+                                    <div className="bg-gray-50 p-4 rounded-2xl text-sm font-bold flex justify-between">
                                         <span className="text-gray-500">الرصيد بعد الدفع:</span>
                                         <span className={`font-black ${(supplier.balanceDue - parseFloat(payAmount)) === 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {(supplier.balanceDue - parseFloat(payAmount)).toLocaleString()} دج
@@ -1366,7 +1366,7 @@ export default function SupplierDetailPage() {
                                 )}
 
                                 {parseFloat(payAmount) > supplier.balanceDue && (
-                                    <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-center gap-2 text-xs font-bold text-red-700">
+                                    <div className="bg-red-50 border border-red-100 rounded-2xl p-3 flex items-center gap-2 text-xs font-bold text-red-700">
                                         <AlertTriangle size={14} /> المبلغ أكبر من الرصيد المستحق
                                     </div>
                                 )}
@@ -1399,7 +1399,7 @@ export default function SupplierDetailPage() {
                                         type="text" value={formData.name} 
                                         onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })} 
                                         onBlur={() => setFieldTouched('name')}
-                                        className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all font-black text-sm uppercase
+                                        className={`w-full border rounded-xl px-3 py-2.5 outline-none focus:ring-2 transition-all font-black text-sm uppercase
                                             ${touched.name && !validations.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-indigo-500'}`} 
                                         placeholder="اسم الشركة أو المورد..." required 
                                     />
@@ -1422,7 +1422,7 @@ export default function SupplierDetailPage() {
                                                 <select
                                                     value={selectValue}
                                                     onChange={e => setFormData({ ...formData, activity: e.target.value })}
-                                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 font-bold text-sm"
+                                                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 font-bold text-sm"
                                                 >
                                                     {predefinedActivities.map(a => <option key={a} value={a}>{a}</option>)}
                                                     <option value="Autre">Autre (saisie manuelle)</option>
@@ -1434,7 +1434,7 @@ export default function SupplierDetailPage() {
                                                         onChange={e => setFormData({ ...formData, activity: e.target.value || 'Autre' })}
                                                         onBlur={() => setFieldTouched('activity')}
                                                         placeholder="أدخل النشاط التجاري يدوياً..."
-                                                        className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all mt-2
+                                                        className={`w-full border rounded-xl px-3 py-2.5 outline-none focus:ring-2 transition-all mt-2
                                                             ${touched.activity && !validations.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50 text-gray-900'}`}
                                                     />
                                                 )}
@@ -1448,7 +1448,7 @@ export default function SupplierDetailPage() {
                                     <input
                                         type="text" maxLength={10} value={formData.phone}
                                         onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-bold"
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-bold"
                                         dir="ltr"
                                     />
                                 </div>
@@ -1458,7 +1458,7 @@ export default function SupplierDetailPage() {
                                     <input
                                         type="email" dir="ltr"
                                         value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-bold"
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans font-bold"
                                     />
                                 </div>
 
@@ -1467,7 +1467,7 @@ export default function SupplierDetailPage() {
                                         <label className="text-sm font-bold text-gray-700 block">العنوان <span className="text-red-500">*</span></label>
                                         <input 
                                             type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })} 
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-black text-sm uppercase" 
+                                            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-black text-sm uppercase" 
                                             placeholder="Cité, Street, Ave..." required 
                                         />
                                     </div>
@@ -1477,7 +1477,7 @@ export default function SupplierDetailPage() {
                                             <select 
                                                 value={formData.wilaya} 
                                                 onChange={e => setFormData({ ...formData, wilaya: e.target.value })}
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
+                                                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
                                             >
                                                 {ALGERIA_LOCATIONS.map(w => <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>)}
                                             </select>
@@ -1486,7 +1486,7 @@ export default function SupplierDetailPage() {
                                             <label className="text-sm font-bold text-gray-700 block">البلدية <span className="text-red-500">*</span></label>
                                             <input 
                                                 type="text" value={formData.commune} onChange={e => setFormData({ ...formData, commune: e.target.value.toUpperCase() })} 
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white uppercase" 
+                                                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white uppercase" 
                                                 placeholder="البلدية..." required 
                                             />
                                         </div>
@@ -1498,27 +1498,27 @@ export default function SupplierDetailPage() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-gray-500">سجل تجاري (RC)</label>
-                                            <input type="text" maxLength={10} value={formData.rc} onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase() })} className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
+                                            <input type="text" maxLength={10} value={formData.rc} onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase() })} className="w-full border border-gray-200 rounded-xl px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
-                                            <input type="text" maxLength={15} value={formData.nif} onChange={e => setFormData({ ...formData, nif: e.target.value })} className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
+                                            <input type="text" maxLength={15} value={formData.nif} onChange={e => setFormData({ ...formData, nif: e.target.value })} className="w-full border border-gray-200 rounded-xl px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-gray-500">رقم المادة (AI)</label>
-                                            <input type="text" maxLength={11} value={formData.ai} onChange={e => setFormData({ ...formData, ai: e.target.value })} className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
+                                            <input type="text" maxLength={11} value={formData.ai} onChange={e => setFormData({ ...formData, ai: e.target.value })} className="w-full border border-gray-200 rounded-xl px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
-                                            <input type="text" maxLength={15} value={formData.nis} onChange={e => setFormData({ ...formData, nis: e.target.value })} className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
+                                            <input type="text" maxLength={15} value={formData.nis} onChange={e => setFormData({ ...formData, nis: e.target.value })} className="w-full border border-gray-200 rounded-xl px-2 py-2 text-xs font-bold font-sans" dir="ltr" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="flex gap-3 pt-6 border-t border-gray-200 mt-4">
-                                <button onClick={() => setIsEditSheetOpen(false)} className="flex-[0.5] border border-gray-300 bg-white text-gray-700 py-2.5 rounded-lg font-bold text-sm">إلغاء</button>
-                                <button onClick={handleSaveEdit} disabled={!validations.name} className="flex-1 bg-indigo-600 text-white disabled:opacity-50 py-2.5 rounded-lg font-bold text-sm shadow-sm">حفظ التغييرات</button>
+                                <button onClick={() => setIsEditSheetOpen(false)} className="flex-[0.5] border border-gray-300 bg-white text-gray-700 py-2.5 rounded-xl font-bold text-sm">إلغاء</button>
+                                <button onClick={handleSaveEdit} disabled={!validations.name} className="flex-1 bg-indigo-600 text-white disabled:opacity-50 py-2.5 rounded-xl font-bold text-sm shadow-sm">حفظ التغييرات</button>
                             </div>
                         </div>
                     </div>
@@ -1547,11 +1547,11 @@ export default function SupplierDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-blue-100 hover:scale-105 transition-all"
+                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-blue-100 hover:scale-105 transition-all"
                                     >
                                         <Printer size={18} /> طباعة الفاتورة
                                     </button>
-                                    <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm"><X size={24} /></button>
+                                    <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-2xl border border-gray-100 shadow-sm"><X size={24} /></button>
                                 </div>
                             </div>
                             <div className="p-8 overflow-y-auto flex-1">
@@ -1562,7 +1562,7 @@ export default function SupplierDetailPage() {
                                     </div>
 
                                     <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
-                                        <div className="bg-gray-50 border border-gray-200 p-5 rounded-xl flex-1 w-full order-2 md:order-1">
+                                        <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl flex-1 w-full order-2 md:order-1">
                                             <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tighter uppercase">Facture d'Achat</h2>
                                             <p className="text-sm font-bold text-gray-600 mb-1">N° Facture: <span className="text-gray-900 font-sans" dir="ltr">{selectedInvoice.invoiceNumber}</span></p>
                                             <p className="text-sm font-bold text-gray-600">Date: <span className="text-gray-900 font-sans">{formatDate(selectedInvoice.date)}</span></p>
@@ -1655,7 +1655,7 @@ export default function SupplierDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
+                                        className="bg-gray-900 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
                                     >
                                         <Printer size={16} /> طباعة السجل
                                     </button>
@@ -1690,7 +1690,7 @@ export default function SupplierDetailPage() {
                                                                         window.location.reload();
                                                                     }
                                                                 }}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:opacity-90 transition-all shadow-md no-print"
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all shadow-md no-print"
                                                             >
                                                                 <Printer size={12} />
                                                                 <span className="text-[10px] font-black">طباعة الوصل</span>
@@ -1780,7 +1780,7 @@ export default function SupplierDetailPage() {
                                                     <span className="text-[10px] font-bold text-gray-500">{new Date(r.orderDate).toLocaleString('ar-DZ')}</span>
                                                 </div>
                                             </div>
-                                            <div className="bg-orange-100/30 p-3 rounded-xl border border-orange-100">
+                                            <div className="bg-orange-100/30 p-3 rounded-2xl border border-orange-100">
                                                 <div className="space-y-1">
                                                     {r.items?.map((item: any, i: number) => (
                                                         <div key={i} className="flex justify-between items-center text-[10px] font-bold text-gray-600">
@@ -1857,11 +1857,11 @@ export default function SupplierDetailPage() {
                                         <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
                                             <div>
                                                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 mr-1">اسم البنك</label>
-                                                <input type="text" value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold text-sm outline-none focus:bg-white" placeholder="اسم البنك..." />
+                                                <input type="text" value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 font-bold text-sm outline-none focus:bg-white" placeholder="اسم البنك..." />
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 mr-1">رقم المرجع / الشيك</label>
-                                                <input type="text" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold text-sm outline-none focus:bg-white" placeholder="رقم الشيك..." />
+                                                <input type="text" value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 font-bold text-sm outline-none focus:bg-white" placeholder="رقم الشيك..." />
                                             </div>
                                         </div>
                                     )}
@@ -1907,11 +1907,11 @@ export default function SupplierDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 hover:scale-105 transition-all"
+                                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-indigo-100 hover:scale-105 transition-all"
                                     >
                                         <Printer size={18} /> طباعة السجل
                                     </button>
-                                    <button onClick={() => setSelectedProductForBatches(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm"><X size={24} /></button>
+                                    <button onClick={() => setSelectedProductForBatches(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-2xl border border-gray-100 shadow-sm"><X size={24} /></button>
                                 </div>
                             </div>
                             
@@ -1956,7 +1956,7 @@ export default function SupplierDetailPage() {
                                                                     setReturnQty(1);
                                                                 }}
                                                                 disabled={selectedProductForBatches.quantity <= 0}
-                                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 mx-auto ${selectedProductForBatches.quantity > 0 ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                                                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-1 mx-auto ${selectedProductForBatches.quantity > 0 ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
                                                             >
                                                                 <RotateCcw size={12} /> إرجاع
                                                             </button>

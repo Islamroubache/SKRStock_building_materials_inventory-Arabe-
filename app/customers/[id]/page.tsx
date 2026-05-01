@@ -640,15 +640,15 @@ export default function CustomerDetailPage() {
                     </div>
 
                     <div className="flex gap-3">
-                        <button onClick={() => { setEditData({ ...customer }); setIsEditModalOpen(true); }} className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all no-print">
+                        <button onClick={() => { setEditData({ ...customer }); setIsEditModalOpen(true); }} className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all no-print">
                             <Edit size={16} /> تعديل البيانات
                         </button>
                         {(!isLoyal || hasActiveProject) ? (
-                            <Link href={`/orders/new?customerId=${id}`} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">
+                            <Link href={`/orders/new?customerId=${id}`} className="bg-blue-600 text-white px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">
                                 <Plus size={16} /> طلبية بيع جديدة
                             </Link>
                         ) : (
-                            <div className="bg-gray-100 text-gray-400 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 border border-gray-200 cursor-not-allowed group relative" title="يجب تفعيل مشروع واحد على الأقل لهذا المقاول لتمكين الطلبيات">
+                            <div className="bg-gray-100 text-gray-400 px-5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 border border-gray-200 cursor-not-allowed group relative" title="يجب تفعيل مشروع واحد على الأقل لهذا المقاول لتمكين الطلبيات">
                                 <Plus size={16} /> طلبية بيع
                                 <div className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                                     يجب تفعيل مشروع واحد على الأقل
@@ -703,7 +703,7 @@ export default function CustomerDetailPage() {
 
                                 <div className="w-full flex flex-col gap-3 mt-8">
                                     <div className="flex items-center gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 hover:bg-blue-50 transition-colors">
-                                        <div className="bg-white p-2.5 rounded-xl text-blue-600 shadow-sm"><Phone size={18} /></div>
+                                        <div className="bg-white p-2.5 rounded-2xl text-blue-600 shadow-sm"><Phone size={18} /></div>
                                         <div className="text-right">
                                             <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-0.5">اتصال وتواصل</p>
                                             <p className="font-black font-sans text-gray-900 text-sm" dir="ltr">{customer.phone || '---'}</p>
@@ -711,7 +711,7 @@ export default function CustomerDetailPage() {
                                     </div>
 
                                     <div className="flex items-start gap-4 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 hover:bg-emerald-50 transition-colors">
-                                        <div className="bg-white p-2.5 rounded-xl text-emerald-600 shadow-sm mt-1"><MapPin size={18} /></div>
+                                        <div className="bg-white p-2.5 rounded-2xl text-emerald-600 shadow-sm mt-1"><MapPin size={18} /></div>
                                         <div className="text-right">
                                             <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">الموقع الجغرافي</p>
                                             <p className="font-black text-gray-900 leading-tight text-sm">
@@ -722,7 +722,7 @@ export default function CustomerDetailPage() {
                                     </div>
 
                                     <div className="flex items-center gap-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 hover:bg-indigo-50 transition-colors">
-                                        <div className="bg-white p-2.5 rounded-xl text-indigo-600 shadow-sm"><Mail size={18} /></div>
+                                        <div className="bg-white p-2.5 rounded-2xl text-indigo-600 shadow-sm"><Mail size={18} /></div>
                                         <div className="text-right flex-1 min-w-0">
                                             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">البريد الإلكتروني</p>
                                             <p className="font-black font-sans text-gray-900 text-sm truncate" dir="ltr" title={customer.email}>{customer.email || '---'}</p>
@@ -737,26 +737,26 @@ export default function CustomerDetailPage() {
                             <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
                             
                             <h3 className="text-xl font-black text-gray-900 flex items-center gap-3 relative z-10">
-                                <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shadow-sm"><FileText size={22} /></div>
+                                <div className="bg-blue-50 p-2.5 rounded-2xl text-blue-600 shadow-sm"><FileText size={22} /></div>
                                 الوثائق القانونية
                             </h3>
                             
                             <div className="grid grid-cols-1 gap-3 relative z-10">
                                 <div className="flex justify-between items-center p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 hover:bg-amber-50 transition-colors group/row">
                                     <span className="text-[10px] font-black text-amber-500 uppercase tracking-tight">رقم السجل التجاري (RC)</span>
-                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-lg shadow-sm">{customer.rc || '---'}</span>
+                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-xl shadow-sm">{customer.rc || '---'}</span>
                                 </div>
                                 <div className="flex justify-between items-center p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 hover:bg-blue-50 transition-colors group/row">
                                     <span className="text-[10px] font-black text-blue-500 uppercase tracking-tight">الرقم الضريبي (NIF)</span>
-                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-lg shadow-sm">{customer.nif || '---'}</span>
+                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-xl shadow-sm">{customer.nif || '---'}</span>
                                 </div>
                                 <div className="flex justify-between items-center p-4 bg-purple-50/50 rounded-2xl border border-purple-100/50 hover:bg-purple-50 transition-colors group/row">
                                     <span className="text-[10px] font-black text-purple-500 uppercase tracking-tight">رقم المادة (AI)</span>
-                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-lg shadow-sm">{customer.ai || '---'}</span>
+                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-xl shadow-sm">{customer.ai || '---'}</span>
                                 </div>
-                                <div className="flex justify-between items-center p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 hover:bg-slate-50 transition-colors group/row">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">الرقم الإحصائي (NIS)</span>
-                                    <span className="font-black font-sans text-gray-900 text-[11px] bg-white px-3 py-1 rounded-lg shadow-sm">{customer.nis || '---'}</span>
+                                <div className="flex justify-between items-center p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 hover:bg-blue-50 transition-colors group/row">
+                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-tight">الرقم الإحصائي (NIS)</span>
+                                    <span className="font-black font-sans text-gray-900 text-[11px] bg-white px-3 py-1 rounded-xl shadow-sm">{customer.nis || '---'}</span>
                                 </div>
                             </div>
                         </div>
@@ -820,7 +820,7 @@ export default function CustomerDetailPage() {
                         {/* Chart Section */}
                         <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm no-print">
                             <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                                <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><Activity size={20} /></div>
+                                <div className="bg-blue-50 p-2 rounded-2xl text-blue-600"><Activity size={20} /></div>
                                 منحنى المشتريات والديون (آخر 6 أشهر)
                             </h3>
                             <div className="h-[300px] w-full mt-4">
@@ -873,7 +873,7 @@ export default function CustomerDetailPage() {
                 <div className="mt-8 flex flex-col gap-6">
                     <div className="flex gap-2 p-1 bg-white border border-gray-200 rounded-2xl w-fit shadow-sm no-print">
                         {isLoyal && (
-                            <button onClick={() => setActiveTab('PROJECTS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'PROJECTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            <button onClick={() => setActiveTab('PROJECTS')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'PROJECTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
                                 <Briefcase size={16} /> المشاريع
                             </button>
                         )}
@@ -881,16 +881,16 @@ export default function CustomerDetailPage() {
                             const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && o.type === 'SALE');
                             if (generalOrders.length === 0) return null;
                             return (
-                                <button onClick={() => setActiveTab('ORDERS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'ORDERS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:bg-gray-50'}`}>
+                                <button onClick={() => setActiveTab('ORDERS')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'ORDERS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:bg-gray-50'}`}>
                                     <ShoppingCart size={16} /> طلبيات عامة
                                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>{generalOrders.length}</span>
                                 </button>
                             );
                         })()}
-                        <button onClick={() => setActiveTab('INVOICES')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'INVOICES' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        <button onClick={() => setActiveTab('INVOICES')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'INVOICES' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
                             <BarChart3 size={16} /> المنتجات الأكثر طلباً
                         </button>
-                        <button onClick={() => setActiveTab('SOA')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'SOA' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        <button onClick={() => setActiveTab('SOA')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'SOA' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
                             <Printer size={16} /> كشف الحساب
                         </button>
                     </div>
@@ -1014,7 +1014,7 @@ export default function CustomerDetailPage() {
                                                             </span>
                                                         </td>
                                                         <td className="p-4 text-center">
-                                                            <div className="inline-flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-lg">
+                                                            <div className="inline-flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-xl">
                                                                 <span className="text-sm font-black text-gray-900 font-sans">{projectOrders.length}</span>
                                                                 <ShoppingCart size={12} className="text-gray-400" />
                                                             </div>
@@ -1044,7 +1044,7 @@ export default function CustomerDetailPage() {
                                                             )}
                                                         </td>
                                                         <td className="p-4 text-center">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                                                            <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
                                                                 {p.status === 'ACTIVE' ? 'نشط' : 'معطل'}
                                                             </span>
                                                         </td>
@@ -1061,7 +1061,7 @@ export default function CustomerDetailPage() {
                                                                             });
                                                                             setPaymentAmount(projectBalance);
                                                                         }}
-                                                                        className="p-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-md shadow-rose-100 active:scale-95"
+                                                                        className="p-2.5 bg-rose-600 text-white rounded-2xl hover:bg-rose-700 transition-all shadow-md shadow-rose-100 active:scale-95"
                                                                         title="تسديد ديون هذا المشروع (الأقدم فالأحدث)"
                                                                     >
                                                                         <Banknote size={16} />
@@ -1069,14 +1069,14 @@ export default function CustomerDetailPage() {
                                                                 )}
                                                                 <button 
                                                                     onClick={() => setSelectedProjectForOrders(p)}
-                                                                    className="p-2.5 bg-white border border-gray-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm active:scale-95"
+                                                                    className="p-2.5 bg-white border border-gray-200 text-blue-600 rounded-2xl hover:bg-blue-50 transition-all shadow-sm active:scale-95"
                                                                     title="عرض سجل الطلبيات"
                                                                 >
                                                                     <Info size={16} />
                                                                 </button>
                                                                 <button 
                                                                     onClick={() => toggleProjectStatus(p.id, p.status)}
-                                                                    className={`p-2.5 border border-gray-200 rounded-xl transition-all shadow-sm active:scale-95 ${p.status === 'DISABLED' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white'}`}
+                                                                    className={`p-2.5 border border-gray-200 rounded-2xl transition-all shadow-sm active:scale-95 ${p.status === 'DISABLED' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white'}`}
                                                                     title={p.status === 'DISABLED' ? 'تنشيط المشروع' : 'تعطيل المشروع'}
                                                                 >
                                                                     <Power size={16} />
@@ -1124,7 +1124,7 @@ export default function CustomerDetailPage() {
                                     {/* Orders Table */}
                                     <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
                                         <div className="p-5 border-b border-gray-100 flex items-center gap-3">
-                                            <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><ShoppingCart size={18} /></div>
+                                            <div className="bg-blue-50 p-2 rounded-2xl text-blue-600"><ShoppingCart size={18} /></div>
                                             <div>
                                                 <h3 className="font-black text-gray-900">طلبيات عامة / بدون مشروع</h3>
                                                 <p className="text-[10px] text-gray-400 font-bold mt-0.5">طلبيات لم تُربط بأي مشروع</p>
@@ -1172,7 +1172,7 @@ export default function CustomerDetailPage() {
                         {activeTab === 'INVOICES' && (
                             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl animate-in fade-in duration-500">
                                 <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                                    <div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Star size={20} /></div>
+                                    <div className="bg-orange-50 p-2 rounded-2xl text-orange-600"><Star size={20} /></div>
                                     المنتجات الأكثر طلباً من قبل هذا العميل
                                 </h3>
                                 
@@ -1188,7 +1188,7 @@ export default function CustomerDetailPage() {
                                                 <div className="flex items-center gap-4">
                                                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl ${
                                                         idx === 0 ? 'bg-amber-100 text-amber-600 shadow-lg shadow-amber-50' : 
-                                                        idx === 1 ? 'bg-slate-100 text-slate-600' : 
+                                                        idx === 1 ? 'bg-gray-100 text-gray-600' : 
                                                         idx === 2 ? 'bg-orange-100 text-orange-600' : 
                                                         'bg-gray-100 text-gray-400'
                                                     }`}>
@@ -1244,7 +1244,7 @@ export default function CustomerDetailPage() {
                                                 placeholder="مثلاً: 2026/04/..."
                                                 value={soaSearchQuery || ''}
                                                 onChange={(e) => setSoaSearchQuery(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pr-10 pl-4 text-xs font-bold outline-none focus:border-gray-900 transition-all"
+                                                className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 pr-10 pl-4 text-xs font-bold outline-none focus:border-gray-900 transition-all"
                                             />
                                         </div>
                                     </div>
@@ -1253,7 +1253,7 @@ export default function CustomerDetailPage() {
                                         <select 
                                             value={soaMotifFilter || 'ALL'}
                                             onChange={(e) => setSoaMotifFilter(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                            className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
                                         >
                                             <option value="ALL">كل الأنواع</option>
                                             <option value="SALE">مبيعات</option>
@@ -1267,7 +1267,7 @@ export default function CustomerDetailPage() {
                                         <select 
                                             value={soaMethodFilter || 'ALL'}
                                             onChange={(e) => setSoaMethodFilter(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                            className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
                                         >
                                             <option value="ALL">كل الطرق</option>
                                             <option value="CASH">نقداً (CASH)</option>
@@ -1280,7 +1280,7 @@ export default function CustomerDetailPage() {
                                         <select 
                                             value={soaProjectFilter || 'ALL'}
                                             onChange={(e) => setSoaProjectFilter(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
+                                            className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
                                         >
                                             <option value="ALL">كل المشاريع</option>
                                             <option value="GENERAL">عام / بدون مشروع</option>
@@ -1295,7 +1295,7 @@ export default function CustomerDetailPage() {
                                             type="date" 
                                             value={soaDateFrom || ''}
                                             onChange={(e) => setSoaDateFrom(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
+                                            className="w-full bg-white border border-gray-200 rounded-2xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -1304,7 +1304,7 @@ export default function CustomerDetailPage() {
                                             type="date" 
                                             value={soaDateTo || ''}
                                             onChange={(e) => setSoaDateTo(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
+                                            className="w-full bg-white border border-gray-200 rounded-2xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
                                         />
                                     </div>
                                 </div>
@@ -1458,7 +1458,7 @@ export default function CustomerDetailPage() {
                                             {/* Initial Balance Header */}
                                             <div className="bg-gray-900 text-white p-6 rounded-t-[2rem] flex justify-between items-center shadow-lg no-print">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="bg-white/10 p-2 rounded-xl"><Activity size={18} /></div>
+                                                    <div className="bg-white/10 p-2 rounded-2xl"><Activity size={18} /></div>
                                                     <span className="text-xs font-black uppercase tracking-widest opacity-70">الرصيد قبل الفلترة (Solde Initial)</span>
                                                 </div>
                                                 <span className={`text-2xl font-black font-sans ${initialBalance > 0.01 ? 'text-red-400' : (initialBalance < -0.01 ? 'text-emerald-400' : 'text-white')}`}>
@@ -1499,11 +1499,11 @@ export default function CustomerDetailPage() {
                                                             </td>
                                                             <td className="p-4 text-xs">
                                                                 {tx.method !== '---' ? (
-                                                                    <span className="bg-gray-100 px-2 py-1 rounded-lg">{tx.method}</span>
+                                                                    <span className="bg-gray-100 px-2 py-1 rounded-xl">{tx.method}</span>
                                                                 ) : '---'}
                                                             </td>
                                                             <td className="p-4">
-                                                                <span className={`text-[10px] px-2 py-1 rounded-lg ${
+                                                                <span className={`text-[10px] px-2 py-1 rounded-xl ${
                                                                     tx.type === 'SALE' ? 'bg-blue-50 text-blue-700' :
                                                                     tx.type === 'RETURN' ? 'bg-orange-50 text-orange-700' :
                                                                     tx.type === 'REFUND' ? 'bg-purple-50 text-purple-700' :
@@ -1554,7 +1554,7 @@ export default function CustomerDetailPage() {
                                     <div className="relative">
                                         <button 
                                             onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
-                                            className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-emerald-100 hover:scale-105 transition-all"
+                                            className="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-emerald-100 hover:scale-105 transition-all"
                                         >
                                             <Download size={18} /> تصدير السجل <ChevronDown size={14} className={`transition-transform ${isExportDropdownOpen ? 'rotate-180' : ''}`} />
                                         </button>
@@ -1604,11 +1604,11 @@ export default function CustomerDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
+                                        className="bg-gray-900 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
                                     >
                                         <Printer size={18} /> طباعة السجل
                                     </button>
-                                    <button onClick={() => setSelectedProjectForOrders(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm ml-2">
+                                    <button onClick={() => setSelectedProjectForOrders(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-2xl border border-gray-100 shadow-sm ml-2">
                                         <X size={28} />
                                     </button>
                                 </div>
@@ -1715,11 +1715,11 @@ export default function CustomerDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-blue-100 hover:scale-105 transition-all"
+                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg shadow-blue-100 hover:scale-105 transition-all"
                                     >
                                         <Printer size={18} /> طباعة الفاتورة
                                     </button>
-                                    <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm"><X size={24} /></button>
+                                    <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-2xl border border-gray-100 shadow-sm"><X size={24} /></button>
                                 </div>
                             </div>
                             <div className="p-8 overflow-y-auto flex-1">
@@ -1730,7 +1730,7 @@ export default function CustomerDetailPage() {
                                     </div>
 
                                     <div className="flex flex-col md:flex-row justify-between items-start mb-10 gap-6">
-                                        <div className="bg-gray-50 border border-gray-200 p-5 rounded-xl flex-1 w-full order-2 md:order-1">
+                                        <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl flex-1 w-full order-2 md:order-1">
                                             <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tighter uppercase">
                                                 Facture de Vente
                                             </h2>
@@ -1803,7 +1803,7 @@ export default function CustomerDetailPage() {
                                                             <span className="font-sans">{(selectedInvoice.originalTotal || 0).toLocaleString()}</span>
                                                         </div>
                                                         {selectedInvoice.returnsValue > 0 && (
-                                                            <div className="flex justify-between w-full text-red-400 text-xs mb-2 font-black bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+                                                            <div className="flex justify-between w-full text-red-400 text-xs mb-2 font-black bg-red-500/10 p-2 rounded-xl border border-red-500/20">
                                                                 <span>Retours (-):</span>
                                                                 <span className="font-sans">- {selectedInvoice.returnsValue.toLocaleString()} DZD</span>
                                                             </div>
@@ -1866,7 +1866,7 @@ export default function CustomerDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg no-print"
+                                        className="bg-gray-900 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg no-print"
                                     >
                                         <Printer size={16} /> طباعة السجل
                                     </button>
@@ -1902,7 +1902,7 @@ export default function CustomerDetailPage() {
                                                                             window.location.reload();
                                                                         }
                                                                     }}
-                                                                    className={`flex items-center gap-1.5 px-3 py-1.5 ${p.amount < 0 ? 'bg-purple-600' : 'bg-blue-600'} text-white rounded-lg hover:opacity-90 transition-all shadow-md no-print`}
+                                                                    className={`flex items-center gap-1.5 px-3 py-1.5 ${p.amount < 0 ? 'bg-purple-600' : 'bg-blue-600'} text-white rounded-xl hover:opacity-90 transition-all shadow-md no-print`}
                                                                 >
                                                                     <Printer size={12} />
                                                                     <span className="text-[10px] font-black">طباعة الوصل</span>
@@ -1918,13 +1918,13 @@ export default function CustomerDetailPage() {
                                                         <Clock size={12} />
                                                     </div>
                                                     {(p.paymentMethod === 'CHEQUE' || p.paymentMethod === 'BANK_TRANSFER' || p.chequeNumber) && (
-                                                        <div className="mt-2 flex flex-col gap-1 bg-blue-50 border border-blue-100 p-3 rounded-xl text-right" dir="rtl">
+                                                        <div className="mt-2 flex flex-col gap-1 bg-blue-50 border border-blue-100 p-3 rounded-2xl text-right" dir="rtl">
                                                             {p.bankName && <div className="text-[10px] font-black text-blue-700 flex items-center gap-1 justify-end">🏛️ {p.bankName}</div>}
                                                             {p.chequeNumber && <div className="text-[11px] font-black text-gray-900 font-sans">№ {p.chequeNumber}</div>}
                                                         </div>
                                                     )}
                                                     {p.isReturn && p.items && (
-                                                        <div className="mt-2 p-3 bg-orange-50 border border-orange-100 rounded-xl" dir="rtl">
+                                                        <div className="mt-2 p-3 bg-orange-50 border border-orange-100 rounded-2xl" dir="rtl">
                                                             <p className="text-[9px] font-black text-orange-800 mb-2 border-b border-orange-200 pb-1 uppercase tracking-tighter text-right">السلع المسترجعة / PRODUITS RETOURNÉS</p>
                                                             <div className="space-y-1">
                                                                 {p.items.map((item: any, i: number) => (
@@ -1997,7 +1997,7 @@ export default function CustomerDetailPage() {
                                     {showHistoryModal.remaining < 0 && (
                                         <button
                                             onClick={() => handleRefundExcess(showHistoryModal)}
-                                            className="mt-2 text-[10px] font-black bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 ml-auto"
+                                            className="mt-2 text-[10px] font-black bg-purple-600 text-white px-3 py-1.5 rounded-xl hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 ml-auto"
                                         >
                                             <Banknote size={12} /> إرجاع الفائض نقداً
                                         </button>
@@ -2063,7 +2063,7 @@ export default function CustomerDetailPage() {
                                     {showHistoryModal.remaining < 0 && (
                                         <button
                                             onClick={() => handleRefundExcess(showHistoryModal)}
-                                            className="mt-2 text-[10px] font-black bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 ml-auto"
+                                            className="mt-2 text-[10px] font-black bg-purple-600 text-white px-3 py-1.5 rounded-xl hover:bg-purple-700 transition-all shadow-md flex items-center gap-1 ml-auto"
                                         >
                                             <Banknote size={12} /> إرجاع الفائض نقداً
                                         </button>
@@ -2099,7 +2099,7 @@ export default function CustomerDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-orange-700 transition-all shadow-lg"
+                                        className="bg-orange-600 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 hover:bg-orange-700 transition-all shadow-lg"
                                     >
                                         <Printer size={16} /> طباعة السجل
                                     </button>
@@ -2130,7 +2130,7 @@ export default function CustomerDetailPage() {
                                                                     window.location.reload();
                                                                 }
                                                             }}
-                                                            className="bg-orange-600 text-white p-2 rounded-lg hover:scale-110 transition-all shadow-lg no-print"
+                                                            className="bg-orange-600 text-white p-2 rounded-xl hover:scale-110 transition-all shadow-lg no-print"
                                                         >
                                                             <Printer size={12} />
                                                         </button>
@@ -2141,7 +2141,7 @@ export default function CustomerDetailPage() {
                                                     <span className="text-[10px] font-bold text-gray-500">{new Date(r.orderDate).toLocaleString('ar-DZ')}</span>
                                                 </div>
                                             </div>
-                                            <div className="bg-orange-100/30 p-3 rounded-xl border border-orange-100">
+                                            <div className="bg-orange-100/30 p-3 rounded-2xl border border-orange-100">
                                                 <p className="text-[9px] font-black text-orange-800 mb-2 border-b border-orange-200 pb-1 uppercase tracking-tighter text-right">السلع المسترجعة</p>
                                                 <div className="space-y-1">
                                                     {r.items?.map((item: any, i: number) => (
@@ -2525,7 +2525,7 @@ export default function CustomerDetailPage() {
                                         value={editData.name || ''}
                                         onChange={e => setEditData({ ...editData, name: e.target.value.toUpperCase() })}
                                         onBlur={() => setFieldTouched('name')}
-                                        className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 uppercase transition-all
+                                        className={`w-full bg-white border rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 uppercase transition-all
                                             ${touched.name && !editValidations?.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
                                         required
                                     />
@@ -2570,7 +2570,7 @@ export default function CustomerDetailPage() {
                                                             setEditData({ ...editData, activity: e.target.value });
                                                         }
                                                     }}
-                                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                                                 >
                                                     {predefinedActivities.map(a => (
                                                         <option key={a} value={a}>{a}</option>
@@ -2585,7 +2585,7 @@ export default function CustomerDetailPage() {
                                                             onChange={e => setEditData({ ...editData, activity: e.target.value || 'Autre' })}
                                                             onBlur={() => setFieldTouched('activity')}
                                                             placeholder="أدخل النشاط التجاري يدوياً..."
-                                                            className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all mt-2
+                                                            className={`w-full bg-white border rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all mt-2
                                                                 ${touched.activity && !editValidations?.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50'}`}
                                                             autoFocus
                                                         />
@@ -2611,7 +2611,7 @@ export default function CustomerDetailPage() {
                                                 setEditData({ ...editData, creditLimit: parseFloat(raw) || 0 });
                                             }}
                                             onBlur={() => setFieldTouched('creditLimit')}
-                                            className={`w-full bg-white border rounded-lg pr-16 pl-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all font-sans text-right
+                                            className={`w-full bg-white border rounded-xl pr-16 pl-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all font-sans text-right
                                                 ${touched.creditLimit && !editValidations?.creditLimit ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
                                             placeholder="100 000"
                                             required
@@ -2644,7 +2644,7 @@ export default function CustomerDetailPage() {
                                                 setFieldTouched('phone');
                                             }}
                                         />
-                                        <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
+                                        <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-xl px-3 py-2.5 z-10 font-mono text-lg transition-all
                                             ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !editValidations?.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
                                             {[...Array(10)].map((_, i) => (
                                                 <React.Fragment key={i}>
@@ -2675,7 +2675,7 @@ export default function CustomerDetailPage() {
                                         value={editData.email || ''}
                                         onChange={e => setEditData({ ...editData, email: e.target.value })}
                                         onBlur={() => setFieldTouched('email')}
-                                        className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 font-sans transition-all
+                                        className={`w-full bg-white border rounded-xl px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 font-sans transition-all
                                             ${touched.email && !editValidations?.email ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
                                         placeholder="example@domain.com"
                                     />
@@ -2704,7 +2704,7 @@ export default function CustomerDetailPage() {
                                                         setFieldTouched('rc');
                                                     }}
                                                 />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-2 py-2 z-10 text-[10px] transition-all
                                                     ${focusedField === 'rc' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.rc && !editValidations?.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                     {[...Array(10)].map((_, i) => (
                                                         <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -2732,7 +2732,7 @@ export default function CustomerDetailPage() {
                                                         setFieldTouched('nif');
                                                     }}
                                                 />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
+                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-1.5 py-2 z-10 text-[9px] transition-all
                                                     ${focusedField === 'nif' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nif && !editValidations?.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                     {[...Array(15)].map((_, i) => (
                                                         <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -2762,7 +2762,7 @@ export default function CustomerDetailPage() {
                                                         setFieldTouched('ai');
                                                     }}
                                                 />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-2 py-2 z-10 text-[10px] transition-all
                                                     ${focusedField === 'ai' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.ai && !editValidations?.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                     {[...Array(11)].map((_, i) => (
                                                         <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -2790,7 +2790,7 @@ export default function CustomerDetailPage() {
                                                         setFieldTouched('nis');
                                                     }}
                                                 />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
+                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-1.5 py-2 z-10 text-[9px] transition-all
                                                     ${focusedField === 'nis' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nis && !editValidations?.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                     {[...Array(15)].map((_, i) => (
                                                         <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -2812,7 +2812,7 @@ export default function CustomerDetailPage() {
                                                 value={editData.address || ''}
                                                 onChange={e => setEditData({ ...editData, address: e.target.value.toUpperCase() })}
                                                 onBlur={() => setFieldTouched('address')}
-                                                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all uppercase font-black
+                                                className={`w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 transition-all uppercase font-black
                                                     ${touched.address && !editValidations?.address ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
                                                 placeholder="الشارع, الحي, الطريق..." required
                                             />
@@ -2829,7 +2829,7 @@ export default function CustomerDetailPage() {
                                                         const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
                                                         setEditData({ ...editData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
                                                     }}
-                                                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold"
+                                                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold"
                                                 >
                                                     {ALGERIA_LOCATIONS.map(w => (
                                                         <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
@@ -2843,7 +2843,7 @@ export default function CustomerDetailPage() {
                                                     value={editData.commune || ''}
                                                     onChange={e => setEditData({ ...editData, commune: e.target.value.toUpperCase() })}
                                                     onBlur={() => setFieldTouched('commune')}
-                                                    className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all font-bold uppercase
+                                                    className={`w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 transition-all font-bold uppercase
                                                         ${touched.commune && !editValidations?.commune ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
                                                     placeholder="البلدية..." required
                                                 />
@@ -2859,14 +2859,14 @@ export default function CustomerDetailPage() {
                             <div className="p-5 border-t border-gray-200 bg-gray-50 flex gap-3 shadow-sm">
                                 <button
                                     onClick={() => setIsEditModalOpen(false)}
-                                    className="flex-[0.5] bg-white text-gray-700 border border-gray-300 py-2.5 rounded-lg font-bold text-sm transition-colors"
+                                    className="flex-[0.5] bg-white text-gray-700 border border-gray-300 py-2.5 rounded-xl font-bold text-sm transition-colors"
                                 >
                                     إلغاء
                                 </button>
                                 <button
                                     onClick={handleEditCustomer}
                                     disabled={Object.values(editValidations || {}).some(v => !v) || isSubmitting}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all"
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all"
                                 >
                                     {isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}
                                 </button>

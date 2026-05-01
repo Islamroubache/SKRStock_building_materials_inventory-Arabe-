@@ -315,20 +315,20 @@ export default function SuppliersPage() {
                             placeholder="بحث بالاسم أو الهاتف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                            className="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                         />
                     </div>
                     <div className="flex gap-3">
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
+                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
                         >
                             <Printer size={16} /> طباعة
                         </button>
                         <div className="relative">
                             <button
                                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
+                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
                             >
                                 <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
@@ -357,14 +357,14 @@ export default function SuppliersPage() {
                         </div>
                         <Link
                             href="/suppliers/archive"
-                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
+                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
                         >
                             <Archive size={16} /> الأرشيف
                         </Link>
                     </div>
                     <button
                         onClick={() => handleOpenSheet()}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm"
                     >
                         <Plus size={18} /> مورد جديد
                     </button>
@@ -404,11 +404,11 @@ export default function SuppliersPage() {
             {loading ? (
                 <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium">جاري التحميل...</div>
             ) : filteredSuppliers.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-xl">لا يوجد موردين مطابقون للبحث</div>
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-2xl">لا يوجد موردين مطابقون للبحث</div>
             ) : (
                 <div className="flex flex-col gap-3">
                     {filteredSuppliers.map(supplier => (
-                        <div key={supplier.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4 cursor-pointer" onClick={() => window.location.href = `/suppliers/${supplier.id}`}>
+                        <div key={supplier.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4 cursor-pointer" onClick={() => window.location.href = `/suppliers/${supplier.id}`}>
                             <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
                                 <img 
                                     src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(supplier.name)}&backgroundColor=transparent&textColor=4f46e5&fontWeight=900&fontSize=40`} 
@@ -458,7 +458,7 @@ export default function SuppliersPage() {
                                 {supplier.balanceDue === 0 && (
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); handleArchive(supplier.id); }} 
-                                        className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors"
+                                        className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-400 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors"
                                         title="أرشفة"
                                     >
                                         <Archive size={18} />
@@ -487,7 +487,7 @@ export default function SuppliersPage() {
                                     type="text" value={formData.name} 
                                     onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })} 
                                     onBlur={() => setFieldTouched('name')}
-                                    className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all font-black text-sm uppercase
+                                    className={`w-full border rounded-xl px-3 py-2.5 outline-none focus:ring-2 transition-all font-black text-sm uppercase
                                         ${touched.name && !validations.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-indigo-500'}`} 
                                     placeholder="اسم الشركة أو المورد..." required 
                                 />
@@ -527,7 +527,7 @@ export default function SuppliersPage() {
                                                         setFormData({ ...formData, activity: e.target.value } as any);
                                                     }
                                                 }}
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                                                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
                                             >
                                                 {predefinedActivities.map(a => (
                                                     <option key={a} value={a}>{a}</option>
@@ -542,7 +542,7 @@ export default function SuppliersPage() {
                                                         onChange={e => setFormData({ ...formData, activity: e.target.value || 'Autre' } as any)}
                                                         onBlur={() => setFieldTouched('activity')}
                                                         placeholder="أدخل النشاط التجاري يدوياً..."
-                                                        className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all mt-2
+                                                        className={`w-full border rounded-xl px-3 py-2.5 outline-none focus:ring-2 transition-all mt-2
                                                             ${touched.activity && !validations.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50 text-gray-900'}`}
                                                         autoFocus
                                                     />
@@ -577,7 +577,7 @@ export default function SuppliersPage() {
                                             setFieldTouched('phone');
                                         }}
                                     />
-                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
+                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-xl px-3 py-2.5 z-10 font-mono text-lg transition-all
                                         ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !validations.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
                                         {[...Array(10)].map((_, i) => (
                                             <React.Fragment key={i}>
@@ -605,7 +605,7 @@ export default function SuppliersPage() {
                                 <input
                                     type="email" dir="ltr"
                                     value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                                 />
                             </div>
                             <div className="space-y-3 pt-2">
@@ -613,7 +613,7 @@ export default function SuppliersPage() {
                                     <label className="text-sm font-bold text-gray-700 block">العنوان (الشارع / الحي / Cité) <span className="text-red-500">*</span></label>
                                     <input 
                                         type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })} 
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-black text-sm uppercase" 
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-black text-sm uppercase" 
                                         placeholder="Cité, Street, Ave..." required 
                                     />
                                 </div>
@@ -626,7 +626,7 @@ export default function SuppliersPage() {
                                                 const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
                                                 setFormData({ ...formData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
                                             }}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
+                                            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
                                         >
                                             {ALGERIA_LOCATIONS.map(w => (
                                                 <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
@@ -637,7 +637,7 @@ export default function SuppliersPage() {
                                         <label className="text-sm font-bold text-gray-700 block">البلدية <span className="text-red-500">*</span></label>
                                         <input 
                                             type="text" value={formData.commune} onChange={e => setFormData({ ...formData, commune: e.target.value.toUpperCase() })} 
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white uppercase" 
+                                            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white uppercase" 
                                             placeholder="البلدية..." required 
                                         />
                                     </div>
@@ -661,7 +661,7 @@ export default function SuppliersPage() {
                                                 }}
                                                 dir="ltr"
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-2 py-2 z-10 text-[10px] transition-all
                                                 ${focusedField === 'rc' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.rc && !validations.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(10)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -689,7 +689,7 @@ export default function SuppliersPage() {
                                                 }}
                                                 dir="ltr"
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-1.5 py-2 z-10 text-[9px] transition-all
                                                 ${focusedField === 'nif' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.nif && !validations.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(15)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -717,7 +717,7 @@ export default function SuppliersPage() {
                                                 }}
                                                 dir="ltr"
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-2 py-2 z-10 text-[10px] transition-all
                                                 ${focusedField === 'ai' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.ai && !validations.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(11)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -745,7 +745,7 @@ export default function SuppliersPage() {
                                                 }}
                                                 dir="ltr"
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2.5 z-10 text-[9px] transition-all
+                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-xl px-1.5 py-2.5 z-10 text-[9px] transition-all
                                                 ${focusedField === 'nis' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.nis && !validations.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
                                                 {[...Array(15)].map((_, i) => (
                                                     <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
@@ -764,12 +764,12 @@ export default function SuppliersPage() {
                         <div className="flex gap-3 pt-6 border-t border-gray-200 mt-4">
                             <button
                                 onClick={() => setIsSheetOpen(false)}
-                                className="flex-[0.5] border border-gray-300 bg-white text-gray-700 py-2.5 rounded-lg font-bold text-sm"
+                                className="flex-[0.5] border border-gray-300 bg-white text-gray-700 py-2.5 rounded-xl font-bold text-sm"
                             >إلغاء</button>
                             <button
                                 onClick={handleSave}
                                 disabled={!formData.name}
-                                className="flex-1 bg-indigo-600 text-white disabled:opacity-50 py-2.5 rounded-lg font-bold text-sm shadow-sm"
+                                className="flex-1 bg-indigo-600 text-white disabled:opacity-50 py-2.5 rounded-xl font-bold text-sm shadow-sm"
                             >حفظ بيانات المورد</button>
                         </div>
                     </div>
@@ -791,13 +791,13 @@ export default function SuppliersPage() {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setDeleteDialog({ isOpen: false, id: null })}
-                                className="flex-1 bg-white text-gray-700 border border-gray-300 py-2 rounded-lg font-bold text-sm"
+                                className="flex-1 bg-white text-gray-700 border border-gray-300 py-2 rounded-xl font-bold text-sm"
                             >
                                 إلغاء
                             </button>
                             <button
                                 onClick={confirmDelete}
-                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold text-sm"
+                                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-sm"
                             >
                                 تأكيد الحذف
                             </button>

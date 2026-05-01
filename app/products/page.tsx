@@ -356,7 +356,7 @@ function ProductsContent() {
             {/* Toasts */}
             <div className="fixed top-4 left-4 z-50 flex flex-col gap-2 print-hide">
                 {toasts.map(t => (
-                    <div key={t.id} className={`px-4 py-3 rounded-lg shadow-lg border flex items-center gap-2 text-sm font-medium transition-all animate-in slide-in-from-top-2
+                    <div key={t.id} className={`px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2 text-sm font-medium transition-all animate-in slide-in-from-top-2
             ${t.type === 'success' ? 'bg-white border-green-500 text-green-700' : 'bg-white border-red-500 text-red-700'}`}>
                         {t.type === 'success' ? <CheckCircle size={18} className="text-green-500" /> : <AlertTriangle size={18} className="text-red-500" />}
                         {t.msg}
@@ -365,7 +365,7 @@ function ProductsContent() {
             </div>
 
             {/* Filter Bar */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between print-hide">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between print-hide">
                 {/* Search and Filters */}
                 <div className="flex flex-wrap gap-3 items-center w-full xl:w-auto flex-1">
                     <div className="relative w-full sm:w-64 shrink-0">
@@ -375,14 +375,14 @@ function ProductsContent() {
                             placeholder="البحث بالاسم أو الكود..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-3 pr-10 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-3 pr-10 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium"
                         />
                     </div>
 
                     <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-gray-100 cursor-pointer min-w-[120px]"
+                        className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-gray-100 cursor-pointer min-w-[120px]"
                     >
                         <option value="">الفئة: الكل</option>
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -391,7 +391,7 @@ function ProductsContent() {
 
 
                     {/* Expiry Filter */}
-                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1.5 flex-wrap">
                         <span className="text-xs font-bold text-gray-500 pl-1">الصلاحية:</span>
                         {[
                             { val: 'all', label: 'الكل' },
@@ -428,14 +428,14 @@ function ProductsContent() {
                     </div>
 
                     {(searchTerm || categoryFilter || expiryFilter !== 'all') && (
-                        <button onClick={resetFilters} className="text-gray-500 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors" title="مسح الفلاتر">
+                        <button onClick={resetFilters} className="text-gray-500 hover:text-red-500 p-2 rounded-xl hover:bg-red-50 transition-colors" title="مسح الفلاتر">
                             <X size={20} />
                         </button>
                     )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end relative">
-                    <button onClick={handlePrint} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg flex items-center gap-2">
+                    <button onClick={handlePrint} className="bg-gray-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg flex items-center gap-2">
                         <Printer size={16} /> طباعة
                     </button>
 
@@ -443,7 +443,7 @@ function ProductsContent() {
                     <div className="relative">
                         <button
                             onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm flex items-center gap-2"
+                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-2xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm flex items-center gap-2"
                         >
                             <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -469,7 +469,7 @@ function ProductsContent() {
 
                     <button
                         onClick={() => setViewArchived(!viewArchived)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-sm border ${viewArchived
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-xs transition-all shadow-sm border ${viewArchived
                             ? 'bg-amber-50 text-amber-700 border-amber-200'
                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                             }`}
@@ -479,7 +479,7 @@ function ProductsContent() {
                         {viewArchived ? "عرض النشطة" : "الأرشيف"}
                     </button>
 
-                    <button onClick={() => handleOpenPanel()} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
+                    <button onClick={() => handleOpenPanel()} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-2xl font-black text-xs transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
                         <Plus size={18} /> منتج جديد
                     </button>
                 </div>
@@ -488,7 +488,7 @@ function ProductsContent() {
             {/* EXPIRY ALERT BANNERS (Specific to page) */}
             <div className="flex flex-col gap-2 print-hide">
                 {expiredCount > 0 && (
-                    <div onClick={() => setExpiryFilter('expired')} className="cursor-pointer bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm hover:bg-red-100 transition-colors">
+                    <div onClick={() => setExpiryFilter('expired')} className="cursor-pointer bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm hover:bg-red-100 transition-colors">
                         <div className="flex items-center gap-3">
                             <AlertCircle size={20} className="text-red-500 shrink-0" />
                             <span className="font-bold text-base">🔴 يوجد {expiredCount} منتجات منتهية الصلاحية — يجب سحبها فوراً</span>
@@ -497,7 +497,7 @@ function ProductsContent() {
                     </div>
                 )}
                 {expiringSoonCount > 0 && (
-                    <div onClick={() => setExpiryFilter('expiring')} className="cursor-pointer bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm hover:bg-amber-100 transition-colors">
+                    <div onClick={() => setExpiryFilter('expiring')} className="cursor-pointer bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm hover:bg-amber-100 transition-colors">
                         <div className="flex items-center gap-3">
                             <AlertTriangle size={20} className="text-amber-500 shrink-0" />
                             <span className="font-bold text-base">🟡 يوجد {expiringSoonCount} منتجات تنتهي صلاحيتها قريباً
@@ -510,7 +510,7 @@ function ProductsContent() {
             </div>
 
             {/* PRODUCTS TABLE */}
-            <div className="bg-white border flex-1 border-gray-200 rounded-xl shadow-sm flex flex-col print-area">
+            <div className="bg-white border flex-1 border-gray-200 rounded-2xl shadow-sm flex flex-col print-area">
                 <div className="hidden print:block mb-6 pt-4 border-b pb-4">
                     <h1 className="text-2xl font-bold flex items-center justify-between text-gray-900">
                         قائمة المنتجات
@@ -639,7 +639,7 @@ function ProductsContent() {
 
                         <div className="p-6 flex-1 overflow-y-auto space-y-6 custom-scrollbar bg-white">
                             {/* Code Field */}
-                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
                                 <div className="flex justify-between items-center">
                                     <label className="text-sm font-bold text-gray-700">كود المنتج (Barcode)</label>
                                     <button
@@ -655,7 +655,7 @@ function ProductsContent() {
                                     value={formData.code || ''}
                                     onChange={e => setFormData({ ...formData, code: e.target.value })}
                                     disabled={!enableCodeEdit}
-                                    className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-500 font-mono font-bold border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
+                                    className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-500 font-mono font-bold border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
                                 />
                             </div>
 
@@ -664,7 +664,7 @@ function ProductsContent() {
                                 <input
                                     type="text" autoFocus
                                     value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors shadow-sm"
+                                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors shadow-sm"
                                 />
                             </div>
 
@@ -672,7 +672,7 @@ function ProductsContent() {
                                 <label className="text-sm font-bold text-gray-700">الفئة <span className="text-red-500">*</span></label>
                                 <select
                                     value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-sans shadow-sm"
+                                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-sans shadow-sm"
                                 >
                                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
@@ -685,7 +685,7 @@ function ProductsContent() {
                                         <input
                                             type="number"
                                             value={formData.purchasePrice || ''} onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
+                                            className="w-full bg-white border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                                         />
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase pt-1">دج</span>
                                     </div>
@@ -696,7 +696,7 @@ function ProductsContent() {
                                         <input
                                             type="number"
                                             value={formData.sellPrice || ''} onChange={e => setFormData({ ...formData, sellPrice: parseFloat(e.target.value) || 0 })}
-                                            className={`w-full bg-white border rounded-lg pl-10 pr-4 py-2.5 font-bold font-sans focus:outline-none shadow-sm
+                                            className={`w-full bg-white border rounded-xl pl-10 pr-4 py-2.5 font-bold font-sans focus:outline-none shadow-sm
                         ${(formData.sellPrice !== undefined && formData.purchasePrice !== undefined && formData.sellPrice < formData.purchasePrice) ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500/50'}`}
                                         />
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase pt-1">دج</span>
@@ -705,7 +705,7 @@ function ProductsContent() {
                             </div>
 
                             {/* Quantity Block */}
-                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
+                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
                                 <h3 className="font-bold text-sm text-gray-800 border-b pb-2">إعدادات المخزون</h3>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
@@ -713,14 +713,14 @@ function ProductsContent() {
                                         <input
                                             type="number"
                                             value={formData.quantity || ''} onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-center font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                            className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-center font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-gray-600">الوحدة</label>
                                         <select
                                             value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                            className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                                         >
                                             {units.map(u => <option key={u} value={u}>{u}</option>)}
                                         </select>
@@ -730,14 +730,14 @@ function ProductsContent() {
                                         <input
                                             type="number"
                                             value={formData.minQuantity || ''} onChange={e => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                                            className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                                         />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Expiry & Batch Toggle Block */}
-                            <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-4">
+                            <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-4">
                                 <div className="flex items-center justify-between border-b border-blue-100 pb-2">
                                     <div className="flex items-center gap-2">
                                         <Calendar size={18} className="text-blue-600" />
@@ -776,10 +776,10 @@ function ProductsContent() {
                                                 value={formData.expiryDate || ''}
                                                 onChange={e => setFormData({ ...formData, expiryDate: e.target.value || null })}
                                                 disabled={!!(editingProduct && (editingProduct as any)._count?.batches > 0)}
-                                                className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-500 border border-blue-200 rounded-lg px-4 py-2.5 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                                className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-500 border border-blue-200 rounded-xl px-4 py-2.5 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                                             />
                                             {editingProduct && (editingProduct as any)._count?.batches > 0 ? (
-                                                <div className="flex items-start gap-2 bg-blue-100/50 p-2 rounded-lg border border-blue-200">
+                                                <div className="flex items-start gap-2 bg-blue-100/50 p-2 rounded-xl border border-blue-200">
                                                     <AlertCircle size={14} className="text-blue-600 shrink-0 mt-0.5" />
                                                     <p className="text-[10px] text-blue-700 font-bold leading-tight">
                                                         لا يمكن تعديل التاريخ يدوياً لأن المنتج يحتوي على {editingProduct._count?.batches} دفعات مسجلة.
@@ -794,7 +794,7 @@ function ProductsContent() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-2 bg-gray-100 p-3 rounded-lg border border-gray-200">
+                                    <div className="flex items-center gap-2 bg-gray-100 p-3 rounded-xl border border-gray-200">
                                         <CheckCircle size={16} className="text-gray-500" />
                                         <p className="text-xs text-gray-600 font-bold">هذا المنتج لا يتطلب تتبع تاريخ انتهاء الصلاحية.</p>
                                     </div>
@@ -806,7 +806,7 @@ function ProductsContent() {
                                 <label className="text-sm font-bold text-gray-700">المورد المفضل</label>
                                 <select
                                     value={formData.supplierId || ''} onChange={e => setFormData({ ...formData, supplierId: e.target.value ? parseInt(e.target.value) : undefined })}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
+                                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
                                 >
                                     <option value="">-- بدون مورد --</option>
                                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -818,13 +818,13 @@ function ProductsContent() {
                             <button
                                 onClick={handleSaveProduct}
                                 disabled={isSaveDisabled}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold transition-all shadow-md shadow-blue-600/20 active:scale-[0.98]"
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-all shadow-md shadow-blue-600/20 active:scale-[0.98]"
                             >
                                 حفظ بيانات المنتج
                             </button>
                             <button
                                 onClick={closePanel}
-                                className="flex-[0.5] bg-white hover:bg-gray-50 text-gray-700 py-3 rounded-lg border border-gray-200 font-bold transition-colors shadow-sm"
+                                className="flex-[0.5] bg-white hover:bg-gray-50 text-gray-700 py-3 rounded-xl border border-gray-200 font-bold transition-colors shadow-sm"
                             >
                                 إلغاء
                             </button>
@@ -851,13 +851,13 @@ function ProductsContent() {
                         <div className="flex gap-3">
                             <button
                                 onClick={confirmDelete}
-                                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-lg font-bold text-sm transition-colors shadow-md shadow-amber-600/20"
+                                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-xl font-bold text-sm transition-colors shadow-md shadow-amber-600/20"
                             >
                                 نعم، تأكيد الأرشفة
                             </button>
                             <button
                                 onClick={() => setDeleteDialog({ isOpen: false, product: null })}
-                                className="flex-[0.5] bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm"
+                                className="flex-[0.5] bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-sm"
                             >
                                 إلغاء
                             </button>
@@ -873,7 +873,7 @@ function ProductsContent() {
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-2xl max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white rounded-t-2xl">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                                <div className="p-2 bg-emerald-50 rounded-xl"><Activity size={22} className="text-emerald-600" /></div>
+                                <div className="p-2 bg-emerald-50 rounded-2xl"><Activity size={22} className="text-emerald-600" /></div>
                                 سجل حركة المخزون
                             </h2>
                             <button onClick={() => setHistoryDialog({ ...historyDialog, isOpen: false })} className="text-gray-400 hover:text-gray-900 transition-colors bg-white border hover:bg-gray-50 rounded-full p-1.5 shadow-sm">
@@ -974,7 +974,7 @@ function BatchManagementModal({ product, isOpen, onClose, refreshProducts }: { p
             <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-3xl max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 rounded-xl"><Package size={22} className="text-blue-600" /></div>
+                        <div className="p-2 bg-blue-50 rounded-2xl"><Package size={22} className="text-blue-600" /></div>
                         <div className="flex flex-col">
                             <h2 className="text-xl font-bold text-gray-900">تسيير دفعات المنتج</h2>
                             <p className="text-xs text-gray-500 font-bold">{product.name} ({product.code})</p>
@@ -1039,7 +1039,7 @@ function BatchManagementModal({ product, isOpen, onClose, refreshProducts }: { p
                 </div>
                 <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center rounded-b-2xl">
                     <span className="text-xs font-bold text-gray-500">إجمالي الدفعات: {batches.length}</span>
-                    <button onClick={onClose} className="bg-white border border-gray-200 px-6 py-2 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">إغلاق</button>
+                    <button onClick={onClose} className="bg-white border border-gray-200 px-6 py-2 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">إغلاق</button>
                 </div>
             </div>
         </div>
