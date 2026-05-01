@@ -23,15 +23,15 @@ export async function GET(request: Request) {
             orderBy: { createdAt: 'desc' }
         });
 
-        const totalLoss = records.reduce((sum, r) => sum + r.totalLoss, 0);
+        const totalLoss = records.reduce((sum: any, r: any) => sum + r.totalLoss, 0);
 
         return NextResponse.json({
             records,
             summary: {
                 totalRecords: records.length,
                 totalLoss,
-                pendingCount: records.filter(r => r.status === 'PENDING').length,
-                returnedCount: records.filter(r => r.status === 'RETURNED_TO_SUPPLIER').length
+                pendingCount: records.filter((r: any) => r.status === 'PENDING').length,
+                returnedCount: records.filter((r: any) => r.status === 'RETURNED_TO_SUPPLIER').length
             }
         });
     } catch (error) {

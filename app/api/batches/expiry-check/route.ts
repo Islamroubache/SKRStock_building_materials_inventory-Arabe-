@@ -21,15 +21,15 @@ export async function POST() {
             // Update status to EXPIRED
             await prisma.productBatch.updateMany({
                 where: {
-                    id: { in: expiredBatches.map(b => b.id) }
+                    id: { in: expiredBatches.map((b: any) => b.id) }
                 },
                 data: { status: 'EXPIRED' }
             });
 
             // Update nearest expiry for affected products
-            const productIds = Array.from(new Set(expiredBatches.map(b => b.productId)));
+            const productIds = Array.from(new Set(expiredBatches.map((b: any) => b.productId)));
             for (const productId of productIds) {
-                await updateNearestExpiry(productId);
+                await updateNearestExpiry(productId as number);
             }
         }
 

@@ -37,14 +37,14 @@ export async function GET(request: Request) {
             include: { invoice: true }
         });
 
-        const todayNet = todaySaleOrders.reduce((sum, order) => {
+        const todayNet = todaySaleOrders.reduce((sum: any, order: any) => {
             const grandTotal = order.grandTotal || 0;
             const isPaid = order.invoice?.status === 'PAID';
             const remaining = isPaid ? 0 : (order.invoice?.remaining || 0);
             return sum + (grandTotal - remaining);
         }, 0);
 
-        const todaySales = todaySaleOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+        const todaySales = todaySaleOrders.reduce((sum: any, o: any) => sum + (o.grandTotal || 0), 0);
 
         // 2. Calculate Today's Collections for OLD debts (Payments today for invoices created BEFORE today)
         const allTodayPayments = await prisma.payment.findMany({
@@ -52,14 +52,14 @@ export async function GET(request: Request) {
             include: { invoice: true }
         });
 
-        const paymentInvoiceIds = allTodayPayments.map(p => p.invoiceId).filter(id => id !== null) as number[];
+        const paymentInvoiceIds = allTodayPayments.map((p: any) => p.invoiceId).filter((id: any) => id !== null) as number[];
         const invoices = await prisma.invoice.findMany({
             where: { id: { in: paymentInvoiceIds } },
             include: { order: true }
         });
 
-        const todayOldDebtCollections = allTodayPayments.reduce((sum, p) => {
-            const inv = invoices.find(i => i.id === p.invoiceId);
+        const todayOldDebtCollections = allTodayPayments.reduce((sum: any, p: any) => {
+            const inv = invoices.find((i: any) => i.id === p.invoiceId);
             if (!inv || !inv.order || inv.order.orderDate < start) {
                 return sum + p.amount;
             }
@@ -144,13 +144,13 @@ export async function GET(request: Request) {
         });
 
         const performanceMap: Record<number, any> = {};
-        periodOrderItems.forEach(item => {
+        periodOrderItems.forEach((item: any) => {
             if (!performanceMap[item.productId]) {
                 performanceMap[item.productId] = { id: item.productId, name: item.product.name, sold: 0, revenue: 0, cost: 0, profit: 0 };
             }
             let cost = 0;
             if (item.batchAllocations && item.batchAllocations.length > 0) {
-                cost = item.batchAllocations.reduce((sum, b) => sum + (b.unitCost * b.quantity), 0);
+                cost = item.batchAllocations.reduce((sum: any, b: any) => sum + (b.unitCost * b.quantity), 0);
             } else {
                 cost = ((item.product as any).avgPurchasePrice || item.product.purchasePrice) * item.quantity;
             }
@@ -182,7 +182,7 @@ export async function GET(request: Request) {
         const allProducts = await prisma.product.findMany({
             select: { name: true, quantity: true, minQuantity: true, unit: true }
         });
-        const lowStockProducts = allProducts.filter((p) => p.quantity <= p.minQuantity).map(p => ({
+        const lowStockProducts = allProducts.filter((p) => p.quantity <= p.minQuantity).map((p: any) => ({
             name: p.name,
             quantity: p.quantity,
             unit: p.unit
@@ -196,10 +196,10 @@ export async function GET(request: Request) {
 
         const outstandingDebts = {
             count: outstandingCustomers.length,
-            totalAmount: outstandingCustomers.reduce((sum, c) => sum + c.balanceDue, 0)
+            totalAmount: outstandingCustomers.reduce((sum: any, c: any) => sum + c.balanceDue, 0)
         };
 
-        const creditAlerts = outstandingCustomers.filter(c => c.creditLimit > 0 && c.balanceDue >= c.creditLimit).map(c => ({
+        const creditAlerts = outstandingCustomers.filter((c: any) => c.creditLimit > 0 && c.balanceDue >= c.creditLimit).map((c: any) => ({
             name: c.name,
             balanceDue: c.balanceDue,
             creditLimit: c.creditLimit
@@ -233,7 +233,7 @@ export async function GET(request: Request) {
         });
 
         const expiredCount = expiredBatches.length;
-        const expiredList = expiredBatches.map(b => ({
+        const expiredList = expiredBatches.map((b: any) => ({
             name: b.product.name,
             code: b.product.code,
             expiryDate: b.expiryDate,
@@ -246,7 +246,7 @@ export async function GET(request: Request) {
             where: { createdAt: { gte: monthStart } },
             select: { totalLoss: true }
         });
-        const totalLossThisMonth = damageRecords.reduce((sum, r) => sum + r.totalLoss, 0);
+        const totalLossThisMonth = damageRecords.reduce((sum: any, r: any) => sum + r.totalLoss, 0);
 
         const overdueInvoicesQuery = await prisma.invoice.findMany({
             where: {
@@ -260,7 +260,7 @@ export async function GET(request: Request) {
             }
         });
         
-        const overdueInvoices = overdueInvoicesQuery.map(inv => ({
+        const overdueInvoices = overdueInvoicesQuery.map((inv: any) => ({
             invoiceNumber: inv.invoiceNumber,
             customerName: inv.order?.customer?.name || inv.order?.customerName || 'عميل نقدي',
             remaining: inv.remaining,
@@ -277,8 +277,8 @@ export async function GET(request: Request) {
         });
 
         let totalDebt = 0;
-        allSaleOrders.forEach(order => {
-            const returnsValue = order.items.reduce((sum, item) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+        allSaleOrders.forEach((order: any) => {
+            const returnsValue = order.items.reduce((sum: any, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
             const paid = order.invoice?.paid || 0;
             const remaining = Math.max(0, (order.grandTotal - returnsValue) - paid);
             totalDebt += remaining;

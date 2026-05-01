@@ -88,7 +88,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             select: { id: true, name: true, code: true, quantity: true, unit: true, purchasePrice: true, avgPurchasePrice: true }
         });
 
-        directProducts.forEach(p => {
+        directProducts.forEach((p: any) => {
             if (!productStatsMap.has(p.id)) {
                 productStatsMap.set(p.id, {
                     ...p,
@@ -101,7 +101,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             }
         });
 
-        const products = Array.from(productStatsMap.values()).sort((a, b) => b.lastPurchase - a.lastPurchase);
+        const products = Array.from(productStatsMap.values()).sort((a: any, b: any) => b.lastPurchase - a.lastPurchase);
 
         return NextResponse.json({ ...supplier, products });
     } catch (e) {
@@ -145,7 +145,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         // ❌ Condition 2: Products still have stock
         const hasStock = products.some(p => p.quantity > 0);
         if (hasStock) {
-            const remaining = products.filter(p => p.quantity > 0).map(p => p.name).join(', ');
+            const remaining = products.filter((p: any) => p.quantity > 0).map((p: any) => p.name).join(', ');
             return NextResponse.json(
                 { error: `لا يمكن الحذف. لا تزال هناك كمية في مخزون المنتجات التالية: ${remaining}` },
                 { status: 400 }

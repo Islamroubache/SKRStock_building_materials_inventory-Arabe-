@@ -20,8 +20,8 @@ export async function GET() {
             where: { createdAt: { gte: yearStart, lte: yearEnd } }
         });
 
-        const totalLossThisMonth = monthRecords.reduce((sum, r) => sum + r.totalLoss, 0);
-        const totalLossThisYear = yearRecords.reduce((sum, r) => sum + r.totalLoss, 0);
+        const totalLossThisMonth = monthRecords.reduce((sum: any, r: any) => sum + r.totalLoss, 0);
+        const totalLossThisYear = yearRecords.reduce((sum: any, r: any) => sum + r.totalLoss, 0);
 
         // Recovered = total refund records where status is RETURNED_TO_SUPPLIER
         const recoveredRecords = await prisma.damagedProduct.findMany({
@@ -30,7 +30,7 @@ export async function GET() {
                 supplierRefund: true
             }
         });
-        const totalRecovered = recoveredRecords.reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+        const totalRecovered = recoveredRecords.reduce((sum: any, r: any) => sum + (r.refundAmount || 0), 0);
 
         // Top Damaged Products
         const allRecords = await prisma.damagedProduct.findMany({
@@ -38,7 +38,7 @@ export async function GET() {
         });
 
         const pMap: Record<number, any> = {};
-        allRecords.forEach(r => {
+        allRecords.forEach((r: any) => {
             if (!pMap[r.productId]) {
                 pMap[r.productId] = { name: r.product.name, code: r.product.code, totalQty: 0, totalLoss: 0 };
             }
@@ -47,7 +47,7 @@ export async function GET() {
         });
 
         const topDamagedProducts = Object.values(pMap)
-            .sort((a, b) => b.totalLoss - a.totalLoss)
+            .sort((a: any, b: any) => b.totalLoss - a.totalLoss)
             .slice(0, 10);
 
         // By Type
@@ -58,7 +58,7 @@ export async function GET() {
             LOST: { count: 0, loss: 0 }
         };
 
-        allRecords.forEach(r => {
+        allRecords.forEach((r: any) => {
             if (byType[r.damageType]) {
                 byType[r.damageType].count += 1;
                 byType[r.damageType].loss += r.totalLoss;

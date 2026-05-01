@@ -464,7 +464,7 @@ export default function AIDashboard() {
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart data={timingData.hourStats}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                            <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 800 }} formatter={(h) => `${h}:00`} />
+                                            <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 800 }} tickFormatter={(h) => `${h}:00`} />
                                             <YAxis hide />
                                             <Tooltip
                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}

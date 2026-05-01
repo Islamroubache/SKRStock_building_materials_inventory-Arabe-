@@ -21,10 +21,10 @@ export async function GET(request: Request) {
         });
 
         // Calculate current average cost based on active batches
-        const products = rawProducts.map(p => {
+        const products = rawProducts.map((p: any) => {
             if (p.batches.length > 0) {
-                const totalQty = p.batches.reduce((sum, b) => sum + b.remainingQty, 0);
-                const totalValue = p.batches.reduce((sum, b) => sum + (b.remainingQty * b.unitCost), 0);
+                const totalQty = p.batches.reduce((sum: any, b: any) => sum + b.remainingQty, 0);
+                const totalValue = p.batches.reduce((sum: any, b: any) => sum + (b.remainingQty * b.unitCost), 0);
                 
                 // If we have batches with stock, use weighted average of these batches
                 if (totalQty > 0) {
@@ -75,13 +75,13 @@ export async function GET(request: Request) {
         });
 
         // Enrich movements with batch remaining quantity if it's an "IN" movement
-        const enrichedMovements = movements.map(m => {
+        const enrichedMovements = movements.map((m: any) => {
             let batchRemainingQty = null;
 
             if (m.movementType === 'IN') {
                 // Try to find matching batch
                 const batches = m.product?.batches || [];
-                const batch = batches.find(b => {
+                const batch = batches.find((b: any) => {
                     // Match by order ID (most reliable for purchases)
                     if (m.orderId && b.purchaseOrderId === m.orderId) return true;
                     

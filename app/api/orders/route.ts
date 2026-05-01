@@ -268,7 +268,7 @@ export async function POST(request: Request) {
         const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
 
         for (const item of items) {
-            const p = products.find(prod => prod.id === item.productId);
+            const p = products.find((prod: any) => prod.id === item.productId);
             if (!p) return NextResponse.json({ error: `المنتج غير موجود: ${item.productId}` }, { status: 400 });
             if (item.quantity > p.quantity) {
                 return NextResponse.json({ error: `الكمية المتوفرة من ${p.name} غير كافية (${p.quantity} متوفر)` }, { status: 400 });
@@ -360,11 +360,11 @@ export async function POST(request: Request) {
                     }
 
                     const batchNumbers = await tx.productBatch.findMany({
-                        where: { id: { in: allocations.map(a => a.batchId) } },
+                        where: { id: { in: allocations.map((a: any) => a.batchId) } },
                         select: { batchNumber: true, id: true }
                     });
 
-                    batchNote = " — سحب FIFO من دفعات: " + allocations.map(a => {
+                    batchNote = " — سحب FIFO من دفعات: " + allocations.map((a: any) => {
                         const b = batchNumbers.find((bn: any) => bn.id === a.batchId);
                         return `${b?.batchNumber}(${a.quantity})`;
                     }).join(", ");

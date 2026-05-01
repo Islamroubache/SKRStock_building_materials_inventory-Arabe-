@@ -1,4 +1,5 @@
-import React from 'lucide-react'
+import React from 'react'
+import { Loader2 } from 'lucide-react'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'outline' | 'ghost'
 export type ButtonSize = 'sm' | 'md' | 'lg'

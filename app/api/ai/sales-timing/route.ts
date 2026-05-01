@@ -11,10 +11,10 @@ export async function GET() {
 
         // Initialize counters
         const daysOfWeek = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-        const dayStats = daysOfWeek.map(name => ({ name, count: 0, revenue: 0 }));
-        const hourStats = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0, revenue: 0 }));
+        const dayStats = daysOfWeek.map((name: any) => ({ name, count: 0, revenue: 0 }));
+        const hourStats = Array.from({ length: 24 }, (_, i: any) => ({ hour: i, count: 0, revenue: 0 }));
 
-        sales.forEach(order => {
+        sales.forEach((order: any) => {
             const date = new Date(order.orderDate);
             const dayIndex = getDay(date);
             const hour = getHours(date);
@@ -27,12 +27,12 @@ export async function GET() {
         });
 
         // Recommendations logic
-        const bestDay = [...dayStats].sort((a, b) => b.revenue - a.revenue)[0];
-        const bestHour = [...hourStats].sort((a, b) => b.revenue - a.revenue)[0];
+        const bestDay = [...dayStats].sort((a: any, b: any) => b.revenue - a.revenue)[0];
+        const bestHour = [...hourStats].sort((a: any, b: any) => b.revenue - a.revenue)[0];
         
         // Find peak morning and peak afternoon
-        const morningPeak = hourStats.slice(6, 13).sort((a, b) => b.count - a.count)[0];
-        const afternoonPeak = hourStats.slice(13, 20).sort((a, b) => b.count - a.count)[0];
+        const morningPeak = hourStats.slice(6, 13).sort((a: any, b: any) => b.count - a.count)[0];
+        const afternoonPeak = hourStats.slice(13, 20).sort((a: any, b: any) => b.count - a.count)[0];
 
         return NextResponse.json({
             dayStats,

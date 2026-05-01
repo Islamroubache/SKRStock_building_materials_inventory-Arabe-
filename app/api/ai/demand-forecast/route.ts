@@ -19,12 +19,12 @@ export async function GET() {
             }
         });
 
-        const forecastData = products.map(product => {
+        const forecastData = products.map((product: any) => {
             const stats = calculateDemandStats(product.stockMovements);
 
             // Collect daily values for regression
             const dailyMap: Record<string, number> = {};
-            product.stockMovements.forEach(m => {
+            product.stockMovements.forEach((m: any) => {
                 const day = startOfDay(m.createdAt).toISOString();
                 dailyMap[day] = (dailyMap[day] || 0) + m.quantity;
             });
@@ -63,7 +63,7 @@ export async function GET() {
         });
 
         // Sort by urgency: lowest daysUntilStockout first, then reorder recommended
-        const sorted = forecastData.sort((a, b) => {
+        const sorted = forecastData.sort((a: any, b: any) => {
             if (a.daysUntilStockout === null && b.daysUntilStockout === null) return 0;
             if (a.daysUntilStockout === null) return 1;
             if (b.daysUntilStockout === null) return -1;

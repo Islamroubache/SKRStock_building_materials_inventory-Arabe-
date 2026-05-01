@@ -59,7 +59,7 @@ export async function GET(request: Request) {
             }
         });
 
-        const totalLossValue = expiredBatches.reduce((sum, b) => sum + (b.remainingQty * b.unitCost), 0);
+        const totalLossValue = expiredBatches.reduce((sum: any, b: any) => sum + (b.remainingQty * b.unitCost), 0);
 
         const stats = {
             activeBatches: activeBatchesCount,

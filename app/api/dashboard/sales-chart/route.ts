@@ -58,10 +58,10 @@ export async function GET(request: Request) {
                     chartDataMap[dateStr].sales += order.total;
                     
                     // Calculate profit for this order
-                    order.items.forEach(item => {
+                    order.items.forEach((item: any) => {
                         let cost = 0;
                         if (item.batchAllocations && item.batchAllocations.length > 0) {
-                            cost = item.batchAllocations.reduce((sum, b) => sum + (b.unitCost * b.quantity), 0);
+                            cost = item.batchAllocations.reduce((sum: any, b: any) => sum + (b.unitCost * b.quantity), 0);
                         } else {
                             cost = ((item.product as any).avgPurchasePrice || item.product.purchasePrice) * item.quantity;
                         }
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
             sales: data.sales,
             purchases: data.purchases,
             profit: data.profit
-        })).sort((a, b) => a.date.localeCompare(b.date));
+        })).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
         return NextResponse.json(result);
     } catch (error) {

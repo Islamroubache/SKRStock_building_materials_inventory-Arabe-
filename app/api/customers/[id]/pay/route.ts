@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             orderBy: { date: 'asc' } // Oldest first
         });
 
-        const maxDebt = targetInvoices.reduce((sum, inv) => sum + inv.remaining, 0);
+        const maxDebt = targetInvoices.reduce((sum: any, inv: any) => sum + inv.remaining, 0);
 
         if (workingAmount > maxDebt) {
             return NextResponse.json(

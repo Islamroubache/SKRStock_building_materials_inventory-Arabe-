@@ -28,7 +28,7 @@ export async function GET() {
 
         // Group by product to detect product-specific anomalies
         const productGroups: Record<number, any[]> = {};
-        movements.forEach(m => {
+        movements.forEach((m: any) => {
             if (!productGroups[m.productId]) productGroups[m.productId] = [];
             productGroups[m.productId].push({
                 id: m.id,
@@ -41,13 +41,13 @@ export async function GET() {
         });
 
         const anomalies: any[] = [];
-        Object.values(productGroups).forEach(groupMovements => {
+        Object.values(productGroups).forEach((groupMovements: any) => {
             const detected = detectAnomalies(groupMovements);
             anomalies.push(...detected);
         });
 
         // Sort by date desc
-        const sortedAnomalies = anomalies.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 20);
+        const sortedAnomalies = anomalies.sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 20);
 
         return NextResponse.json(sortedAnomalies);
     } catch (error) {
