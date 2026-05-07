@@ -3,11 +3,14 @@
 import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Menu, Search, Bell, ChevronDown, Settings, AlertCircle, AlertTriangle } from 'lucide-react'
+import { 
+    Menu, Search, Bell, ChevronDown, Settings, AlertCircle, AlertTriangle,
+    ShoppingCart, FileText, Users, Truck, Package, Box, BarChart3, Bot
+} from 'lucide-react'
 import { Logo } from './Logo'
 import ExpiryAlertBanner from './ExpiryAlertBanner'
 
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean; onClose: () => void; collapsed: boolean; onToggleCollapse: () => void }) {
     const pathname = usePathname()
     const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
@@ -18,14 +21,14 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     }, [])
 
     const navItems = [
-        { icon: '🛒', label: 'الطلبات', href: '/orders' },
-        { icon: '🧾', label: 'الفواتير', href: '/invoices' },
-        { icon: '👥', label: 'العملاء', href: '/customers' },
-        { icon: '🏗️', label: 'الموردون', href: '/suppliers' },
-        { icon: '📊', label: 'المخزون', href: '/inventory' },
-        { icon: '📦', label: 'المنتجات', href: '/products' },
-        { icon: '🏠', label: 'التقارير', href: '/dashboard' },
-        { icon: '🤖', label: 'الذكاء الاصطناعي', href: '/ai' },
+        { icon: ShoppingCart, label: 'الطلبات', href: '/orders' },
+        { icon: FileText, label: 'الفواتير', href: '/invoices' },
+        { icon: Users, label: 'العملاء', href: '/customers' },
+        { icon: Truck, label: 'الموردون', href: '/suppliers' },
+        { icon: Package, label: 'المخزون', href: '/inventory' },
+        { icon: Box, label: 'المنتجات', href: '/products' },
+        { icon: BarChart3, label: 'التقارير', href: '/dashboard' },
+        { icon: Bot, label: 'الذكاء الاصطناعي', href: '/ai' },
     ]
 
     const isActive = (href: string) => pathname === href
@@ -33,17 +36,25 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     return (
         <aside
             className={`
-        fixed md:relative w-60 h-screen bg-white border-l border-gray-200 
-        flex flex-col z-40 transition-transform duration-300 ease-in-out
+        fixed md:relative ${collapsed ? 'w-20' : 'w-64'} h-full 
+        flex flex-col z-40 transition-[width] duration-500 cubic-bezier text-white
         ${open ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
       `}
+            style={{ backgroundColor: '#8b5cf6', transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-            <div className="p-6 border-b border-gray-200 flex justify-center items-center">
-                <Logo className="w-21.5 h-21" />
+            <div 
+                className={`flex justify-center items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-500 ease-in-out ${collapsed ? 'p-2 py-6' : 'p-6'}`}
+                style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
+                onClick={onToggleCollapse}
+            >
+                <Logo 
+                    className={`transition-all duration-500 ease-in-out ${collapsed ? 'w-10 h-10' : 'w-52 h-24'}`} 
+                    variant={collapsed ? "mini" : "full"}
+                />
             </div>
 
             {/* Navigation Items */}
-            <nav className="flex-1 overflow-y-auto py-6 px-4">
+            <nav className={`flex-1 overflow-y-auto py-6 transition-all duration-500 ${collapsed ? 'px-2' : 'px-4'}`}>
                 <div className="space-y-2">
                     {navItems.map((item) => (
                         <Link
@@ -51,27 +62,39 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
                             href={item.href}
                             onClick={() => onClose()}
                             className={`
-                flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
+                relative flex items-center py-3.5 rounded-2xl transition-all duration-500
+                ${collapsed ? 'px-0 justify-center' : 'px-5'}
                 ${isActive(item.href)
-                                    ? 'bg-[#20b878]/10 text-[#20b878] border-r-2 border-[#20b878]'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                                }
+                                     ? `shadow-lg font-bold ${collapsed ? '' : 'translate-x-1'}`
+                                     : 'text-white/80 hover:bg-white/10 hover:text-white'
+                                 }
               `}
+                            style={{ 
+                                backgroundColor: isActive(item.href) ? '#f0eaff' : 'transparent', 
+                                color: isActive(item.href) ? '#8b5cf6' : 'inherit',
+                                transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                            title={collapsed ? item.label : ""}
                         >
-                            <span className="text-lg">{item.icon}</span>
-                            <span className="text-sm font-medium flex-1">{item.label}</span>
+                            <div className={`flex items-center justify-center transition-all duration-500 ${collapsed ? 'w-full' : 'w-6'}`}>
+                                <item.icon size={22} strokeWidth={2.5} style={isActive(item.href) ? { color: '#8b5cf6' } : {}} />
+                            </div>
+                            <span className={`text-sm font-medium transition-all duration-500 overflow-hidden whitespace-nowrap ${collapsed ? 'opacity-0 w-0' : 'opacity-100 ml-4 w-auto'}`}>
+                                {item.label}
+                            </span>
                         </Link>
                     ))}
                 </div>
             </nav>
 
             {/* Bottom Time Widget */}
-            <div className="p-4 border-t border-gray-200 mt-auto bg-white">
-                <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                    <span className="text-2xl font-black text-[#20b878] font-sans tracking-tight" dir="ltr">
+            <div className={`mt-auto transition-all duration-500 ${collapsed ? 'opacity-0 scale-95 h-0 overflow-hidden p-0' : 'opacity-100 scale-100 p-6'}`}
+                 style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md shadow-lg hover:bg-white/20 transition-all text-center">
+                    <span className="text-3xl font-black text-white font-sans tracking-tight" dir="ltr">
                         {currentTime ? currentTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : '--:--'}
                     </span>
-                    <span className="text-[10px] font-bold text-gray-500 mt-1">
+                    <span className="text-[11px] font-bold text-white/80 mt-2 bg-black/10 px-3 py-1 rounded-full">
                         {currentTime ? currentTime.toLocaleDateString('ar-DZ', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' }) : '...'}
                     </span>
                 </div>
@@ -86,46 +109,47 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
     const router = useRouter()
     const [dropdownOpen, setDropdownOpen] = useState(false)
 
-    const pageMap: { [key: string]: string } = {
-        '/dashboard': 'التقارير',
-        '/products': 'المنتجات',
-        '/suppliers': 'الموردون',
-        '/customers': 'العملاء',
-        '/orders': 'الطلبات',
-        '/invoices': 'الفواتير',
-        '/inventory': 'المخزون',
-        '/ai': 'الذكاء الاصطناعي',
-    }
-
-    const currentPageTitle = pageMap[pathname] || 'برنامج إدارة محل'
-
     return (
-        <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <header className="h-24 bg-transparent px-8 flex items-center justify-between gap-8">
+            <div className="flex items-center">
                 <button
                     onClick={onMenuClick}
-                    className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
+                    className="md:hidden p-2 text-gray-600 hover:text-violet-600 hover:bg-purple-50 rounded-lg transition-all"
                 >
-                    <Menu size={20} />
+                    <Menu size={24} />
                 </button>
-                <h1 className="text-xl font-bold text-gray-900">{currentPageTitle}</h1>
             </div>
 
-            {/* Right Side - User Menu */}
-            <div className="flex items-center gap-4">
+            {/* Search Bar - Center */}
+            <div className="flex-1 max-w-md relative group">
+                <input 
+                    type="text" 
+                    placeholder="بحث في النظام..."
+                    className="w-full h-12 bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                />
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none">
+                    <Search size={18} strokeWidth={3} />
+                </div>
+            </div>
+
+            {/* Right Side - Actions & User */}
+            <div className="flex items-center gap-6">
+                {/* Notification Button */}
+                <button className="relative h-12 w-12 rounded-2xl bg-[#8b5cf6] flex items-center justify-center shadow-lg shadow-violet-100 hover:scale-105 active:scale-95 transition-all group">
+                    <Bell size={22} className="text-white group-hover:rotate-12 transition-transform" />
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#f6ad55] border-2 border-white rounded-full shadow-sm"></span>
+                </button>
+
                 <div className="relative">
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                        className="flex items-center gap-4 h-12 px-5 bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl transition-all duration-200 group shadow-sm"
                     >
                         <div className="text-right hidden sm:block">
-                            <p className="text-sm font-medium text-gray-900">أحمد محمد</p>
-                            <p className="text-xs text-gray-500">مسؤول</p>
+                            <p className="text-sm font-black text-gray-900 leading-none">أحمد محمد</p>
+                            <p className="text-[10px] text-[#8b5cf6] font-black uppercase tracking-wider mt-1">مسؤول النظام</p>
                         </div>
-                        <div className="h-8 w-8 rounded-full bg-[#20b878]/20 flex items-center justify-center border border-gray-300">
-                            <span className="text-xs font-bold text-[#20b878]">أ</span>
-                        </div>
-                        <ChevronDown size={16} className="text-gray-500" />
+                        <ChevronDown size={16} className="text-gray-400 transition-transform duration-300 group-hover:text-gray-600" style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
                     </button>
 
                     {dropdownOpen && (
@@ -159,30 +183,34 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [isCollapsed, setIsCollapsed] = useState(false)
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen overflow-hidden p-3 md:p-5 gap-4" style={{ backgroundColor: '#8b5cf6' }}>
             {/* Mobile Overlay */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/20 z-30 md:hidden"
+                    className="fixed inset-0 bg-black/40 z-30 md:hidden backdrop-blur-sm"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
             {/* Sidebar */}
-            <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <Sidebar 
+                open={sidebarOpen} 
+                onClose={() => setSidebarOpen(false)} 
+                collapsed={isCollapsed}
+                onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+            />
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col bg-white rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl relative border-4 border-white/30">
                 {/* Top Bar */}
                 <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
                 {/* Content Area */}
                 <main className="flex-1 overflow-auto">
-                    <div className="p-6">
-                        {children}
-                    </div>
+                    {children}
                 </main>
             </div>
 

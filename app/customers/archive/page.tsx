@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, User, Phone, ChevronRight, Archive, RotateCcw, AlertTriangle } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 interface Customer {
     id: number;
@@ -66,17 +67,18 @@ export default function CustomersArchivePage() {
 
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest mb-1">
-                        <Link href="/customers" className="hover:text-blue-600 transition-colors uppercase">قائمة العملاء</Link>
-                        <ChevronRight size={14} className="rotate-180" />
-                        <span className="text-gray-900">الأرشيف</span>
-                    </div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-                        <Archive className="text-amber-600" /> أرشيف العملاء
-                    </h1>
+            <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest mb-1">
+                    <Link href="/customers" className="hover:text-blue-600 transition-colors uppercase">قائمة العملاء</Link>
+                    <ChevronRight size={14} className="rotate-180" />
+                    <span className="text-gray-900">الأرشيف</span>
                 </div>
+                <PageHeader 
+                    title="أرشيف العملاء" 
+                    subtitle="قائمة العملاء المؤرشفين والذين ليس لديهم ديون عالقة" 
+                    Icon={Archive} 
+                />
+            </div>
 
                 <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
                     <div className="relative flex-1 lg:w-64">

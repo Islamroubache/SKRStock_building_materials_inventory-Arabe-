@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown, Download } from 'lucide-react';
+import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown, Download, Users } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -313,12 +314,12 @@ export default function CustomersPage() {
                 }
             `}</style>
 
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center no-print">
-                <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-                    <User className="text-blue-600" /> العملاء والمشاريع
-                </h1>
-
-                <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
+            <div className="no-print">
+                <PageHeader 
+                    title="إدارة العملاء" 
+                    subtitle="إضافة وتعديل بيانات العملاء ومتابعة ديونهم" 
+                    Icon={Users} 
+                >
                     <div className="relative flex-1 lg:w-64">
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
@@ -379,7 +380,7 @@ export default function CustomersPage() {
                     >
                         <Plus size={18} /> عميل جديد
                     </button>
-                </div>
+                </PageHeader>
             </div>
 
             <div className="flex items-center gap-6 border-b border-gray-200 no-print">

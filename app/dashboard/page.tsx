@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText } from 'lucide-react';
 import { printDocument } from '@/lib/print-helper';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import PageHeader from '@/components/PageHeader';
+import { LayoutGrid, Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText, RotateCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function Dashboard() {
@@ -95,6 +96,12 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6 font-tajawal">
+            <PageHeader 
+                title="لوحة التحكم" 
+                subtitle="نظرة عامة على أداء النظام والعمليات" 
+                Icon={LayoutGrid} 
+            />
+
             {/* STICKY FILTER BAR */}
             <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border border-gray-100 p-3 rounded-2xl shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
                 <div className="flex bg-gray-100 p-1 rounded-xl gap-1 w-full lg:w-auto overflow-x-auto">
@@ -257,6 +264,18 @@ export default function Dashboard() {
                     <div className="flex-1 relative z-10">
                         <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider block mb-0.5">إجمالي الديون</span>
                         <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalDebt || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
+                    </div>
+                </div>
+
+                {/* Pending Orders (Transferred from Orders) */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-orange-50 p-3.5 rounded-2xl text-orange-600 relative z-10">
+                        <RotateCcw size={22} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-orange-500 uppercase tracking-wider block mb-0.5">طلبيات معلقة</span>
+                        <h3 className="text-2xl font-black text-gray-900 font-sans">{stats?.pendingOrdersCount || 0}</h3>
                     </div>
                 </div>
             </div>

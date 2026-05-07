@@ -16,6 +16,8 @@ import { numberToFrenchWords } from '@/lib/number-to-french-words';
 import { formatDate } from '@/lib/utils';
 import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable } from '@/components/InvoicesTable';
+import PageHeader from '@/components/PageHeader';
+import DateRangePicker from '@/components/DateRangePicker';
 
 // --- Types ---
 interface Payment {
@@ -336,34 +338,26 @@ export default function InvoicesPage() {
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8 flex flex-col gap-8" dir="rtl">
 
             {/* Header & Search */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-                <div>
-                    <h1 className="text-3xl font-black text-gray-900 flex items-center gap-3">
-                        <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-200">
-                            <FileText size={28} />
-                        </div>
-                        إدارة الديون والفواتير
-                    </h1>
-                    <p className="text-gray-500 font-bold mt-2 mr-12">تتبع التحصيلات، الفواتير غير المدفوعة، وحالة ائتمان المقاولين</p>
+            <PageHeader 
+                title="الفواتير والسندات" 
+                subtitle="إدارة فواتير البيع، الشراء، وسندات التسليم" 
+                Icon={FileText} 
+            >
+                <div className="flex p-1 bg-white border border-gray-200 rounded-2xl shadow-sm">
+                    <button 
+                        onClick={() => setInvoiceType('SALE')} 
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all ${invoiceType === 'SALE' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-400 hover:text-gray-900'}`}
+                    >
+                        🛍️ فواتير المبيعات
+                    </button>
+                    <button 
+                        onClick={() => setInvoiceType('PURCHASE')} 
+                        className={`px-6 py-3 rounded-xl text-sm font-black transition-all ${invoiceType === 'PURCHASE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-gray-400 hover:text-gray-900'}`}
+                    >
+                        📦 فواتير المشتريات
+                    </button>
                 </div>
-
-                <div className="flex flex-wrap gap-3 w-full xl:w-auto items-center">
-                    <div className="flex p-1 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                        <button 
-                            onClick={() => setInvoiceType('SALE')} 
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all ${invoiceType === 'SALE' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-400 hover:text-gray-900'}`}
-                        >
-                            🛍️ فواتير المبيعات
-                        </button>
-                        <button 
-                            onClick={() => setInvoiceType('PURCHASE')} 
-                            className={`px-6 py-3 rounded-xl text-sm font-black transition-all ${invoiceType === 'PURCHASE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-gray-400 hover:text-gray-900'}`}
-                        >
-                            📦 فواتير المشتريات
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </PageHeader>
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -455,6 +449,14 @@ export default function InvoicesPage() {
                         <button onClick={() => setStatusFilter('CREDIT')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${statusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'text-gray-400 hover:text-purple-500'}`}>رصيد زائد للعميل</button>
                         <button onClick={() => setStatusFilter('OVERDUE')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all border ${statusFilter === 'OVERDUE' ? 'bg-rose-100/50 border-rose-500 text-rose-600 shadow-sm' : 'border-transparent text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}>🚨 متجاوزة</button>
                     </div>
+
+                    <div className="w-px h-8 bg-gray-100 mx-2"></div>
+
+                    <DateRangePicker 
+                        startDate={dateRange.start}
+                        endDate={dateRange.end}
+                        onChange={(start, end) => setDateRange({ start, end })}
+                    />
 
                     {/* Customer Type Dropdown */}
                     <div className="flex items-center gap-2">

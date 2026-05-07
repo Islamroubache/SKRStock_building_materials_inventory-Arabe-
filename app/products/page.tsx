@@ -8,6 +8,7 @@ import { getExpiryStatus, getDaysRemaining } from '@/lib/product-helpers';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 import { printDocument } from '@/lib/print-helper';
+import PageHeader from '@/components/PageHeader';
 
 interface Supplier {
     id: number;
@@ -382,6 +383,15 @@ function ProductsContent() {
                         {t.msg}
                     </div>
                 ))}
+            </div>
+
+            {/* Header */}
+            <div className="print-hide">
+                <PageHeader 
+                    title="إدارة المنتجات" 
+                    subtitle="إضافة وتعديل المنتجات ومراقبة المخزون" 
+                    Icon={Package} 
+                />
             </div>
 
             {/* Filter Bar */}

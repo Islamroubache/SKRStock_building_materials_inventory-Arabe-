@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Building, Phone, ChevronRight, Archive, RotateCcw } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 interface Supplier {
     id: number;
@@ -65,17 +66,18 @@ export default function SuppliersArchivePage() {
 
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest mb-1">
-                        <Link href="/suppliers" className="hover:text-indigo-600 transition-colors uppercase">قائمة الموردين</Link>
-                        <ChevronRight size={14} className="rotate-180" />
-                        <span className="text-gray-900">الأرشيف</span>
-                    </div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-                        <Archive className="text-amber-600" /> أرشيف الموردين
-                    </h1>
+            <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest mb-1">
+                    <Link href="/suppliers" className="hover:text-indigo-600 transition-colors uppercase">قائمة الموردين</Link>
+                    <ChevronRight size={14} className="rotate-180" />
+                    <span className="text-gray-900">الأرشيف</span>
                 </div>
+                <PageHeader 
+                    title="أرشيف الموردين" 
+                    subtitle="قائمة الموردين المؤرشفين والذين ليس لديهم ديون" 
+                    Icon={Archive} 
+                />
+            </div>
 
                 <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
                     <div className="relative flex-1 lg:w-64">

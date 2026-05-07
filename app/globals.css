@@ -119,6 +119,50 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Global Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #8b5cf6; /* Sidebar Violet Color */
+  border-radius: 10px;
+  border: 2px solid #f8fafc;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+}
+
+/* Sidebar Specific Scrollbar */
+aside ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+aside ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(139, 92, 246, 0);
+}
+
+aside ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #8b5cf6 #f8fafc;
+}
+
+aside {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

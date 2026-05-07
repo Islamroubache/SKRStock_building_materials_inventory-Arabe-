@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download, Truck } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -78,8 +79,9 @@ export default function SuppliersPage() {
                 "Commerce en Gros d'Électricité",
                 "Distributeur Agréé",
                 "Fabricant de Coffrets & Tableaux",
-                "Fabricant de Gaines & Tubes",
+                "Fabricant de Gaine & Tube",
                 "Fournisseur d'Équipements Industriels",
+                "Grossiste en Électricité",
             ];
             const isCustom = formData.activity === 'Autre' || (formData.activity && !predefinedActivities.includes(formData.activity));
             if (!isCustom) return true;
@@ -318,13 +320,12 @@ export default function SuppliersPage() {
 
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
-
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center no-print">
-                <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-                    <Building className="text-indigo-600" /> إدارة الموردين
-                </h1>
-
-                <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
+            <div className="no-print">
+                <PageHeader 
+                    title="إدارة الموردين" 
+                    subtitle="متابعة المشتريات والديون والتعامل مع الموردين" 
+                    Icon={Truck} 
+                >
                     <div className="relative flex-1 lg:w-64">
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
@@ -350,7 +351,7 @@ export default function SuppliersPage() {
                                 <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {isExportMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
                                     <button
                                         onClick={() => {
                                             handleExport();
@@ -385,7 +386,7 @@ export default function SuppliersPage() {
                     >
                         <Plus size={18} /> مورد جديد
                     </button>
-                </div>
+                </PageHeader>
             </div>
 
             <div className="flex items-center gap-6 border-b border-gray-200 no-print">

@@ -8,6 +8,7 @@ import {
     Calendar, User, FileText, DollarSign, PlusCircle, X,
     Download, Printer, ChevronDown, ArrowUpAZ, ArrowDownZA
 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -676,17 +677,19 @@ export default function InventoryPage() {
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-                <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-                    <Package className="text-emerald-600" /> إدارة المخزون
-                </h1>
+            <div className="no-print">
+                <PageHeader 
+                    title="إدارة المخزون" 
+                    subtitle="مراقبة حركة المخزون، التحويلات، والجرد الدوري" 
+                    Icon={Package} 
+                />
+            </div>
 
                 <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm overflow-x-auto gap-1">
                     <button onClick={() => setActiveTab('overview')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>📦 المخزون الحالي</button>
                     <button onClick={() => setActiveTab('batches')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'batches' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>📦 دفعات بصلاحية</button>
                     <button onClick={() => setActiveTab('damaged')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'damaged' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>⚠️ التالف والضياع</button>
                 </div>
-            </div>
 
             {/* Content Areas */}
 

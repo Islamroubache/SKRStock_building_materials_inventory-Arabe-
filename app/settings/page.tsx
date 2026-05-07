@@ -5,6 +5,7 @@ import {
     Settings, Store, Building2, Percent, Save, RefreshCw, 
     FileText, Phone, Mail, MapPin, BadgeCheck, Image as ImageIcon
 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 interface SettingsData {
     storeName: string;
@@ -109,16 +110,12 @@ export default function SettingsPage() {
             `}</style>
 
             {/* HEADER */}
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-200">
-                        <Settings size={28} className="text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">إعدادات النظام</h1>
-                        <p className="text-gray-500 text-sm font-medium mt-1">تخصيص هوية المتجر والضرائب والوثائق الرسمية</p>
-                    </div>
-                </div>
+            <div className="no-print">
+                <PageHeader 
+                    title="إعدادات النظام" 
+                    subtitle="تهيئة المعلومات الأساسية، العملات، وطباعة الفواتير" 
+                    Icon={Settings} 
+                />
             </div>
 
             <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-8">

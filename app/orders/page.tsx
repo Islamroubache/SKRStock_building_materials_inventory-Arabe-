@@ -10,6 +10,8 @@ import { formatDate } from '@/lib/utils';
 import * as xlsx from 'xlsx';
 import { exportOrdersToPDF } from '@/lib/export-orders-pdf';
 import { printDocument } from '@/lib/print-helper';
+import PageHeader from '@/components/PageHeader';
+import DateRangePicker from '@/components/DateRangePicker';
 
 interface OrderItem {
     id: number;
@@ -169,7 +171,7 @@ export default function OrdersPage() {
     if (loading) return <div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>;
 
     return (
-        <div className="font-tajawal min-h-screen bg-transparent text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white" dir="rtl">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @media print {
@@ -188,92 +190,38 @@ export default function OrdersPage() {
             {!showList ? (
                 /* ===== HOME VIEW ===== */
                 <div className="flex-1 flex flex-col gap-8 p-4 md:p-8 animate-in fade-in duration-700">
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h1 className="text-3xl font-black text-gray-900 tracking-tight">إدارة الطلبيات</h1>
-                            <p className="text-gray-500 font-bold mt-1">تتبع المبيعات والمشتريات وإدارة المخزون</p>
-                        </div>
-
-                    </div>
-
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {/* Card 1: Today's Total */}
-                        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                            <div className="bg-blue-50 p-4 rounded-2xl text-blue-600 relative z-10 shadow-sm">
-                                <LayoutGrid size={24} />
-                            </div>
-                            <div className="flex-1 relative z-10">
-                                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">إجمالي اليوم</span>
-                                <p className="text-2xl font-black font-sans text-gray-900">{stats.totalToday.toLocaleString()} <span className="text-xs font-bold text-gray-400 mr-1">دج</span></p>
-                            </div>
-                        </div>
-
-                        {/* Card 2: Pending Orders */}
-                        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                            <div className="bg-amber-50 p-4 rounded-2xl text-amber-600 relative z-10 shadow-sm">
-                                <RotateCcw size={24} />
-                            </div>
-                            <div className="flex-1 relative z-10">
-                                <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">طلبيات معلقة</span>
-                                <p className="text-2xl font-black font-sans text-gray-900">{stats.pendingCount} <span className="text-xs font-bold text-gray-400 mr-1">طلبية</span></p>
-                            </div>
-                        </div>
-
-                        {/* Card 3: Sales Today */}
-                        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                            <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-600 relative z-10 shadow-sm">
-                                <ShoppingBag size={24} />
-                            </div>
-                            <div className="flex-1 relative z-10">
-                                <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">مبيعات اليوم</span>
-                                <p className="text-2xl font-black font-sans text-gray-900">{stats.salesTodayCount} <span className="text-xs font-bold text-gray-400 mr-1">طلبية</span></p>
-                            </div>
-                        </div>
-
-                        {/* Card 4: Purchases Today */}
-                        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5 relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-emerald-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                            <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 relative z-10 shadow-sm">
-                                <PackageOpen size={24} />
-                            </div>
-                            <div className="flex-1 relative z-10">
-                                <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider mb-1 inline-block">مشتريات اليوم</span>
-                                <p className="text-2xl font-black font-sans text-gray-900">{stats.purchasesTodayCount} <span className="text-xs font-bold text-gray-400 mr-1">طلبية</span></p>
-                            </div>
-                        </div>
-                    </div>
+                    <PageHeader 
+                        title="إدارة الطلبيات" 
+                        subtitle="تتبع المبيعات والمشتريات وإدارة المخزون" 
+                        Icon={ShoppingBag} 
+                    />
 
                     {/* Two Big Action Buttons */}
-                    <div className="flex-1 flex flex-col items-center justify-center gap-6 py-8">
+                    <div className="flex flex-col items-center gap-6 pt-12">
                         <p className="text-gray-400 font-black text-sm uppercase tracking-widest">اختر نوع الطلبية</p>
                         <div className="flex flex-col sm:flex-row gap-5 w-full max-w-xl">
                             <Link
                                 href="/orders/new?type=SALE"
-                                className="flex-1 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white rounded-3xl py-10 px-6 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:scale-[1.03] active:scale-95 transition-all duration-200 group"
+                                className="flex-1 flex flex-col items-center justify-center gap-3 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-3xl py-10 px-6 shadow-xl shadow-violet-100 hover:shadow-violet-200 hover:scale-[1.03] active:scale-95 transition-all duration-200 group"
                             >
                                 <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center group-hover:bg-white/30 transition-all">
                                     <ShoppingBag size={32} className="text-white" />
                                 </div>
                                 <div className="text-center">
                                     <p className="text-xl font-black">طلبية بيع</p>
-                                    <p className="text-blue-200 text-xs font-medium mt-1">إنشاء فاتورة بيع جديدة</p>
+                                    <p className="text-violet-100 text-xs font-medium mt-1">إنشاء فاتورة بيع جديدة</p>
                                 </div>
                             </Link>
                             <Link
                                 href="/orders/new?type=PURCHASE"
-                                className="flex-1 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-3xl py-10 px-6 shadow-xl shadow-emerald-200 hover:shadow-emerald-300 hover:scale-[1.03] active:scale-95 transition-all duration-200 group"
+                                className="flex-1 flex flex-col items-center justify-center gap-3 bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-900 rounded-3xl py-10 px-6 shadow-sm hover:shadow-md hover:scale-[1.03] active:scale-95 transition-all duration-200 group"
                             >
-                                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center group-hover:bg-white/30 transition-all">
-                                    <PackageOpen size={32} className="text-white" />
+                                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center group-hover:bg-gray-100 transition-all">
+                                    <PackageOpen size={32} className="text-[#8b5cf6]" />
                                 </div>
                                 <div className="text-center">
                                     <p className="text-xl font-black">طلبية شراء</p>
-                                    <p className="text-emerald-200 text-xs font-medium mt-1">تسجيل طلبية شراء جديدة</p>
+                                    <p className="text-gray-400 text-xs font-medium mt-1">تسجيل طلبية شراء جديدة</p>
                                 </div>
                             </Link>
                         </div>
@@ -283,11 +231,11 @@ export default function OrdersPage() {
                     <div className="flex justify-center pb-4">
                         <button
                             onClick={() => setShowList(true)}
-                            className="flex items-center gap-3 bg-gray-900 hover:bg-gray-800 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
+                            className="flex items-center gap-3 bg-[#fbb815] hover:bg-[#eab308] text-white px-10 py-4 rounded-2xl font-black text-sm shadow-xl shadow-yellow-50 hover:shadow-yellow-100 hover:scale-105 active:scale-95 transition-all duration-200"
                         >
                             <Eye size={18} />
                             سجل الطلبيات
-                            <ChevronDown size={16} className="opacity-60" />
+                            <ChevronDown size={16} className="opacity-80" />
                         </button>
                     </div>
                 </div>
@@ -348,14 +296,11 @@ export default function OrdersPage() {
                                     <button onClick={() => { setTypeFilter('RETURN'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }} className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${typeFilter === 'RETURN' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-800'}`}>🔄 استرجاع</button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200 w-fit">
-                                <span className="text-[10px] font-black text-gray-400 px-1">الفترة من</span>
-                                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none border-none focus:ring-0 cursor-pointer"/>
-                                <div className="w-px h-4 bg-gray-200"/>
-                                <span className="text-[10px] font-black text-gray-400 px-1">إلى</span>
-                                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none border-none focus:ring-0 cursor-pointer"/>
-                                {(startDate || endDate) && <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-gray-400 hover:text-rose-500 text-sm font-black px-1 transition-colors">↺</button>}
-                            </div>
+                            <DateRangePicker 
+                                startDate={startDate}
+                                endDate={endDate}
+                                onChange={(start, end) => { setStartDate(start); setEndDate(end); }}
+                            />
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-50">
