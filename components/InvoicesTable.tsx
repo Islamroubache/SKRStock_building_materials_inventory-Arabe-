@@ -20,6 +20,8 @@ interface InvoicesTableProps {
     fetchReturnsHistory: (id: number) => void;
     setShowReturnProcessModal: (inv: any) => void;
     hideParty?: boolean;
+    footer?: React.ReactNode;
+    headerClassName?: string;
 }
 
 export const StatusBadge = ({ status, remaining, total, originalTotal, dueDate }: { status: string, remaining: number, total: number, originalTotal?: number, dueDate?: string }) => {
@@ -95,14 +97,16 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
     setShowReturnsModal,
     fetchReturnsHistory,
     setShowReturnProcessModal,
-    hideParty = false
+    hideParty = false,
+    footer,
+    headerClassName = 'bg-gray-50/50 border-b border-gray-100'
 }) => {
     return (
         <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-right">
                     <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                        <tr className={headerClassName}>
                             <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">رقم الفاتورة</th>
                             {!hideParty && <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">{invoiceType === 'SALE' ? 'العميل / المشروع' : 'المورد / الشريك'}</th>}
                             <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">المبلغ الإجمالي</th>
@@ -269,6 +273,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                     </tbody>
                 </table>
             </div>
+            {footer}
         </div>
     );
 };

@@ -765,7 +765,7 @@ export default function InvoicesPage() {
                                     paymentAmount <= 0 || 
                                     ((paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') && (!chequeNumber || !bankName))
                                 } 
-                                className="w-full h-14 bg-emerald-500 text-white rounded-2xl font-black hover:bg-emerald-600 shadow-lg disabled:opacity-30 disabled:grayscale transition-all flex items-center justify-center gap-2"
+                                className="w-full h-14 rounded-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
                             >
                                 {isSubmitting ? <RotateCcw className="animate-spin" size={20} /> : 'تأكيد العملية'}
                             </button>
