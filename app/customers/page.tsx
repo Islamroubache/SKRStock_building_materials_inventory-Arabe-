@@ -476,15 +476,33 @@ export default function CustomersPage() {
                         {customers.filter(c => c.balanceDue < 0).length}
                     </span>
                 </button>
-                <button
-                    onClick={() => setBalanceFilter('OVERDUE')}
-                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'OVERDUE' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                >
-                    فواتير متجاوزة
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'OVERDUE' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {customers.filter(c => c.hasOverdue).length}
-                    </span>
-                </button>
+                {(() => {
+                    const overdueCount = customers.filter(c => c.hasOverdue).length;
+                    const isOverdueActive = balanceFilter === 'OVERDUE';
+                    const hasAnyOverdue = overdueCount > 0;
+                    
+                    return (
+                        <button
+                            onClick={() => setBalanceFilter('OVERDUE')}
+                            className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 
+                                ${isOverdueActive 
+                                    ? 'text-red-600 border-red-600 shadow-[0_4px_12px_-4px_rgba(220,38,38,0.2)]' 
+                                    : hasAnyOverdue 
+                                        ? 'text-red-500 border-transparent hover:text-red-600' 
+                                        : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                        >
+                            <span className={hasAnyOverdue && !isOverdueActive ? 'animate-pulse' : ''}>فواتير متجاوزة</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] transition-colors
+                                ${isOverdueActive 
+                                    ? 'bg-red-600 text-white' 
+                                    : hasAnyOverdue 
+                                        ? 'bg-red-100 text-red-600' 
+                                        : 'bg-gray-100 text-gray-500'}`}>
+                                {overdueCount}
+                            </span>
+                        </button>
+                    );
+                })()}
                 <button
                     onClick={() => setBalanceFilter('ARCHIVED')}
                     className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ARCHIVED' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}

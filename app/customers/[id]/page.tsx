@@ -17,6 +17,7 @@ import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 import { numberToFrenchWords } from '@/lib/number-to-french-words';
 import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable, StatusBadge } from '@/components/InvoicesTable';
+import DateRangePicker from '@/components/DateRangePicker';
 
 
 export default function CustomerDetailPage() {
@@ -34,6 +35,15 @@ export default function CustomerDetailPage() {
     const [showHistoryModal, setShowHistoryModal] = useState<any | null>(null);
     const [showReturnsModal, setShowReturnsModal] = useState<any | null>(null);
     
+    // Form states for returns (from Invoices page)
+    const [returnQtys, setReturnQtys] = useState<Record<number, number>>({});
+    const [showReturnModal, setShowReturnModal] = useState<any | null>(null);
+    const [showReturnSuccessModal, setShowReturnSuccessModal] = useState(false);
+    const [lastReturnResult, setLastReturnResult] = useState<any | null>(null);
+    const [showReturnsHistoryModal, setShowReturnsHistoryModal] = useState<any | null>(null);
+    const [showRefundConfirmModal, setShowRefundConfirmModal] = useState<any | null>(null);
+    const [showRefundSuccessModal, setShowRefundSuccessModal] = useState(false);
+    
     // Payment Form (Exact from Invoices page)
     const [paymentAmount, setPaymentAmount] = useState<number>(0);
     const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CHEQUE'>('CASH');
@@ -41,9 +51,18 @@ export default function CustomerDetailPage() {
     const [bankName, setBankName] = useState('');
     const [paymentNotes, setPaymentNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [settings, setSettings] = useState<any>(null);
 
     const [isProjectSheetOpen, setIsProjectSheetOpen] = useState(false);
-    const [projectData, setProjectData] = useState({ name: '', description: '', address: '', startDate: '' });
+    const [projectData, setProjectData] = useState({ 
+        name: '', 
+        description: '', 
+        address: '', 
+        wilaya: '',
+        commune: '',
+        postalCode: '',
+        startDate: new Date().toISOString().split('T')[0] 
+    });
 
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
     
@@ -54,13 +73,6 @@ export default function CustomerDetailPage() {
     const [soaDateFrom, setSoaDateFrom] = useState('');
     const [soaDateTo, setSoaDateTo] = useState('');
     const [soaProjectFilter, setSoaProjectFilter] = useState('ALL');
-
-    // New states for returns and expanded orders
-    const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
-    const [returnModal, setReturnModal] = useState<{ item: any; maxQty: number } | null>(null);
-    const [returnQty, setReturnQty] = useState(1);
-    const [isReturning, setIsReturning] = useState(false);
-
     const [soaRange, setSoaRange] = useState({ start: '', end: new Date().toISOString().split('T')[0] });
     const [isSOAFiltering, setIsSOAFiltering] = useState(false);
 
@@ -74,10 +86,38 @@ export default function CustomerDetailPage() {
     const [selectedProjectForOrders, setSelectedProjectForOrders] = useState<any>(null);
     const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
+    // Project Order Filters (within modal)
+    const [projectOrderSearch, setProjectOrderSearch] = useState('');
+    const [projectOrderStatusFilter, setProjectOrderStatusFilter] = useState('ALL');
+    const [projectOrderDateFrom, setProjectOrderDateFrom] = useState('');
+    const [projectOrderDateTo, setProjectOrderDateTo] = useState('');
+    const [projectOrderCurrentPage, setProjectOrderCurrentPage] = useState(1);
+    const projectOrderItemsPerPage = 10;
+
     // Project Filters/Sort
-    const [projectStatusFilter, setProjectStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DISABLED'>('ALL');
+    const [projectStatusFilter, setProjectStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DISABLED'>('ACTIVE');
     const [projectFinanceFilter, setProjectFinanceFilter] = useState<'ALL' | 'PAID' | 'DEBT' | 'SURPLUS'>('ALL');
     const [projectSortBy, setProjectSortBy] = useState<'RECENT' | 'OLD' | 'ALPHA' | 'ORDERS' | 'PURCHASES'>('RECENT');
+    const [projectSearchQuery, setProjectSearchQuery] = useState('');
+
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const modalDropdownRef = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const isInsideMain = dropdownRef.current && dropdownRef.current.contains(event.target as Node);
+            const isInsideModal = modalDropdownRef.current && modalDropdownRef.current.contains(event.target as Node);
+            
+            if (!isInsideMain && !isInsideModal) {
+                setActiveDropdown(null);
+            }
+        };
+        if (activeDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeDropdown]);
 
     const exportProjectOrdersCSV = () => {
     };
@@ -122,11 +162,9 @@ export default function CustomerDetailPage() {
             const words = (projectData.name || '').trim().split(/\s+/).filter((w: string) => w.length > 0);
             return words.length >= 2;
         })(),
-        address: (() => {
-            const words = (projectData.address || '').trim().split(/\s+/).filter((w: string) => w.length > 0);
-            return words.length >= 3;
-        })(),
-        description: (projectData.description || '').trim().length > 0,
+        wilaya: true, // Optional
+        commune: true, // Optional
+        description: true, // Optional (but let's keep validation logic if needed)
         startDate: !!projectData.startDate && new Date(projectData.startDate) <= new Date()
     };
 
@@ -214,11 +252,16 @@ export default function CustomerDetailPage() {
             }
             const payRes = await fetch(`/api/payments/customer/${id}`);
             if (payRes.ok) {
-                const payData = await payRes.json();
-                setPayments(payData);
+                setPayments(await payRes.json());
             }
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+            // Fetch settings for receipts
+            const settRes = await fetch('/api/settings');
+            if (settRes.ok) setSettings(await settRes.json());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -231,29 +274,166 @@ export default function CustomerDetailPage() {
         }
     }, [customer]);
 
-    const fetchPaymentHistory = async (invoiceId: number) => {
+    const fetchPaymentHistory = async (invoice: any) => {
         try {
-            const res = await fetch(`/api/invoices/${invoiceId}/payments`);
-            if (res.ok) {
-                const data = await res.json();
-                setShowHistoryModal((prev: any) => prev ? { ...prev, payments: data } : null);
+            const response = await fetch(`/api/invoices/${invoice.id}/payments`);
+            if (response.ok) {
+                const data = await response.json();
+                const updatedInvoice = { ...invoice, payments: data };
+                setShowHistoryModal(updatedInvoice);
             }
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error('Error fetching payment history:', error);
         }
     };
 
-    const fetchReturnsHistory = async (orderNumber: string) => {
+    const fetchReturnsHistory = async (invoiceId: number) => {
         try {
-            const res = await fetch(`/api/orders?type=RETURN_SALE`);
+            const response = await fetch(`/api/invoices/${invoiceId}/returns`);
+            if (response.ok) {
+                const data = await response.json();
+                setShowReturnsHistoryModal(data);
+            }
+        } catch (error) {
+            console.error('Error fetching returns history:', error);
+        }
+    };
+
+    const handlePayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!showPaymentModal || paymentAmount <= 0) return;
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch('/api/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoiceId: showPaymentModal.id,
+                    customerId: showPaymentModal.customerId || id,
+                    amount: paymentAmount,
+                    paymentMethod,
+                    chequeNumber: (paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') ? chequeNumber : '',
+                    bankName: (paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') ? bankName : '',
+                    notes: paymentNotes
+                }),
+            });
+
+            if (response.ok) {
+                fetchCustomer();
+                setShowPaymentModal(null);
+                setPaymentAmount(0);
+                setPaymentMethod('CASH');
+                setChequeNumber('');
+                setBankName('');
+                setPaymentNotes('');
+            }
+        } catch (error) {
+            console.error('Error recording payment:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleRefundExcess = async (inv: any) => {
+        const remaining = Number(inv.remaining ?? (inv.total - (inv.paid || 0)));
+        if (remaining >= 0) {
+            alert('لا يوجد رصيد زائد لإرجاعه');
+            return;
+        }
+        setShowRefundConfirmModal(inv);
+    };
+
+    const confirmRefund = async () => {
+        const inv = showRefundConfirmModal;
+        if (!inv) return;
+
+        const remaining = Number(inv.remaining ?? (inv.total - (inv.paid || 0)));
+        setIsSubmitting(true);
+        try {
+            const res = await fetch('/api/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoiceId: inv.id,
+                    customerId: id,
+                    amount: remaining, 
+                    paymentMethod: 'CASH',
+                    notes: 'إرجاع الرصيد الزائد نقداً (تصفية حساب)'
+                })
+            });
+
             if (res.ok) {
-                const allReturns = await res.json();
-                const relevantReturns = allReturns.filter((r: any) => r.orderNumber.includes(orderNumber));
-                setShowReturnsModal((prev: any) => prev ? { ...prev, returns: relevantReturns } : null);
+                setShowRefundConfirmModal(null);
+                setShowRefundSuccessModal(true);
+                fetchCustomer();
+                if (showHistoryModal && showHistoryModal.id === inv.id) {
+                    fetchPaymentHistory(inv);
+                }
+            } else {
+                const err = await res.json();
+                alert(err.error || 'فشلت عملية الإرجاع');
             }
         } catch (e) {
-            console.error(e);
+            console.error('Refund error:', e);
+            alert('خطأ في الاتصال بالخادم');
+        } finally {
+            setIsSubmitting(false);
         }
+    };
+
+    const handleReturnQtyChange = (itemId: number, val: number, max: number) => {
+        setReturnQtys(prev => ({ ...prev, [itemId]: Math.max(0, Math.min(val, max)) }));
+    };
+
+    const handleReturnAll = () => {
+        if (!showReturnModal) return;
+        const newQtys: Record<number, number> = {};
+        showReturnModal.items.forEach((item: any) => {
+            const maxReturnable = item.quantity - (item.returnedQuantity || 0);
+            if (maxReturnable > 0) {
+                newQtys[item.id] = maxReturnable;
+            }
+        });
+        setReturnQtys(newQtys);
+    };
+
+    const handleReturnSubmit = async () => {
+        if (!showReturnModal) return;
+        const selectedItems = showReturnModal.items.filter((i: any) => (returnQtys[i.id] || 0) > 0);
+        if (selectedItems.length === 0) {
+            alert('يجب اختيار كمية مرتجعة واحدة على الأقل');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const res = await fetch(`/api/orders/${showReturnModal.id}/return`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: selectedItems.map((i: any) => ({
+                        orderItemId: i.id,
+                        returnQty: returnQtys[i.id]
+                    }))
+                })
+            });
+            if (res.ok) {
+                const result = await res.json();
+                setLastReturnResult(result);
+                setShowReturnModal(null);
+                setShowReturnSuccessModal(true);
+                fetchCustomer();
+            } else {
+                const err = await res.json();
+                alert(`❌ خطأ: ${err.error}`);
+            }
+        } catch (e) {
+            alert('حدث خطأ في الاتصال');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
     };
 
 
@@ -338,17 +518,33 @@ export default function CustomerDetailPage() {
 
     const handleCreateProject = async () => {
 
-        if (!projectValidations.name) { setProjectTouched({ name: true }); return; }
+        if (!projectValidations.name) { 
+            setProjectTouched({ name: true }); 
+            return; 
+        }
         try {
+            let combinedAddress = '';
+            if (projectData.wilaya || projectData.commune) {
+                combinedAddress = `${projectData.wilaya || ''}${projectData.wilaya && projectData.commune ? ', ' : ''}${projectData.commune || ''}${projectData.postalCode ? ` (${projectData.postalCode})` : ''}`;
+            }
+            
             const res = await fetch(`/api/customers/${id}/projects`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(projectData)
+                body: JSON.stringify({
+                    ...projectData,
+                    address: combinedAddress
+                })
             });
             if (res.ok) {
                 setIsProjectSheetOpen(false);
                 fetchCustomer();
-                setProjectData({ name: '', description: '', address: '', startDate: '' });
+                setProjectData({ 
+                    name: '', 
+                    description: '', 
+                    address: '', 
+                    startDate: new Date().toISOString().split('T')[0] 
+                });
                 setProjectTouched({});
             } else { alert('فشل إنشاء المشروع'); }
         } catch (e) { alert('خطأ'); }
@@ -490,6 +686,16 @@ export default function CustomerDetailPage() {
         
         let result = [...customer.projects];
 
+        // 0. Search Filter
+        if (projectSearchQuery.trim()) {
+            const query = projectSearchQuery.toLowerCase().trim();
+            result = result.filter(p => 
+                p.name.toLowerCase().includes(query) ||
+                (p.description || '').toLowerCase().includes(query) ||
+                (p.address || '').toLowerCase().includes(query)
+            );
+        }
+
         // 1. Status Filter
         if (projectStatusFilter !== 'ALL') {
             result = result.filter(p => p.status === projectStatusFilter);
@@ -538,7 +744,7 @@ export default function CustomerDetailPage() {
         });
 
         return result;
-    }, [customer, projectStatusFilter, projectFinanceFilter, projectSortBy]);
+    }, [customer, projectStatusFilter, projectFinanceFilter, projectSortBy, projectSearchQuery]);
 
     const isDateRangeValid = useMemo(() => {
         if (!customer || !soaRange.start || !soaRange.end) return false;
@@ -865,80 +1071,170 @@ export default function CustomerDetailPage() {
                 </div>
 
                 <div className="mt-8 flex flex-col gap-6">
-                    <div className="flex gap-2 p-1 bg-white border border-gray-200 rounded-2xl shadow-sm no-print overflow-x-auto">
-                        <button onClick={() => setActiveTab('PROJECTS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'PROJECTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    <div className="flex items-center gap-8 no-print border-b border-gray-100 px-4">
+                        <button 
+                            onClick={() => setActiveTab('PROJECTS')} 
+                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'PROJECTS' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
                             <Briefcase size={16} /> المشاريع
+                            {activeTab === 'PROJECTS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
                         </button>
                         
-                        <button onClick={() => setActiveTab('ORDERS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'ORDERS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        <button 
+                            onClick={() => setActiveTab('ORDERS')} 
+                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'ORDERS' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
                             <ShoppingCart size={16} /> طلبيات عامة
                             {(() => {
                                 const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && o.type === 'SALE');
                                 if (generalOrders.length > 0) {
-                                    return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>{generalOrders.length}</span>;
+                                    return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{generalOrders.length}</span>;
                                 }
                                 return null;
                             })()}
+                            {activeTab === 'ORDERS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
                         </button>
                         
-                        <button onClick={() => setActiveTab('PRODUCTS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'PRODUCTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        <button 
+                            onClick={() => setActiveTab('PRODUCTS')} 
+                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'PRODUCTS' ? 'text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
                             <Star size={16} /> المنتجات الأكثر طلباً
+                            {activeTab === 'PRODUCTS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-orange-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
                         </button>
                         
-                        <button onClick={() => setActiveTab('SOA')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'SOA' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        <button 
+                            onClick={() => setActiveTab('SOA')} 
+                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'SOA' ? 'text-[#8b5cf6]' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
                             <Printer size={16} /> كشف الحساب
+                            {activeTab === 'SOA' && <div className="absolute bottom-0 left-0 w-full h-1 bg-[#8b5cf6] rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
                         </button>
                     </div>
 
                     <div className="min-h-[400px]">
                         {activeTab === 'PROJECTS' && (
-                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 rounded-[2.5rem] border-2 border-gray-900 shadow-xl">
+                                {/* Project Sub-Tabs Header */}
+                                <div className="flex items-center justify-between no-print border-b border-gray-100 px-4 mb-2">
+                                    <div className="flex items-center gap-8">
+                                        <button 
+                                            onClick={() => setProjectStatusFilter('ACTIVE')} 
+                                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${projectStatusFilter === 'ACTIVE' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                            المشاريع النشطة
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${projectStatusFilter === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                {(customer?.projects || []).filter((p: any) => p.status === 'ACTIVE').length}
+                                            </span>
+                                            {projectStatusFilter === 'ACTIVE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => setProjectStatusFilter('DISABLED')} 
+                                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${projectStatusFilter === 'DISABLED' ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                            الأرشيف
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${projectStatusFilter === 'DISABLED' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                {(customer?.projects || []).filter((p: any) => p.status === 'DISABLED').length}
+                                            </span>
+                                            {projectStatusFilter === 'DISABLED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-amber-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
+                                        </button>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => setIsProjectSheetOpen(true)} 
+                                        className="mb-4 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-2 shadow-sm hover:bg-gray-800 transition-all"
+                                    >
+                                        <Plus size={14} /> إضافة مشروع جديد
+                                    </button>
+                                </div>
+
                                 {/* Filter & Sort Bar */}
-                                <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-4 no-print">
-                                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-2xl border border-gray-100">
-                                        <Filter size={14} className="text-gray-400" />
-                                        <select 
-                                            value={projectStatusFilter} 
-                                            onChange={(e: any) => setProjectStatusFilter(e.target.value)}
-                                            className="bg-transparent text-[11px] font-black text-gray-700 outline-none cursor-pointer"
-                                        >
-                                            <option value="ALL">كل الحالات (نشط/معطل)</option>
-                                            <option value="ACTIVE">المشاريع النشطة</option>
-                                            <option value="DISABLED">المشاريع المعطلة</option>
-                                        </select>
-                                    </div>
+                                <div className="bg-gray-50/50 p-4 rounded-3xl border border-gray-100 shadow-sm">
+                                    <div className="flex flex-wrap items-center gap-4 no-print" ref={dropdownRef}>
+                                        {/* Search Field */}
+                                        <div className="relative group flex-1 min-w-[280px]">
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-900 p-2 rounded-xl text-white transition-all shadow-md shadow-gray-200">
+                                                <Search size={20} />
+                                            </div>
+                                            <input 
+                                                type="text"
+                                                placeholder="ابحث باسم المشروع، الموقع أو الوصف..."
+                                                value={projectSearchQuery}
+                                                onChange={(e) => setProjectSearchQuery(e.target.value)}
+                                                className="w-full h-[52px] bg-white border border-gray-200 rounded-2xl pr-16 pl-4 text-[11px] font-black outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/5 transition-all shadow-sm"
+                                            />
+                                            {projectSearchQuery && (
+                                                <button 
+                                                    onClick={() => setProjectSearchQuery('')}
+                                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-900 transition-colors"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
 
-                                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-2xl border border-gray-100">
-                                        <Activity size={14} className="text-gray-400" />
-                                        <select 
-                                            value={projectFinanceFilter} 
-                                            onChange={(e: any) => setProjectFinanceFilter(e.target.value)}
-                                            className="bg-transparent text-[11px] font-black text-gray-700 outline-none cursor-pointer"
-                                        >
-                                            <option value="ALL">كل الحالات المالية</option>
-                                            <option value="DEBT">مشاريع عليها ديون</option>
-                                            <option value="PAID">مشاريع مسواة (خالصة)</option>
-                                            <option value="SURPLUS">مشاريع فيها رصيد زائد</option>
-                                        </select>
-                                    </div>
+                                        {/* Finance Status Filter */}
+                                        <div className="relative group min-w-[180px]">
+                                            <button
+                                                onClick={() => setActiveDropdown(activeDropdown === 'proj_finance' ? null : 'proj_finance')}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                            >
+                                                <div className="bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                                                    <Activity size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">الحالة المالية</p>
+                                                    <p className="text-[10px] font-black text-gray-900 mt-1">
+                                                        {projectFinanceFilter === 'ALL' ? 'كل الحالات' : 
+                                                         projectFinanceFilter === 'DEBT' ? 'عليه ديون' : 
+                                                         projectFinanceFilter === 'PAID' ? 'مسواة' : 'رصيد زائد'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'proj_finance' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            
+                                            {activeDropdown === 'proj_finance' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    <button onClick={() => { setProjectFinanceFilter('ALL'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'ALL' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}>كل الحالات المالية</button>
+                                                    <button onClick={() => { setProjectFinanceFilter('DEBT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'DEBT' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع عليها ديون</button>
+                                                    <button onClick={() => { setProjectFinanceFilter('PAID'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع مسواة</button>
+                                                    <button onClick={() => { setProjectFinanceFilter('SURPLUS'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'SURPLUS' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع فيها رصيد زائد</button>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-2xl border border-gray-100 mr-auto">
-                                        <SortDesc size={14} className="text-gray-400" />
-                                        <select 
-                                            value={projectSortBy} 
-                                            onChange={(e: any) => setProjectSortBy(e.target.value)}
-                                            className="bg-transparent text-[11px] font-black text-gray-700 outline-none cursor-pointer"
-                                        >
-                                            <option value="RECENT">الأحدث (تاريخ البدء)</option>
-                                            <option value="OLD">الأقدم (تاريخ البدء)</option>
-                                            <option value="ALPHA">أبجدياً (الاسم)</option>
-                                            <option value="ORDERS">الأكثر طلباً (عدد الطلبيات)</option>
-                                            <option value="PURCHASES">الأكبر قيمة (إجمالي المشتريات)</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div className="text-[10px] font-black text-gray-400 px-4 py-2 border-r border-gray-100">
-                                        النتائج: <span className="text-blue-600 font-sans">{filteredAndSortedProjects.length}</span>
+                                        {/* Sorting Filter */}
+                                        <div className="relative group min-w-[180px]">
+                                            <button
+                                                onClick={() => setActiveDropdown(activeDropdown === 'proj_sort' ? null : 'proj_sort')}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-[#8b5cf6] border border-[#8b5cf6] rounded-2xl px-4 shadow-lg shadow-purple-100 hover:shadow-purple-200 transition-all text-right group"
+                                            >
+                                                <div className="bg-white/10 p-1.5 rounded-lg text-amber-400">
+                                                    <SortDesc size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">ترتيب حسب</p>
+                                                    <p className="text-[10px] font-black text-white mt-1">
+                                                        {projectSortBy === 'RECENT' ? 'الأحدث' : 
+                                                         projectSortBy === 'OLD' ? 'الأقدم' : 
+                                                         projectSortBy === 'ALPHA' ? 'أبجدياً' : 
+                                                         projectSortBy === 'ORDERS' ? 'الأكثر طلباً' : 'الأكبر قيمة'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-500 transition-transform ${activeDropdown === 'proj_sort' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            
+                                            {activeDropdown === 'proj_sort' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    <button onClick={() => { setProjectSortBy('RECENT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectSortBy === 'RECENT' ? 'bg-amber-50 text-amber-600' : 'hover:bg-gray-50 text-gray-700'}`}>الأحدث (تاريخ البدء)</button>
+                                                    <button onClick={() => { setProjectSortBy('OLD'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectSortBy === 'OLD' ? 'bg-amber-50 text-amber-600' : 'hover:bg-gray-50 text-gray-700'}`}>الأقدم (تاريخ البدء)</button>
+                                                    <button onClick={() => { setProjectSortBy('ALPHA'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectSortBy === 'ALPHA' ? 'bg-amber-50 text-amber-600' : 'hover:bg-gray-50 text-gray-700'}`}>أبجدياً (الاسم)</button>
+                                                    <button onClick={() => { setProjectSortBy('ORDERS'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectSortBy === 'ORDERS' ? 'bg-amber-50 text-amber-600' : 'hover:bg-gray-50 text-gray-700'}`}>الأكثر طلباً</button>
+                                                    <button onClick={() => { setProjectSortBy('PURCHASES'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectSortBy === 'PURCHASES' ? 'bg-amber-50 text-amber-600' : 'hover:bg-gray-50 text-gray-700'}`}>الأكبر قيمة</button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1085,10 +1381,7 @@ export default function CustomerDetailPage() {
                                     </table>
                                 </div>
                                 )}
-                                <button onClick={() => setIsProjectSheetOpen(true)} className="w-full py-16 rounded-[3rem] border-4 border-dashed border-gray-100 text-gray-300 hover:border-blue-100 hover:text-blue-400 hover:bg-blue-50/20 transition-all flex flex-col items-center justify-center gap-2 group">
-                                    <Plus size={64} className="group-hover:scale-125 transition-transform duration-500" />
-                                    <span className="font-black text-sm uppercase tracking-widest mt-4">إضافة مشروع جديد للعميل</span>
-                                </button>
+
                             </div>
                         )}
 
@@ -1100,7 +1393,7 @@ export default function CustomerDetailPage() {
                             const totalPaid = saleOrders.reduce((s: number, o: any) => s + (o.invoice?.paid || 0), 0);
                             const totalRemaining = totalPurchases - totalPaid;
                             return (
-                                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-blue-50/20 p-8 rounded-[2.5rem] border-2 border-blue-600 shadow-xl">
                                     {/* Summary bar */}
                                     <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm grid grid-cols-3 gap-4">
                                         <div className="text-center">
@@ -1165,7 +1458,7 @@ export default function CustomerDetailPage() {
 
 
                         {activeTab === 'PRODUCTS' && (
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl animate-in fade-in duration-500">
+                            <div className="bg-white p-8 rounded-[2.5rem] border-2 border-orange-600 shadow-xl animate-in fade-in duration-500">
                                 <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
                                     <div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Star size={20} /></div>
                                     المنتجات الأكثر طلباً من قبل هذا العميل
@@ -1212,7 +1505,7 @@ export default function CustomerDetailPage() {
                         )}
 
                         {activeTab === 'SOA' && (
-                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[600px] bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm overflow-x-auto">
+                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[600px] bg-white rounded-[2.5rem] border-2 border-[#8b5cf6] p-8 shadow-xl overflow-x-auto">
                                 <div className="flex justify-between items-center mb-6 no-print">
                                     <div className="flex items-center gap-4">
                                         <div className="bg-gray-900 text-white p-3 rounded-2xl shadow-lg"><Printer size={24} /></div>
@@ -1535,59 +1828,55 @@ export default function CustomerDetailPage() {
                 {/* MODALS */}
                 {/* PROJECT ORDERS MODAL */}
                 {selectedProjectForOrders && (
-                    <div className="fixed inset-0 z-[150] bg-gray-900/60 backdrop-blur-md flex justify-center items-center p-4 no-print">
-                        <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
-                            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-blue-600 text-white p-3 rounded-2xl shadow-lg shadow-blue-100"><Briefcase size={24} /></div>
+                    <div className="fixed inset-0 z-[150] bg-gray-900/80 backdrop-blur-md flex justify-center items-center p-4 md:p-6 no-print animate-in fade-in duration-300">
+                        <div className="bg-[#f8fafc] w-full max-w-[95vw] h-full max-h-[95vh] rounded-[2.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-500 flex flex-col border border-white">
+                            
+                            {/* White Header - Matches Invoices Page Style */}
+                            <div className="bg-white p-6 md:p-8 border-b border-gray-100 flex flex-col lg:flex-row items-center justify-between gap-6">
+                                <div className="flex items-center gap-4 w-full lg:w-auto">
+                                    <div className="bg-violet-600 text-white p-3.5 rounded-2xl shadow-lg shadow-violet-100">
+                                        <ShoppingBag size={28} />
+                                    </div>
                                     <div className="text-right">
-                                        <h2 className="text-2xl font-black text-gray-900">{selectedProjectForOrders.name}</h2>
-                                        <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">سجل الطلبيات المرتبطة بالمشروع</p>
+                                        <h2 className="text-2xl font-black text-violet-600">سجل الطلبيات والمستندات المرتبطة</h2>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-[#fbb815] text-xs font-bold uppercase tracking-widest">{selectedProjectForOrders.name}</p>
+                                            <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                            <p className="text-gray-400 text-[10px] font-bold">إدارة تتبع المشروع</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <button 
-                                            onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
-                                            className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg shadow-emerald-100 hover:scale-105 transition-all"
-                                        >
-                                            <Download size={18} /> تصدير السجل <ChevronDown size={14} className={`transition-transform ${isExportDropdownOpen ? 'rotate-180' : ''}`} />
+
+                                <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+                                    <div className="relative group">
+                                        <button className="bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                                            <Download size={16} className="text-blue-600"/> تصدير السجل
+                                            <ChevronDown size={14} className="opacity-50" />
                                         </button>
-                                        
-                                        {isExportDropdownOpen && (
-                                            <>
-                                                <div className="fixed inset-0 z-10" onClick={() => setIsExportDropdownOpen(false)} />
-                                                <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-2xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                                    <button 
-                                                        onClick={() => {
-                                                            exportProjectOrdersCSV();
-                                                            setIsExportDropdownOpen(false);
-                                                        }}
-                                                        className="w-full px-5 py-3 text-right text-xs font-black text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 transition-colors"
-                                                    >
-                                                        <FileSpreadsheet size={16} className="text-emerald-600" /> تصدير Excel (.csv)
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => {
-                                                            setIsExportDropdownOpen(false);
-                                                            const printContent = document.getElementById('project-orders-print-area');
-                                                            if (printContent) {
-                                                                const original = document.body.innerHTML;
-                                                                document.body.innerHTML = printContent.innerHTML;
-                                                                printDocument();
-                                                                document.body.innerHTML = original;
-                                                                window.location.reload();
-                                                            }
-                                                        }}
-                                                        className="w-full px-5 py-3 text-right text-xs font-black text-gray-700 hover:bg-red-50 hover:text-red-700 border-t border-gray-50 flex items-center gap-3 transition-colors"
-                                                    >
-                                                        <FileText size={16} className="text-red-600" /> تصدير PDF (طباعة)
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
+                                        <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                            <button 
+                                                onClick={() => { exportProjectOrdersCSV(); }} 
+                                                className="w-full text-right px-5 py-3.5 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-3 border-b border-gray-50 transition-colors"
+                                            >
+                                                <FileSpreadsheet size={16} className="text-emerald-600"/> Excel (.xlsx)
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    const printContent = document.getElementById('project-orders-print-area');
+                                                    if (printContent) {
+                                                        const original = document.body.innerHTML;
+                                                        document.body.innerHTML = printContent.innerHTML;
+                                                        printDocument();
+                                                        document.body.innerHTML = original;
+                                                        window.location.reload();
+                                                    }
+                                                }} 
+                                                className="w-full text-right px-5 py-3.5 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-3 transition-colors"
+                                            >
+                                                <FileText size={16} className="text-rose-600"/> PDF (طباعة)
+                                            </button>
+                                        </div>
                                     </div>
-                                    
                                     <button 
                                         onClick={() => {
                                             const printContent = document.getElementById('project-orders-print-area');
@@ -1599,88 +1888,310 @@ export default function CustomerDetailPage() {
                                                 window.location.reload();
                                             }
                                         }}
-                                        className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
+                                        className="bg-violet-600 text-white px-6 py-3 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-violet-700 transition-all shadow-lg shadow-violet-100 active:scale-95"
                                     >
                                         <Printer size={18} /> طباعة السجل
                                     </button>
-                                    <button onClick={() => setSelectedProjectForOrders(null)} className="text-gray-400 hover:text-gray-900 transition-colors p-2 bg-white rounded-xl border border-gray-100 shadow-sm ml-2">
-                                        <X size={28} />
+                                    <button onClick={() => setSelectedProjectForOrders(null)} className="text-gray-400 hover:text-gray-900 transition-all p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm mr-2 active:scale-90">
+                                        <X size={24} />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="p-0 overflow-y-auto" id="project-orders-print-area">
-                                <div className="p-8 hidden print:block border-b-2 border-gray-900 mb-6">
-                                    <h1 className="text-3xl font-black text-gray-900 text-center uppercase">كشف طلبيات المشروع</h1>
-                                    <div className="flex justify-between mt-6 text-sm font-bold">
-                                        <div className="text-right">
-                                            <p>العميل: {customer.name}</p>
-                                            <p>المشروع: {selectedProjectForOrders.name}</p>
-                                        </div>
-                                        <div className="text-left">
-                                            <p>التاريخ: {new Date().toLocaleDateString('ar-DZ')}</p>
-                                        </div>
+                            {/* Filter Bar - Exactly kima Fawatir Page */}
+                            <div className="bg-white/50 border-b border-gray-100 p-4 md:px-8 md:py-5 flex flex-col lg:flex-row gap-4 items-center" ref={modalDropdownRef}>
+                                {/* Search */}
+                                <div className="relative flex-1 min-w-[300px] group w-full">
+                                    <input 
+                                        type="text" 
+                                        placeholder="بحث برقم فاتورة، اسم العميل..." 
+                                        value={projectOrderSearch} 
+                                        onChange={(e) => { setProjectOrderSearch(e.target.value); setProjectOrderCurrentPage(1); }} 
+                                        className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                                    />
+                                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-violet-600 rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none group-focus-within:scale-110 transition-transform">
+                                        <Search size={20} strokeWidth={3} />
                                     </div>
                                 </div>
-                                <InvoicesTable 
-                                    invoices={customer.orders?.filter((o: any) => o.projectId === selectedProjectForOrders.id && o.type !== 'RETURN_SALE' && o.type !== 'RETURN_PURCHASE').map((o: any) => {
-                                        const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
-                                        const netTotal = o.total || 0;
-                                        const paid = o.invoice?.paid || 0;
-                                        const remaining = o.invoice?.remaining ?? (netTotal - paid);
 
-                                        return {
-                                            ...o.invoice,
-                                            id: o.invoice?.id,
-                                            invoiceNumber: o.invoice?.invoiceNumber || o.orderNumber,
-                                            customerName: customer.name,
-                                            projectName: selectedProjectForOrders.name,
-                                            total: netTotal,
-                                            originalTotal: netTotal + returnsValue,
-                                            returnsValue: returnsValue,
-                                            remaining: remaining,
-                                            paid: paid,
-                                            status: remaining <= 0 ? (remaining < 0 ? 'CREDIT' : 'PAID') : (paid > 0 ? 'PARTIAL' : 'UNPAID'),
-                                            order: o,
-                                            date: o.orderDate
-                                        };
-                                    }) || []}
-                                    loading={loading}
-                                    invoiceType="SALE"
-                                    setSelectedInvoice={setSelectedInvoice}
-                                    setShowPaymentModal={setShowPaymentModal}
-                                    setPaymentAmount={setPaymentAmount}
-                                    handleRefundExcess={handleRefundExcess}
-                                    setShowHistoryModal={setShowHistoryModal}
-                                    fetchPaymentHistory={fetchPaymentHistory}
-                                    setShowReturnsModal={setShowReturnsModal}
-                                    fetchReturnsHistory={fetchReturnsHistory}
+                                {/* Status Filter */}
+                                <div className="relative group min-w-[180px] w-full lg:w-auto">
+                                    <button
+                                        onClick={() => setActiveDropdown(activeDropdown === 'project-status' ? null : 'project-status')}
+                                        className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                    >
+                                        <div className="bg-violet-600/10 p-1.5 rounded-lg text-violet-600">
+                                            <Filter size={14} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">حالة الفاتورة</p>
+                                            <p className="text-[11px] font-black text-gray-900 mt-1">
+                                                {projectOrderStatusFilter === 'ALL' ? 'الكل' : 
+                                                 projectOrderStatusFilter === 'PAID' ? 'خالص بالكامل' : 
+                                                 projectOrderStatusFilter === 'UNPAID' ? 'غير مدفوع' :
+                                                 projectOrderStatusFilter === 'PARTIAL' ? 'مدفوع جزئياً' :
+                                                 projectOrderStatusFilter === 'CREDIT' ? 'رصيد زائد' : projectOrderStatusFilter}
+                                            </p>
+                                        </div>
+                                        <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'project-status' ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    
+                                    {activeDropdown === 'project-status' && (
+                                        <>
+                                            <div className="fixed inset-0 z-10" onClick={() => setActiveDropdown(null)} />
+                                            <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-20 py-2 animate-in zoom-in-95 duration-200">
+                                                <button onClick={(e) => { e.stopPropagation(); setProjectOrderStatusFilter('ALL'); setProjectOrderCurrentPage(1); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[11px] font-bold transition-colors ${projectOrderStatusFilter === 'ALL' ? 'bg-violet-50 text-violet-600' : 'hover:bg-gray-50 text-gray-700'}`}>الكل</button>
+                                                <button onClick={(e) => { e.stopPropagation(); setProjectOrderStatusFilter('PAID'); setProjectOrderCurrentPage(1); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[11px] font-bold transition-colors ${projectOrderStatusFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-gray-50 text-emerald-700'}`}>خالص بالكامل</button>
+                                                <button onClick={(e) => { e.stopPropagation(); setProjectOrderStatusFilter('PARTIAL'); setProjectOrderCurrentPage(1); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[11px] font-bold transition-colors ${projectOrderStatusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'hover:bg-gray-50 text-amber-700'}`}>مدفوع جزئياً</button>
+                                                <button onClick={(e) => { e.stopPropagation(); setProjectOrderStatusFilter('UNPAID'); setProjectOrderCurrentPage(1); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[11px] font-bold transition-colors ${projectOrderStatusFilter === 'UNPAID' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-rose-700'}`}>غير مدفوع</button>
+                                                <button onClick={(e) => { e.stopPropagation(); setProjectOrderStatusFilter('CREDIT'); setProjectOrderCurrentPage(1); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[11px] font-bold transition-colors ${projectOrderStatusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-purple-700'}`}>رصيد زائد</button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Date Range Picker - Exact kima Fawatir Page */}
+                                <DateRangePicker 
+                                    startDate={projectOrderDateFrom}
+                                    endDate={projectOrderDateTo}
+                                    onChange={(start, end) => { setProjectOrderDateFrom(start); setProjectOrderDateTo(end); setProjectOrderCurrentPage(1); }}
                                 />
-
                             </div>
 
-                            <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                            <div className="flex-1 overflow-y-auto bg-[#f8fafc] p-4 md:p-8" id="project-orders-print-area">
+                                {/* Print Header (Hidden on screen) */}
+                                <div className="p-10 hidden print:block border-b-4 border-gray-900 mb-10 bg-white">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <div className="text-right">
+                                            <h1 className="text-4xl font-black text-gray-900 tracking-tight uppercase">سجل طلبيات المشروع</h1>
+                                            <p className="text-gray-500 font-bold mt-1 uppercase tracking-widest text-sm">Project Orders Ledger</p>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-2xl font-black text-blue-600">SKR Stock</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-8 bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                                        <div className="text-right space-y-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase">العميل / Client</p>
+                                            <p className="text-xl font-black text-gray-900">{customer.name}</p>
+                                        </div>
+                                        <div className="text-right space-y-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase">المشروع / Projet</p>
+                                            <p className="text-xl font-black text-blue-600">{selectedProjectForOrders.name}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex justify-end">
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">التاريخ: {new Date().toLocaleDateString('ar-DZ')}</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden min-h-[400px] flex flex-col">
+                                    {(() => {
+                                        const filteredInvoices = customer.orders?.filter((o: any) => {
+                                            if (o.projectId !== selectedProjectForOrders.id || o.type === 'RETURN_SALE' || o.type === 'RETURN_PURCHASE') return false;
+                                            
+                                            if (projectOrderSearch) {
+                                                const q = projectOrderSearch.toLowerCase();
+                                                const matchNum = (o.invoice?.invoiceNumber || o.orderNumber)?.toLowerCase().includes(q);
+                                                const matchCust = customer.name.toLowerCase().includes(q);
+                                                if (!matchNum && !matchCust) return false;
+                                            }
+
+                                            const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+                                            const netTotal = o.total || 0;
+                                            const originalTotal = netTotal + returnsValue;
+                                            const paid = o.invoice?.paid || 0;
+                                            const remaining = o.invoice?.remaining ?? (netTotal - paid);
+                                            
+                                            let status = 'UNPAID';
+                                            if (remaining === 0) status = 'PAID';
+                                            else if (remaining < 0) status = 'CREDIT';
+                                            else if (remaining > 0 && remaining < originalTotal) status = 'PARTIAL';
+                                            else status = 'UNPAID';
+
+                                            if (projectOrderStatusFilter !== 'ALL' && status !== projectOrderStatusFilter) return false;
+
+                                            const orderDate = new Date(o.orderDate);
+                                            orderDate.setHours(0,0,0,0);
+                                            if (projectOrderDateFrom) {
+                                                const from = new Date(projectOrderDateFrom);
+                                                from.setHours(0,0,0,0);
+                                                if (orderDate < from) return false;
+                                            }
+                                            if (projectOrderDateTo) {
+                                                const to = new Date(projectOrderDateTo);
+                                                to.setHours(23,59,59,999);
+                                                if (orderDate > to) return false;
+                                            }
+                                            return true;
+                                        }).map((o: any) => {
+                                            const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+                                            const netTotal = o.total || 0;
+                                            const paid = o.invoice?.paid || 0;
+                                            const remaining = o.invoice?.remaining ?? (netTotal - paid);
+
+                                            return {
+                                                ...o.invoice,
+                                                id: o.invoice?.id,
+                                                invoiceNumber: o.invoice?.invoiceNumber || o.orderNumber,
+                                                customerName: customer.name,
+                                                projectName: selectedProjectForOrders.name,
+                                                total: netTotal,
+                                                originalTotal: netTotal + returnsValue,
+                                                returnsValue: returnsValue,
+                                                remaining: remaining,
+                                                paid: paid,
+                                                status: remaining <= 0 ? (remaining < 0 ? 'CREDIT' : 'PAID') : (paid > 0 ? 'PARTIAL' : 'UNPAID'),
+                                                order: o,
+                                                date: o.orderDate
+                                            };
+                                        }) || [];
+
+                                        const totalPages = Math.ceil(filteredInvoices.length / projectOrderItemsPerPage) || 1;
+                                        const startIndex = (projectOrderCurrentPage - 1) * projectOrderItemsPerPage;
+                                        const paginatedInvoices = filteredInvoices.slice(startIndex, startIndex + projectOrderItemsPerPage);
+
+                                        return (
+                                            <>
+                                                <InvoicesTable 
+                                                    invoices={paginatedInvoices}
+                                                    loading={loading}
+                                                    invoiceType="SALE"
+                                                    setSelectedInvoice={setSelectedInvoice}
+                                                    setShowPaymentModal={setShowPaymentModal}
+                                                    setPaymentAmount={setPaymentAmount}
+                                                    handleRefundExcess={handleRefundExcess}
+                                                    setShowHistoryModal={setShowHistoryModal}
+                                                    fetchPaymentHistory={fetchPaymentHistory}
+                                                    setShowReturnsModal={setShowReturnsHistoryModal}
+                                                    fetchReturnsHistory={fetchReturnsHistory}
+                                                    setShowReturnProcessModal={(inv: any) => {
+                                                        const ord = inv.order;
+                                                        if (ord) {
+                                                            const init: any = {};
+                                                            ord.items.forEach((it: any) => { init[it.id] = 0; });
+                                                            setReturnQtys(init);
+                                                            setShowReturnModal(ord);
+                                                        }
+                                                    }}
+                                                />
+                                                
+                                                {/* Pagination - Exact kima Fawatir Page style */}
+                                                {filteredInvoices.length > 0 && (
+                                                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 border-t border-gray-100 no-print">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-violet-50 border-2 border-white flex items-center justify-center">
+                                                                <ShoppingBag size={14} className="text-violet-600" />
+                                                            </div>
+                                                            <p className="text-xs font-black text-gray-500">
+                                                                عرض <span className="text-gray-900 font-sans">{startIndex + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(startIndex + projectOrderItemsPerPage, filteredInvoices.length)}</span> من أصل <span className="text-violet-600 font-sans">{filteredInvoices.length}</span> فاتورة
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
+                                                            <button 
+                                                                onClick={() => setProjectOrderCurrentPage(prev => Math.max(1, prev - 1))}
+                                                                disabled={projectOrderCurrentPage === 1}
+                                                                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                                            >
+                                                                <ChevronUp className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                                            </button>
+                                                            
+                                                            <div className="flex items-center gap-1 px-4">
+                                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
+                                                                <span className="text-sm font-black text-violet-600 font-sans px-2">{projectOrderCurrentPage}</span>
+                                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
+                                                                <span className="text-sm font-black text-gray-900 font-sans px-2">{totalPages}</span>
+                                                            </div>
+
+                                                            <button 
+                                                                onClick={() => setProjectOrderCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                                disabled={projectOrderCurrentPage >= totalPages}
+                                                                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                                            >
+                                                                <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+
+                            {/* Redesigned Compact Footer */}
+                            <div className="p-5 bg-white border-t border-gray-100 shadow-[0_-15px_40px_rgba(0,0,0,0.02)]">
                                 {(() => {
                                     const projectOrders = customer.orders?.filter((o: any) => o.projectId === selectedProjectForOrders.id) || [];
+                                    const salesOrders = projectOrders.filter((o: any) => o.type === 'SALE');
+                                    const purchaseOrders = projectOrders.filter((o: any) => o.type === 'PURCHASE');
+                                    
+                                    const totalPurchases = purchaseOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+                                    
                                     const projectBalance = projectOrders.reduce((sum: number, o: any) => {
                                         if (o.type === 'RETURN_SALE' || o.type === 'RETURN_PURCHASE') return sum;
                                         const netTotal = o.total || 0;
                                         const paid = o.invoice?.paid || 0;
+                                        // For sales: debt is (total - paid)
+                                        // For purchases: debt is (total - paid) but usually seen as outgoing? 
+                                        // Usually projectBalance for a customer is their debt to us.
                                         return sum + (netTotal - paid);
                                     }, 0);
 
                                     return (
-                                        <div className="text-right">
-                                            <span className="text-[10px] font-black text-gray-400 uppercase block">
-                                                {projectBalance > 0 ? 'إجمالي ديون المشروع' : (projectBalance < 0 ? 'إجمالي الرصيد الزائد للمشروع' : 'حالة المشروع المالية')}
-                                            </span>
-                                            <span className={`text-2xl font-black font-sans ${projectBalance > 0 ? 'text-red-600' : (projectBalance < 0 ? 'text-purple-600' : 'text-emerald-600')}`}>
-                                                {Math.abs(projectBalance).toLocaleString()} دج
-                                            </span>
+                                        <div className="flex items-center justify-between px-4 md:px-10">
+                                            {/* Project Stats Label */}
+                                            <div className="text-right">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-100">
+                                                        <BarChart3 size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">إحصائيات</p>
+                                                        <p className="text-xs font-black text-gray-900">ملخص المشروع</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="h-10 w-px bg-gray-100"></div>
+
+                                            {/* Total Purchases */}
+                                            <div className="text-right">
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">إجمالي المشتريات</span>
+                                                <p className="text-xl font-black text-rose-600 font-sans">{totalPurchases.toLocaleString()} <span className="text-[10px] opacity-50">دج</span></p>
+                                            </div>
+
+                                            <div className="h-10 w-px bg-gray-100 hidden md:block"></div>
+
+                                            {/* Financial Status */}
+                                            <div className="text-right hidden md:block">
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">الحالة المالية</span>
+                                                <div className={`px-4 py-1.5 rounded-xl border-2 font-black text-[10px] inline-block ${projectBalance > 0 ? 'bg-red-50 border-red-100 text-red-600' : (projectBalance < 0 ? 'bg-purple-50 border-purple-100 text-purple-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600')}`}>
+                                                    {projectBalance > 0 ? 'ديون مستحقة' : (projectBalance < 0 ? 'رصيد زائد' : 'خالص بالكامل')}
+                                                </div>
+                                            </div>
+
+                                            <div className="h-10 w-px bg-gray-100"></div>
+
+                                            {/* Remaining Balance */}
+                                            <div className="text-right">
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">الرصيد المتبقي</span>
+                                                <p className={`text-xl font-black font-sans tracking-tight ${projectBalance > 0 ? 'text-gray-900' : (projectBalance < 0 ? 'text-purple-700' : 'text-emerald-700')}`}>
+                                                    {Math.abs(projectBalance).toLocaleString()} <span className="text-[10px] opacity-50">دج</span>
+                                                </p>
+                                            </div>
+
+                                            <div className="h-10 w-px bg-gray-100 hidden md:block"></div>
+
+                                            {/* Order Count */}
+                                            <div className="text-right hidden md:block">
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">عدد الطلبيات</span>
+                                                <p className="text-xl font-black text-gray-900 font-sans">{projectOrders.length} <span className="text-[10px] opacity-50">طلبية</span></p>
+                                            </div>
                                         </div>
                                     );
                                 })()}
-                                <button onClick={() => setSelectedProjectForOrders(null)} className="bg-gray-900 text-white px-8 py-3 rounded-2xl font-black text-sm shadow-xl hover:bg-black transition-all">إغلاق النافذة</button>
                             </div>
                         </div>
                     </div>
@@ -2376,134 +2887,171 @@ export default function CustomerDetailPage() {
 
                 {/* PROJECT SHEET (Creation) */}
                 {isProjectSheetOpen && (
-                    <div className="fixed inset-0 z-[200] flex justify-end">
-                        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setIsProjectSheetOpen(false)} />
-                        <div className="bg-white w-full max-w-lg h-full z-10 p-10 flex flex-col shadow-2xl animate-in slide-in-from-right duration-500 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-10">
-                                <h2 className="text-3xl font-black text-gray-900">إضافة مشروع</h2>
-                                <button onClick={() => setIsProjectSheetOpen(false)} className="text-gray-400 p-2"><X size={24} /></button>
+                    <>
+                        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[200] transition-opacity duration-300" onClick={() => setIsProjectSheetOpen(false)} />
+                        <div className="fixed top-0 bottom-0 left-0 w-full max-w-lg bg-white shadow-2xl z-[210] flex flex-col animate-in slide-in-from-left duration-500 overflow-hidden">
+                            {/* Header */}
+                            <div className="p-8 w-full flex items-center justify-between bg-gray-900 text-white shadow-lg">
+                                <div>
+                                    <h2 className="text-2xl font-black flex items-center gap-3">
+                                        <Plus size={28} className="bg-white/20 p-1 rounded-lg" /> إضافة مشروع جديد
+                                    </h2>
+                                    <p className="text-white/70 text-xs font-bold mt-1 tracking-tight uppercase">تعريف مشروع جديد لهذا العميل في النظام</p>
+                                </div>
+                                <button onClick={() => setIsProjectSheetOpen(false)} className="bg-white/10 hover:bg-white/20 text-white rounded-2xl p-2 transition-all active:scale-90">
+                                    <X size={24} />
+                                </button>
                             </div>
-                            
-                            {/* Keyboard Navigation Helper */}
-                            {(() => {
-                                const handleKeyDown = (e: React.KeyboardEvent, nextId?: string, prevId?: string) => {
-                                    if (e.key === 'Enter') {
+
+                            <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-50/30" onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                    const form = e.currentTarget;
+                                    const focusableElements = Array.from(form.querySelectorAll('input:not([type="hidden"]), textarea'));
+                                    const index = focusableElements.indexOf(e.target as any);
+                                    if (index > -1 && index < focusableElements.length - 1) {
                                         e.preventDefault();
-                                        if (nextId) document.getElementById(nextId)?.focus();
-                                    } else if (e.key === 'ArrowRight') {
-                                        if (prevId) document.getElementById(prevId)?.focus();
+                                        (focusableElements[index + 1] as HTMLElement).focus();
                                     }
-                                };
-                                return null;
-                            })()}
+                                }
+                            }}>
+                                {/* Basic Info Section */}
+                                <div className="space-y-6 p-6 bg-white border-2 border-gray-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-gray-200">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-8 bg-gray-900 rounded-full"></div>
+                                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">معلومات المشروع</h3>
+                                    </div>
 
-                            <div className="space-y-8 flex-1">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex justify-between items-center">
-                                        <span>اسم المشروع</span>
-                                        <span className="text-red-500 font-sans">*</span>
-                                    </label>
-                                    <input 
-                                        id="project-name"
-                                        type="text" 
-                                        value={projectData.name} 
-                                        onChange={e => {
-                                            setProjectData({ ...projectData, name: e.target.value });
-                                            setProjectTouched(prev => ({ ...prev, name: true }));
-                                        }} 
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                document.getElementById('project-address')?.focus();
-                                            }
-                                        }}
-                                        className={`w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black outline-none transition-all ${projectTouched.name && !projectValidations.name ? 'border-red-500 bg-red-50' : 'border-gray-100 focus:bg-white focus:border-blue-500'}`} 
-                                        placeholder="مثال: بناء فيلا المسيلة..." 
-                                        autoFocus
-                                    />
-                                    {projectTouched.name && !projectValidations.name && (
-                                        <p className="text-red-500 text-[10px] font-black animate-in fade-in slide-in-from-top-1">⚠️ يجب أن يتكون الاسم من كلمتين على الأقل</p>
-                                    )}
-                                </div>
+                                    <div className="grid grid-cols-1 gap-5">
+                                        {/* Project Name */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">اسم المشروع <span className="text-red-500">*</span></label>
+                                            <div className="relative group">
+                                                <input 
+                                                    id="project-name"
+                                                    type="text" 
+                                                    value={projectData.name} 
+                                                    onChange={e => {
+                                                        setProjectData({ ...projectData, name: e.target.value.toUpperCase() });
+                                                        setProjectTouched(prev => ({ ...prev, name: true }));
+                                                    }} 
+                                                    placeholder="مثال: بناء فيلا المسيلة..." 
+                                                    autoFocus
+                                                    className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none transition-all
+                                                        ${projectTouched.name && !projectValidations.name ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-gray-900 focus:ring-4 focus:ring-gray-900/5 focus:bg-white'}`}
+                                                />
+                                                <Briefcase size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-gray-900 transition-colors" />
+                                            </div>
+                                            {projectTouched.name && !projectValidations.name && (
+                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 animate-in slide-in-from-top-1">
+                                                    <AlertCircle size={12} />
+                                                    <p className="text-[10px] font-bold text-red-500">يجب أن يتكون الاسم من كلمتين على الأقل</p>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex justify-between items-center">
-                                        <span>عنوان المشروع</span>
-                                        <span className="text-red-500 font-sans">*</span>
-                                    </label>
-                                    <input 
-                                        id="project-address"
-                                        type="text" 
-                                        value={projectData.address} 
-                                        onChange={e => {
-                                            setProjectData({ ...projectData, address: e.target.value });
-                                            setProjectTouched(prev => ({ ...prev, address: true }));
-                                        }} 
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                document.getElementById('project-date')?.focus();
-                                            } else if (e.key === 'ArrowRight') {
-                                                document.getElementById('project-name')?.focus();
-                                            }
-                                        }}
-                                        className={`w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black outline-none transition-all ${projectTouched.address && !projectValidations.address ? 'border-red-500 bg-red-50' : 'border-gray-100 focus:bg-white focus:border-blue-500'}`} 
-                                        placeholder="المنطقة، الشارع، البلدية..." 
-                                    />
-                                    {projectTouched.address && !projectValidations.address && (
-                                        <p className="text-red-500 text-[10px] font-black animate-in fade-in slide-in-from-top-1">⚠️ يجب أن يتكون العنوان من 3 كلمات على الأقل</p>
-                                    )}
-                                </div>
+                                        {/* Location Selection */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {/* Wilaya */}
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الولاية (اختياري)</label>
+                                                <select
+                                                    value={projectData.wilaya || ''}
+                                                    onChange={e => {
+                                                        const w = ALGERIA_LOCATIONS.find(l => l.name === e.target.value);
+                                                        const firstCommune = w?.communes?.[0];
+                                                        setProjectData({ ...projectData, wilaya: e.target.value, commune: firstCommune?.name || '', postalCode: firstCommune?.postCode || '' });
+                                                    }}
+                                                    className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none transition-all appearance-none cursor-pointer focus:border-gray-900 focus:bg-white"
+                                                >
+                                                    <option value="">لا توجد ولاية مختارة...</option>
+                                                    {ALGERIA_LOCATIONS.map(w => (
+                                                        <option key={w.id} value={w.name}>{w.id} - {w.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
 
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">تاريخ البدء</label>
-                                    <input 
-                                        id="project-date"
-                                        type="date" 
-                                        value={projectData.startDate} 
-                                        onChange={e => setProjectData({ ...projectData, startDate: e.target.value })} 
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                document.getElementById('project-desc')?.focus();
-                                            } else if (e.key === 'ArrowRight') {
-                                                document.getElementById('project-address')?.focus();
-                                            }
-                                        }}
-                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black outline-none font-sans" 
-                                    />
-                                </div>
+                                            {/* Commune */}
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">البلدية (اختياري)</label>
+                                                <select
+                                                    value={projectData.commune || ''}
+                                                    onChange={e => {
+                                                        const selectedWilaya = ALGERIA_LOCATIONS.find(l => l.name.toLowerCase() === projectData.wilaya?.toLowerCase());
+                                                        const selectedCommune = selectedWilaya?.communes?.find(c => c.name === e.target.value);
+                                                        setProjectData({ ...projectData, commune: e.target.value, postalCode: selectedCommune?.postCode || '' });
+                                                    }}
+                                                    className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none transition-all appearance-none cursor-pointer focus:border-gray-900 focus:bg-white"
+                                                >
+                                                    <option value="">لا توجد بلدية مختارة...</option>
+                                                    {(ALGERIA_LOCATIONS.find(l => l.name.toLowerCase() === projectData.wilaya?.toLowerCase())?.communes || []).map(c => (
+                                                        <option key={c.name} value={c.name}>{c.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">وصف المشروع (اختياري)</label>
-                                    <textarea 
-                                        id="project-desc"
-                                        value={projectData.description} 
-                                        onChange={e => setProjectData({ ...projectData, description: e.target.value })} 
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.ctrlKey) { // For textarea, maybe Ctrl+Enter for next? 
-                                                // User said Enter for next. But textarea usually uses Enter for newline.
-                                                // I'll stick to user's "Enter key for the next" even for textarea if it's a small field?
-                                                // Actually, if it's a textarea, Enter is for newline.
-                                                // I'll use ArrowRight for previous as requested.
-                                            } else if (e.key === 'ArrowRight' && e.currentTarget.selectionStart === 0) {
-                                                document.getElementById('project-date')?.focus();
-                                            }
-                                        }}
-                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black outline-none min-h-[120px] focus:bg-white focus:border-blue-500 transition-all" 
-                                        placeholder="أي تفاصيل إضافية عن المشروع..." 
-                                    />
+                                        {/* Postal Code (auto-filled) */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الرمز البريدي (تلقائي)</label>
+                                            <input
+                                                type="text"
+                                                dir="ltr"
+                                                readOnly
+                                                value={projectData.postalCode || ''}
+                                                className="w-full bg-emerald-50/60 border-2 border-emerald-100 rounded-[1.2rem] px-5 py-3.5 text-emerald-700 font-black font-mono text-center focus:outline-none cursor-default"
+                                            />
+                                        </div>
+
+                                        {/* Start Date */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">تاريخ البدء (تلقائي)</label>
+                                            <div className="relative opacity-60">
+                                                <input 
+                                                    id="project-date"
+                                                    type="date" 
+                                                    readOnly
+                                                    value={projectData.startDate} 
+                                                    className="w-full bg-gray-100 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-500 font-bold font-sans focus:outline-none cursor-not-allowed"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Project Description */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">وصف المشروع (اختياري)</label>
+                                            <textarea 
+                                                id="project-desc"
+                                                value={projectData.description} 
+                                                onChange={e => setProjectData({ ...projectData, description: e.target.value })} 
+                                                placeholder="أي تفاصيل إضافية عن المشروع..." 
+                                                className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-6 py-4 text-sm font-bold focus:outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/5 focus:bg-white transition-all min-h-[140px]" 
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <button 
-                                onClick={handleCreateProject} 
-                                disabled={!projectValidations.name || !projectValidations.address || !projectData.startDate || isSubmitting}
-                                className="mt-8 w-full bg-blue-600 disabled:opacity-30 disabled:grayscale disabled:scale-100 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-blue-100 hover:scale-105 transition-all"
-                            >
-                                {isSubmitting ? 'جاري الإنشاء...' : 'إنشاء المشروع وحفظه'}
-                            </button>
+
+                            {/* Footer */}
+                            <div className="p-8 border-t border-gray-100 bg-white flex gap-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
+                                <button
+                                    onClick={() => setIsProjectSheetOpen(false)}
+                                    className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-[1.2rem] font-black text-sm hover:bg-gray-200 transition-all active:scale-95"
+                                >
+                                    إلغاء
+                                </button>
+                                <button 
+                                    onClick={handleCreateProject} 
+                                    disabled={!projectValidations.name || isSubmitting}
+                                    className={`flex-[2] py-4 rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
+                                        ${(!projectValidations.name || isSubmitting)
+                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                                            : 'bg-gray-900 text-white shadow-gray-200 hover:bg-gray-800 hover:shadow-gray-300'}`}
+                                >
+                                    {isSubmitting ? 'جاري الإنشاء...' : <><Check size={20} /> إنشاء المشروع وحفظه</>}
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </>
                 )}
 
                 {/* EDIT CUSTOMER SIDEBAR (SHEET STYLE) */}
