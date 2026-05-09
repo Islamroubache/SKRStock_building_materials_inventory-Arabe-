@@ -266,11 +266,8 @@ function NewOrderPage() {
     const customerProjects = useMemo(() => (Array.isArray(projects) ? projects : []).filter(p => p.customerId === customerId && p.status === 'ACTIVE'), [projects, customerId]);
     
     const filteredCustomersForList = useMemo(() => {
-        return (Array.isArray(customers) ? customers : []).filter(c => {
-            if (c.type !== 'LOYAL') return true;
-            return (Array.isArray(projects) ? projects : []).some(p => p.customerId === c.id && p.status === 'ACTIVE');
-        });
-    }, [customers, projects]);
+        return (Array.isArray(customers) ? customers : []);
+    }, [customers]);
 
     const subtotal = useMemo(() => {
         return lines.reduce((acc, line) => acc + (line.quantity * Math.max(0, line.unitPrice - line.discount)), 0);

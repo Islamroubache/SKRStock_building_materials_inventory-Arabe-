@@ -7,7 +7,22 @@ export async function GET(request: Request) {
             orderBy: { date: 'desc' },
             include: {
                 customer: true,
-                order: { select: { orderNumber: true } }
+                supplier: true,
+                order: {
+                    include: {
+                        items: {
+                            include: {
+                                product: true
+                            }
+                        },
+                        project: true,
+                        customer: true,
+                        supplier: true
+                    }
+                },
+                payments: {
+                    orderBy: { paymentDate: 'desc' }
+                }
             }
         });
         return NextResponse.json(invoices);

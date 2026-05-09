@@ -9,11 +9,8 @@ import {
     Calendar, Phone, MapPin, MoreVertical, ExternalLink, X,
     Printer, Activity, RotateCcw, Package, Info, Eye, ShoppingBag, Edit,
     Banknote, ArrowUpRight, AlertCircle, Check, Mail, BarChart3, Star, Power,
-    Filter, ArrowDownAZ, SortDesc, Search, Download, FileSpreadsheet
+    Filter, ArrowDownAZ, SortDesc, Search, Download, FileSpreadsheet, Users
 } from 'lucide-react';
-import {
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
-} from 'recharts';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
@@ -29,7 +26,7 @@ export default function CustomerDetailPage() {
     const [customer, setCustomer] = useState<any>(null);
     const [payments, setPayments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'PROJECTS' | 'ORDERS' | 'INVOICES' | 'PAYMENTS' | 'SOA'>('PROJECTS');
+    const [activeTab, setActiveTab] = useState<'PROJECTS' | 'ORDERS' | 'PRODUCTS' | 'SOA'>('PROJECTS');
 
     // Modals
     const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -69,7 +66,7 @@ export default function CustomerDetailPage() {
 
     // Edit Modal states
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editData, setEditData] = useState<any>(null);
+    const [editData, setEditData] = useState<any>({});
     const [touched, setTouched] = useState<Record<string, boolean>>({});
     const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -83,30 +80,6 @@ export default function CustomerDetailPage() {
     const [projectSortBy, setProjectSortBy] = useState<'RECENT' | 'OLD' | 'ALPHA' | 'ORDERS' | 'PURCHASES'>('RECENT');
 
     const exportProjectOrdersCSV = () => {
-        if (!selectedProjectForOrders) return;
-        const orders = customer.orders?.filter((o: any) => o.projectId === selectedProjectForOrders.id && o.type !== 'RETURN_SALE' && o.type !== 'RETURN_PURCHASE') || [];
-        
-        let csv = "\uFEFF"; // UTF-8 BOM for Arabic support in Excel
-        csv += "رقم الطلبية,التاريخ,المبلغ الإجمالي (دج),المدفوع (دج),المتبقي (دج),الحالة\n";
-        
-        orders.forEach((o: any) => {
-            const netTotal = o.total || 0;
-            const paid = o.invoice?.paid || 0;
-            const remaining = o.invoice?.remaining ?? (netTotal - paid);
-            const status = remaining <= 0 ? 'خالص' : (paid > 0 ? 'جزئي' : 'غير مدفوع');
-            
-            csv += `${o.orderNumber},${new Date(o.orderDate).toLocaleDateString('ar-DZ')},${netTotal},${paid},${remaining},${status}\n`;
-        });
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `طلبيات_مشروع_${selectedProjectForOrders.name}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     };
 
     const handleEditKeyDown = (e: React.KeyboardEvent) => {
@@ -157,47 +130,79 @@ export default function CustomerDetailPage() {
         startDate: !!projectData.startDate && new Date(projectData.startDate) <= new Date()
     };
 
-    const editValidations = editData ? {
+    const validateNIF = (nif: string) => {
+        if (!nif) return null;
+        if (!/^\d+$/.test(nif)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
+        if (nif.length !== 15 && nif.length !== 20) return { valid: false, error: "يجب أن يكون 15 أو 20 رقماً بالضبط" };
+        const cat = parseInt(nif[0]);
+        if (cat > 8) return { valid: false, error: "رقم الفئة (أول رقم) يجب أن يكون بين 0 و 8" };
+        const wilCode = parseInt(nif.substring(4, 6));
+        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${nif.substring(4, 6)}) غير صحيح (01-58)` };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const validateNIS = (nis: string) => {
+        if (!nis) return null;
+        if (!/^\d+$/.test(nis)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
+        if (nis.length !== 15 && nis.length !== 18) return { valid: false, error: "يجب أن يكون 15 أو 18 رقماً بالضبط" };
+        if (nis.substring(1, 4) === "000") return { valid: false, error: "سنة التأسيس (الخانة 2-4) لا يمكن أن تكون 000" };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const validateRC = (rc: string) => {
+        if (!rc) return null;
+        const match1 = rc.match(/^(\d{2})\/(\d{2})-(\d{7})(?:\s([AB]))?$/i);
+        if (match1) {
+            const wilCode = parseInt(match1[1]);
+            if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${match1[1]}) غير صحيح (01-58)` };
+            return { valid: true, breakdown: "صحيح" };
+        }
+        const match2 = rc.match(/^(\d{2})\s?([AB])\s?(\d{7})(?:-(\d{2}))?$/i);
+        if (match2) {
+            const wilaya = match2[4];
+            if (wilaya) {
+                const wilCode = parseInt(wilaya);
+                if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${wilaya}) غير صحيح (01-58)` };
+            }
+            return { valid: true, breakdown: "صحيح" };
+        }
+        return { valid: false, error: "الصيغة غير صحيحة. أمثلة: 16/24-0012345 B أو 24 B 0012345-16" };
+    };
+
+    const validateAI = (ai: string) => {
+        if (!ai) return null;
+        const cleanAI = ai.replace(/\s/g, '');
+        if (!/^\d{11}$/.test(cleanAI)) return { valid: false, error: "رقم المادة يجب أن يتكون من 11 رقماً بالضبط" };
+        const wilCode = parseInt(cleanAI.substring(0, 2));
+        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${cleanAI.substring(0, 2)}) غير صحيح (01-58)` };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const nifInfo = useMemo(() => validateNIF(editData.nif || ''), [editData.nif]);
+    const nisInfo = useMemo(() => validateNIS(editData.nis || ''), [editData.nis]);
+    const rcInfo = useMemo(() => validateRC(editData.rc || ''), [editData.rc]);
+    const aiInfo = useMemo(() => validateAI(editData.ai || ''), [editData.ai]);
+
+    const editValidations = useMemo(() => ({
         name: (() => {
-            const words = (editData.name || '').trim().split(/\s+/).filter((w: string) => (w || '').length > 0);
-            return words.length >= 2 && words.slice(0, 2).every((w: string) => (w || '').length >= 3);
-        })(),
-        phone: !editData.phone || /^0[567]\d{8}$/.test(editData.phone),
-        email: !editData.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editData.email),
-        rc: !editData.rc || editData.rc.length === 10,
-        nif: !editData.nif || editData.nif.length === 15,
-        ai: !editData.ai || editData.ai.length === 11,
-        nis: !editData.nis || editData.nis.length === 15,
-        activity: (() => {
-            const predefinedActivities = [
-                "شركة خاصة",
-                "Entreprise de Bâtiment Tous Corps d'État",
-                "Entreprise d'Électricité Générale",
-                "Entreprise d'Électricité Bâtiment",
-                "Entreprise d'Électricité Industrielle",
-                "Installateur Électricien Agréé",
-                "Entreprise de Travaux Publics",
-                "Entreprise de Construction",
-                "Entreprise de Plomberie & Sanitaire",
-                "Entreprise de Climatisation & Froid",
-                "Promoteur Immobilier",
-                "Bureau d'Études Technique",
-                "Revendeur / Détaillant Électricité",
-                "Commerce de Matériaux de Construction",
-                "Administration / Étabلissement Public",
-                "Artisan Électricien",
-                "Particulier",
-            ];
-            const isCustom = editData.activity === 'Autre' || (editData.activity && !predefinedActivities.includes(editData.activity));
-            if (!isCustom) return true;
-            const words = (editData.activity || '').trim().split(/\s+/).filter((w: string) => (w || '').length > 0);
+            const words = (editData.name || '').trim().split(/\s+/).filter(w => w.length > 0);
             return words.length >= 2;
         })(),
-        address: (editData.address || '').trim().length >= 5,
-        commune: (editData.commune || '').trim().length > 0,
-        wilaya: (editData.wilaya || '').trim().length > 0,
-        creditLimit: (editData.creditLimit || 0) >= 0
-    } : null;
+        phone: /^(05|06|07|02)\d{8}$/.test(editData.phone || ''),
+        commune: (editData.commune || '').length > 0,
+        wilaya: (editData.wilaya || '').length > 0,
+        email: !editData.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editData.email),
+        creditLimit: editData.type !== 'LOYAL' || (parseFloat(String(editData.creditLimit)) >= 0),
+        rc: rcInfo === null || rcInfo.valid,
+        nif: nifInfo === null || nifInfo.valid,
+        ai: aiInfo === null || aiInfo.valid,
+        nis: nisInfo === null || nisInfo.valid
+    }), [editData, rcInfo, nifInfo, aiInfo, nisInfo]);
+
+    const isEditValid = useMemo(() => {
+        if (!editValidations) return false;
+        return Object.values(editValidations).every(v => v === true);
+    }, [editValidations]);
 
     const fetchCustomer = async () => {
         setLoading(true);
@@ -206,9 +211,6 @@ export default function CustomerDetailPage() {
             if (res.ok) {
                 const data = await res.json();
                 setCustomer(data);
-                if (data.type !== 'LOYAL') {
-                    setActiveTab('INVOICES');
-                }
             }
             const payRes = await fetch(`/api/payments/customer/${id}`);
             if (payRes.ok) {
@@ -371,18 +373,44 @@ export default function CustomerDetailPage() {
     };
 
     const handleEditCustomer = async () => {
+        if (!isEditValid) return;
         setIsSubmitting(true);
         try {
+            // Only send the fields that exist in the database model
+            const payload = {
+                name: editData.name,
+                activity: editData.activity,
+                type: editData.type,
+                phone: editData.phone,
+                email: editData.email,
+                rc: editData.rc,
+                nif: editData.nif,
+                ai: editData.ai,
+                nis: editData.nis,
+                address: editData.address,
+                commune: editData.commune,
+                wilaya: editData.wilaya,
+                postalCode: editData.postalCode,
+                creditLimit: parseFloat(String(editData.creditLimit)) || 0
+            };
+
             const res = await fetch(`/api/customers/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editData)
+                body: JSON.stringify(payload)
             });
             if (res.ok) {
                 setIsEditModalOpen(false);
                 fetchCustomer();
-            } else { alert('فشل تحديث البيانات'); }
-        } catch { alert('خطأ في الاتصال'); }
+                // Optional: show success toast/alert
+            } else { 
+                const err = await res.json();
+                alert(err.error || 'فشل تحديث البيانات. يرجى التحقق من صحة المعلومات (رقم الهاتف أو السجل التجاري قد يكون مسجلاً مسبقاً)'); 
+            }
+        } catch (e) { 
+            console.error(e);
+            alert('خطأ في الاتصال بالخادم'); 
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -405,65 +433,6 @@ export default function CustomerDetailPage() {
         finally { setIsReturning(false); }
     };
 
-    const getChartData = () => {
-        if (!customer?.orders) return [];
-        const months: Record<string, number> = {};
-        const today = new Date();
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const monthName = d.toLocaleDateString('ar-DZ', { month: 'short', year: 'numeric' });
-            months[monthName] = 0;
-        }
-        customer.orders.forEach((o: any) => {
-            const d = new Date(o.orderDate);
-            const monthName = d.toLocaleDateString('ar-DZ', { month: 'short', year: 'numeric' });
-            if (months[monthName] !== undefined) {
-                months[monthName] += o.totalAmount || o.total;
-            }
-        });
-        return Object.keys(months).map(k => ({ name: k, 'إجمالي المبيعات': months[k] }));
-    };
-
-    const creditStats = useMemo(() => {
-        if (!customer) return null;
-        // Calculate net debt across all orders. Note: o.total already accounts for returns in the API.
-        // We only sum SALE and PURCHASE orders to avoid double-counting return orders.
-        const totalDebt = (customer.orders || []).reduce((sum: number, o: any) => {
-            if (o.type === 'RETURN_SALE' || o.type === 'RETURN_PURCHASE') return sum;
-            const netTotal = o.grandTotal || o.total || 0;
-            const paid = o.invoice?.paid || 0;
-            return sum + (netTotal - paid);
-        }, 0);
-        
-        const limit = customer.creditLimit || 0;
-        const usedPercent = limit > 0 ? (Math.max(0, totalDebt) / limit) * 100 : 0;
-        const remaining = limit - totalDebt;
-        return { totalDebt, limit, usedPercent, remaining };
-    }, [customer]);
-
-    const chartData = useMemo(() => {
-        if (!customer || !customer.orders) return [];
-
-        const months: any = {};
-        const now = new Date();
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthKey = d.toLocaleString('ar-DZ', { month: 'short' });
-            months[monthKey] = { month: monthKey, orders: 0, debt: 0 };
-        }
-
-        (customer.orders || []).forEach((o: any) => {
-            const d = new Date(o.orderDate);
-            const monthKey = d.toLocaleString('ar-DZ', { month: 'short' });
-            if (months[monthKey]) {
-                months[monthKey].orders += o.grandTotal || o.total || 0;
-                const paid = o.invoice?.paid || 0;
-                months[monthKey].debt += Math.max(0, (o.grandTotal || o.total || 0) - paid);
-            }
-        });
-
-        return Object.values(months);
-    }, [customer]);
 
     const filteredOrders = useMemo(() => {
         if (!customer?.orders) return [];
@@ -612,7 +581,7 @@ export default function CustomerDetailPage() {
     };
 
     return (
-        <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8 flex flex-col gap-8 print:bg-white print:p-0" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 p-4 md:p-8 flex flex-col gap-8 print:bg-white print:p-0" dir="rtl">
             <style jsx global>{`
                 @media print {
                     body * { visibility: hidden; }
@@ -640,264 +609,289 @@ export default function CustomerDetailPage() {
                         </div>
                     </div>
 
-                    <div className="flex gap-3">
-                        <button onClick={() => { setEditData({ ...customer }); setIsEditModalOpen(true); }} className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all no-print">
-                            <Edit size={16} /> تعديل البيانات
-                        </button>
-                        {(!isLoyal || hasActiveProject) ? (
-                            <Link href={`/orders/new?customerId=${id}`} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95">
-                                <Plus size={16} /> طلبية بيع جديدة
-                            </Link>
-                        ) : (
-                            <div className="bg-gray-100 text-gray-400 px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 border border-gray-200 cursor-not-allowed group relative" title="يجب تفعيل مشروع واحد على الأقل لهذا المقاول لتمكين الطلبيات">
-                                <Plus size={16} /> طلبية بيع
-                                <div className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                                    يجب تفعيل مشروع واحد على الأقل
-                                </div>
-                            </div>
-                        )}
-                    </div>
+
                 </div>
 
-                {/* Profile & Credit */}
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    <div className="xl:col-span-1 flex flex-col gap-6">
-                        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col relative overflow-hidden transition-all hover:shadow-md group">
-                            <div className={`h-32 bg-gradient-to-br ${getAvatarStyle(customer.id)} opacity-20 absolute top-0 left-0 w-full`}></div>
-                            <div className={`h-32 bg-gradient-to-br ${getAvatarStyle(customer.id)} absolute top-0 left-0 w-full opacity-5 group-hover:opacity-10 transition-opacity`}></div>
-                            
-                            <div className="p-8 relative z-10 flex flex-col items-center">
-                                <div className={`w-28 h-28 rounded-[2.2rem] bg-gradient-to-br ${getAvatarStyle(customer.id)} border-[6px] border-white flex items-center justify-center shadow-2xl relative overflow-hidden mt-2 group-hover:scale-105 transition-transform duration-500`}>
-                                    <img 
-                                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name)}&backgroundColor=transparent&textColor=ffffff&fontWeight=900&fontSize=40`} 
-                                        alt={customer.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                
-                                <div className="text-center mt-6">
-                                    <h2 className="text-2xl font-black text-gray-900 leading-tight">{customer.name}</h2>
-                                    <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-                                        <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-black uppercase tracking-wider">
-                                            {customer.activity || 'شركة خاصة'}
-                                        </span>
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${customer.type === 'LOYAL' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-gray-200 text-gray-700'}`}>
-                                            {customer.type === 'LOYAL' ? 'عميل دائم' : 'عميل عابر'}
-                                        </span>
-                                    </div>
-                                    
-                                    {/* Stats Highlights */}
-                                    <div className="flex items-center justify-center gap-6 mt-6 border-t border-gray-50 pt-6">
-                                        <div className="text-center">
-                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">تاريخ الانضمام</p>
-                                            <p className="text-xs font-black text-gray-700 font-sans">{new Date(customer.createdAt).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
-                                        </div>
-                                        <div className="w-px h-8 bg-gray-100"></div>
-                                        <div className="text-center">
-                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي المشتريات</p>
-                                            <p className="text-xs font-black text-blue-600 font-sans">
-                                                {(customer.orders?.reduce((sum: number, o: any) => sum + (o.grandTotal || 0), 0) || 0).toLocaleString()} دج
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                {/* ===== FULL WIDTH CUSTOMER CARD ===== */}
+                {overCredit && (
+                    <div className="bg-red-600 text-white p-5 rounded-2xl shadow-xl shadow-red-200 flex items-center gap-5 animate-pulse mb-2">
+                        <div className="bg-white/20 p-3 rounded-xl"><AlertTriangle size={28} /></div>
+                        <div>
+                            <h3 className="text-lg font-black">تجاوز الحد الائتماني!</h3>
+                            <p className="font-bold opacity-80 text-sm mt-0.5">يجب على العميل تسديد جزء من ديونه ليتمكن من القيام بعمليات شراء آجلة أخرى.</p>
+                        </div>
+                    </div>
+                )}
 
-                                <div className="w-full flex flex-col gap-3 mt-8">
-                                    <div className="flex items-center gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 hover:bg-blue-50 transition-colors">
-                                        <div className="bg-white p-2.5 rounded-xl text-blue-600 shadow-sm"><Phone size={18} /></div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-0.5">اتصال وتواصل</p>
-                                            <p className="font-black font-sans text-gray-900 text-sm" dir="ltr">{customer.phone || '---'}</p>
-                                        </div>
-                                    </div>
+                <div className="bg-white rounded-[2rem] border border-gray-200 shadow-xl shadow-gray-100 overflow-hidden">
+                    <div className="px-8 py-12 flex flex-col items-center text-center gap-6 bg-emerald-50/40">
+                        {/* Name + Activity + Edit Button */}
+                        <div className="w-full flex items-center justify-between gap-6 max-w-4xl">
+                            <div className="flex-1" /> {/* Spacer */}
+                            <div className="flex flex-col items-center gap-2 flex-1">
+                                <h2 className="text-3xl font-black text-gray-900 tracking-tight">{customer.name}</h2>
+                                <span className="px-4 py-1.5 bg-white shadow-sm text-gray-600 rounded-full text-[11px] font-black uppercase tracking-wider border border-emerald-100">
+                                    {customer.activity || 'شركة خاصة'}
+                                </span>
+                            </div>
+                            <div className="flex-1 flex justify-end">
+                                <button 
+                                    onClick={() => { 
+                                        // Normalize wilaya/commune to match ALGERIA_LOCATIONS exactly
+                                        const normalizedData = { ...customer };
+                                        if (normalizedData.wilaya) {
+                                            // Handle formats like "18 - Jijel" or just "Jijel"
+                                            const rawWilayaName = normalizedData.wilaya.includes(' - ') 
+                                                ? normalizedData.wilaya.split(' - ')[1].trim() 
+                                                : normalizedData.wilaya.trim();
 
-                                    <div className="flex items-start gap-4 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 hover:bg-emerald-50 transition-colors">
-                                        <div className="bg-white p-2.5 rounded-xl text-emerald-600 shadow-sm mt-1"><MapPin size={18} /></div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">الموقع الجغرافي</p>
-                                            <p className="font-black text-gray-900 leading-tight text-sm">
-                                                {customer.address}
-                                                <span className="block text-gray-500 font-bold text-[11px] mt-1">{customer.commune} - {customer.wilaya}</span>
-                                            </p>
-                                        </div>
-                                    </div>
+                                            const wMatch = ALGERIA_LOCATIONS.find(l => 
+                                                l.name.toLowerCase() === rawWilayaName.toLowerCase() ||
+                                                l.id === normalizedData.wilaya.split(' - ')[0].trim()
+                                            );
 
-                                    <div className="flex items-center gap-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 hover:bg-indigo-50 transition-colors">
-                                        <div className="bg-white p-2.5 rounded-xl text-indigo-600 shadow-sm"><Mail size={18} /></div>
-                                        <div className="text-right flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">البريد الإلكتروني</p>
-                                            <p className="font-black font-sans text-gray-900 text-sm truncate" dir="ltr" title={customer.email}>{customer.email || '---'}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                            if (wMatch) {
+                                                normalizedData.wilaya = wMatch.name;
+                                                if (normalizedData.commune) {
+                                                    const cMatch = wMatch.communes.find(c => c.name.toLowerCase() === normalizedData.commune?.toLowerCase().trim());
+                                                    if (cMatch) {
+                                                        normalizedData.commune = cMatch.name;
+                                                        normalizedData.postalCode = cMatch.postCode;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        setEditData(normalizedData); 
+                                        setTouched({}); // Reset touched state when opening
+                                        setIsEditModalOpen(true); 
+                                    }} 
+                                    className="bg-white/60 backdrop-blur-md border border-emerald-200 text-emerald-700 px-5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-2 shadow-sm hover:bg-white hover:border-emerald-300 transition-all no-print"
+                                >
+                                    <Edit size={14} /> تعديل البيانات
+                                </button>
                             </div>
                         </div>
 
-                        {/* Legal Info Card */}
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col gap-6 relative overflow-hidden transition-all hover:shadow-md group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                            
-                            <h3 className="text-xl font-black text-gray-900 flex items-center gap-3 relative z-10">
-                                <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shadow-sm"><FileText size={22} /></div>
-                                الوثائق القانونية
-                            </h3>
-                            
-                            <div className="grid grid-cols-1 gap-3 relative z-10">
-                                <div className="flex justify-between items-center p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 hover:bg-amber-50 transition-colors group/row">
-                                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-tight">رقم السجل التجاري (RC)</span>
-                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-lg shadow-sm">{customer.rc || '---'}</span>
-                                </div>
-                                <div className="flex justify-between items-center p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50 hover:bg-blue-50 transition-colors group/row">
-                                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-tight">الرقم الضريبي (NIF)</span>
-                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-lg shadow-sm">{customer.nif || '---'}</span>
-                                </div>
-                                <div className="flex justify-between items-center p-4 bg-purple-50/50 rounded-2xl border border-purple-100/50 hover:bg-purple-50 transition-colors group/row">
-                                    <span className="text-[10px] font-black text-purple-500 uppercase tracking-tight">رقم المادة (AI)</span>
-                                    <span className="font-black font-sans text-gray-900 text-sm bg-white px-3 py-1 rounded-lg shadow-sm">{customer.ai || '---'}</span>
-                                </div>
-                                <div className="flex justify-between items-center p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 hover:bg-slate-50 transition-colors group/row">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">الرقم الإحصائي (NIS)</span>
-                                    <span className="font-black font-sans text-gray-900 text-[11px] bg-white px-3 py-1 rounded-lg shadow-sm">{customer.nis || '---'}</span>
-                                </div>
+                        {/* Stats Highlights Centered */}
+                        <div className="flex items-center justify-center gap-12 py-6 w-full max-w-2xl">
+                            <div className="text-center">
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">تاريخ الانضمام</p>
+                                <p className="text-sm font-black text-gray-700 font-sans">{new Date(customer.createdAt).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                            </div>
+                            <div className="w-px h-10 bg-emerald-100" />
+                            <div className="text-center">
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">إجمالي المشتريات</p>
+                                <p className="text-sm font-black text-blue-600 font-sans">
+                                    {(customer.orders?.reduce((sum: number, o: any) => sum + (o.grandTotal || 0), 0) || 0).toLocaleString()} دج
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="xl:col-span-2 flex flex-col gap-8">
-                        {overCredit && (
-                            <div className="bg-red-600 text-white p-6 rounded-[2rem] shadow-xl shadow-red-200 flex items-center gap-6 animate-pulse">
-                                <div className="bg-white/20 p-4 rounded-2xl"><AlertTriangle size={32} /></div>
-                                <div>
-                                    <h3 className="text-xl font-black">تجاوز الحد الائتماني!</h3>
-                                    <p className="font-bold opacity-80 mt-1">يجب على العميل تسديد جزء من ديونه ليتمكن من القيام بعمليات شراء آجلة أخرى.</p>
+                    <div className="px-8 pb-8 flex flex-col gap-8">
+
+
+                        {/* Divider */}
+                        <div className="border-t border-gray-100" />
+
+                        {/* Sections Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+                            {/* Section 1: Contact */}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Phone size={11} /> اتصال وتواصل
+                                </p>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-3 p-3 bg-blue-50/60 rounded-xl border border-blue-100/50">
+                                        <Phone size={15} className="text-blue-500 shrink-0" />
+                                        <span className="font-black font-sans text-gray-900 text-sm" dir="ltr">{customer.phone || '---'}</span>
+                                    </div>
+                                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                        <MapPin size={15} className="text-gray-500 shrink-0 mt-0.5" />
+                                        <div className="flex flex-col gap-0.5">
+                                            <p className="font-black text-gray-900 text-sm">{customer.address || '---'}</p>
+                                            <p className="text-gray-500 font-bold text-[11px]">{customer.commune} - {customer.wilaya}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">الرمز البريدي:</span>
+                                                <span className="font-black font-sans text-emerald-600 text-[11px]">{customer.postalCode || '---'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                        <Mail size={15} className="text-gray-500 shrink-0" />
+                                        <span className="font-black font-sans text-gray-900 text-sm truncate" dir="ltr">{customer.email || '---'}</span>
+                                    </div>
                                 </div>
+                                <div className="border-t border-dashed border-gray-200 mt-2" />
                             </div>
-                        )}
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                            <h3 className="text-xl font-black text-gray-900 mb-10">تحليل الرصيد والائتمان</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">إجمالي الدين المستحق</span>
-                                    <span className={`text-3xl font-black font-sans ${creditStats && creditStats.totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{creditStats?.totalDebt?.toLocaleString()} دج</span>
+
+                            {/* Section 2: Legal Documents */}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <FileText size={11} /> الوثائق القانونية
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { label: 'RC', value: customer.rc },
+                                        { label: 'NIF', value: customer.nif },
+                                        { label: 'AI', value: customer.ai },
+                                        { label: 'NIS', value: customer.nis },
+                                    ].map(({ label, value }) => (
+                                        <div key={label} className="flex flex-col gap-1 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                            <span className="text-[9px] font-black text-gray-400 uppercase">{label}</span>
+                                            <span className="font-black font-sans text-gray-900 text-[11px] break-all">{value || '---'}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الحد الائتماني المعتمد</span>
-                                    <span className="text-3xl font-black font-sans text-gray-900">{creditStats?.limit?.toLocaleString()} دج</span>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الرصيد الائتماني المتاح</span>
-                                    <span className="text-3xl font-black font-sans text-blue-600">{creditStats?.remaining?.toLocaleString()} دج</span>
-                                </div>
+                                <div className="border-t border-dashed border-gray-200 mt-2" />
                             </div>
-                            <div className="mt-10">
-                                <div className="flex justify-between items-center mb-3">
-                                    <span className="text-xs font-black text-gray-500">معدل استخدام الائتمان</span>
-                                    <span className={`text-xs font-black font-sans ${overCredit ? 'text-red-600' : 'text-blue-600'}`}>{creditStats ? Math.round(creditStats.usedPercent) : 0}%</span>
-                                </div>
-                                <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className={`h-full transition-all duration-1000 ease-out ${overCredit ? 'bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]'}`} style={{ width: `${creditStats ? Math.min(100, creditStats.usedPercent) : 0}%` }}></div>
-                                </div>
-                                {customer.balanceDue > 0 && (
-                                    <div className="mt-8">
-                                        <button 
-                                            onClick={() => {
-                                                setShowPaymentModal({
-                                                    isGlobal: true,
-                                                    id: -1,
-                                                    invoiceNumber: 'تسديد شامل للرصيد',
-                                                    remaining: customer.balanceDue
-                                                });
-                                                setPaymentAmount(customer.balanceDue);
-                                            }} 
-                                            className="bg-blue-600 text-white px-5 py-4 rounded-2xl text-sm font-black shadow-xl shadow-blue-200 hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-3 w-full justify-center"
-                                        >
-                                            <CreditCard size={20} /> تسديد الديون (الأقدم فأقدم)
-                                        </button>
+
+                            {/* Section 3: Credit Analysis */}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <CreditCard size={11} /> تحليل الرصيد والائتمان
+                                </p>
+                                {(customer.creditLimit || 0) > 0 ? (
+                                    <div className="flex flex-col gap-3">
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {(() => {
+                                                const balance = customer.balanceDue || 0;
+                                                let bgColor = 'bg-emerald-50 border-emerald-100';
+                                                let textColor = 'text-emerald-600';
+                                                let labelColor = 'text-emerald-400';
+
+                                                if (balance > 0) {
+                                                    bgColor = 'bg-red-50 border-red-100';
+                                                    textColor = 'text-red-600';
+                                                    labelColor = 'text-red-400';
+                                                } else if (balance < 0) {
+                                                    bgColor = 'bg-violet-50 border-violet-100';
+                                                    textColor = 'text-violet-600';
+                                                    labelColor = 'text-violet-400';
+                                                }
+
+                                                return (
+                                                    <div className={`p-4 ${bgColor} rounded-xl border`}>
+                                                        <p className={`text-[9px] font-black ${labelColor} uppercase mb-1 tracking-tighter`}>إجمالي الدين المستحق</p>
+                                                        <p className={`text-2xl font-black font-sans ${textColor}`}>
+                                                            {Math.abs(balance).toLocaleString()} دج
+                                                            {balance < 0 && <span className="text-[10px] mr-2">(رصيد زائد)</span>}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            })()}
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase mb-1">الحد الائتماني</p>
+                                                    <p className="text-sm font-black font-sans text-gray-900">{(customer.creditLimit || 0).toLocaleString()} دج</p>
+                                                </div>
+                                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase mb-1">المتاح</p>
+                                                    <p className="text-sm font-black font-sans text-blue-600">{Math.max(0, (customer.creditLimit || 0) - (customer.balanceDue || 0)).toLocaleString()} دج</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between mb-1.5">
+                                                <span className="text-[9px] font-black text-gray-400 uppercase">معدل الاستخدام</span>
+                                                <span className={`text-[9px] font-black font-sans ${overCredit ? 'text-red-600' : 'text-blue-600'}`}>
+                                                    {Math.round(((customer.balanceDue || 0) / customer.creditLimit) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-1000 ease-out ${overCredit ? 'bg-red-500' : 'bg-blue-500'}`}
+                                                    style={{ width: `${Math.min(100, ((customer.balanceDue || 0) / customer.creditLimit) * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                        {customer.balanceDue > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowPaymentModal({ isGlobal: true, id: -1, invoiceNumber: 'تسديد شامل للرصيد', remaining: customer.balanceDue });
+                                                    setPaymentAmount(customer.balanceDue);
+                                                }}
+                                                className="w-full bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl text-xs font-black shadow-sm hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <CreditCard size={14} /> تسديد الديون
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-2">
+                                        {(() => {
+                                            const balance = customer.balanceDue || 0;
+                                            let bgColor = 'bg-emerald-50 border-emerald-100';
+                                            let textColor = 'text-emerald-600';
+                                            let labelColor = 'text-emerald-400';
+
+                                            if (balance > 0) {
+                                                bgColor = 'bg-red-50 border-red-100';
+                                                textColor = 'text-red-600';
+                                                labelColor = 'text-red-400';
+                                            } else if (balance < 0) {
+                                                bgColor = 'bg-violet-50 border-violet-100';
+                                                textColor = 'text-violet-600';
+                                                labelColor = 'text-violet-400';
+                                            }
+
+                                            return (
+                                                <div className={`p-4 ${bgColor} rounded-xl border`}>
+                                                    <p className={`text-[9px] font-black ${labelColor} uppercase mb-1 tracking-tighter`}>إجمالي الدين المستحق</p>
+                                                    <p className={`text-2xl font-black font-sans ${textColor}`}>
+                                                        {Math.abs(balance).toLocaleString()} دج
+                                                        {balance < 0 && <span className="text-[10px] mr-2">(رصيد زائد)</span>}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {customer.balanceDue > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowPaymentModal({ isGlobal: true, id: -1, invoiceNumber: 'تسديد شامل للرصيد', remaining: customer.balanceDue });
+                                                    setPaymentAmount(customer.balanceDue);
+                                                }}
+                                                className="w-full bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl text-xs font-black shadow-sm hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <CreditCard size={14} /> تسديد الديون
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
-
-                        {/* Chart Section */}
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm no-print">
-                            <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                                <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><Activity size={20} /></div>
-                                منحنى المشتريات والديون (آخر 6 أشهر)
-                            </h3>
-                            <div className="h-[300px] w-full mt-4">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis 
-                                            dataKey="month" 
-                                            axisLine={false} 
-                                            tickLine={false} 
-                                            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
-                                        />
-                                        <YAxis 
-                                            axisLine={false} 
-                                            tickLine={false} 
-                                            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
-                                            tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
-                                        />
-                                        <RechartsTooltip 
-                                            contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 900, textAlign: 'right' }}
-                                            itemStyle={{ fontWeight: 900 }}
-                                            labelStyle={{ fontWeight: 900, marginBottom: '0.5rem', color: '#1e293b' }}
-                                        />
-                                        <Line 
-                                            type="monotone" 
-                                            dataKey="orders" 
-                                            stroke="#2563eb" 
-                                            strokeWidth={4} 
-                                            dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }} 
-                                            activeDot={{ r: 6, strokeWidth: 0 }}
-                                            name="إجمالي المشتريات"
-                                        />
-                                        <Line 
-                                            type="monotone" 
-                                            dataKey="debt" 
-                                            stroke="#dc2626" 
-                                            strokeWidth={4} 
-                                            dot={{ r: 4, fill: '#dc2626', strokeWidth: 2, stroke: '#fff' }} 
-                                            activeDot={{ r: 6, strokeWidth: 0 }}
-                                            name="الديون المتبقية"
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
-                {/* Tabs */}
                 <div className="mt-8 flex flex-col gap-6">
-                    <div className="flex gap-2 p-1 bg-white border border-gray-200 rounded-2xl w-fit shadow-sm no-print">
-                        {isLoyal && (
-                            <button onClick={() => setActiveTab('PROJECTS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'PROJECTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                <Briefcase size={16} /> المشاريع
-                            </button>
-                        )}
-                        {(() => {
-                            const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && o.type === 'SALE');
-                            if (generalOrders.length === 0) return null;
-                            return (
-                                <button onClick={() => setActiveTab('ORDERS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'ORDERS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                    <ShoppingCart size={16} /> طلبيات عامة
-                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>{generalOrders.length}</span>
-                                </button>
-                            );
-                        })()}
-                        <button onClick={() => setActiveTab('INVOICES')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'INVOICES' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
-                            <BarChart3 size={16} /> المنتجات الأكثر طلباً
+                    <div className="flex gap-2 p-1 bg-white border border-gray-200 rounded-2xl shadow-sm no-print overflow-x-auto">
+                        <button onClick={() => setActiveTab('PROJECTS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'PROJECTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            <Briefcase size={16} /> المشاريع
                         </button>
-                        <button onClick={() => setActiveTab('SOA')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTab === 'SOA' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                        
+                        <button onClick={() => setActiveTab('ORDERS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'ORDERS' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            <ShoppingCart size={16} /> طلبيات عامة
+                            {(() => {
+                                const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && o.type === 'SALE');
+                                if (generalOrders.length > 0) {
+                                    return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>{generalOrders.length}</span>;
+                                }
+                                return null;
+                            })()}
+                        </button>
+                        
+                        <button onClick={() => setActiveTab('PRODUCTS')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'PRODUCTS' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            <Star size={16} /> المنتجات الأكثر طلباً
+                        </button>
+                        
+                        <button onClick={() => setActiveTab('SOA')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'SOA' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}>
                             <Printer size={16} /> كشف الحساب
                         </button>
                     </div>
 
                     <div className="min-h-[400px]">
-                        {activeTab === 'PROJECTS' && isLoyal && (
+                        {activeTab === 'PROJECTS' && (
                             <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 {/* Filter & Sort Bar */}
                                 <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-4 no-print">
@@ -1170,7 +1164,7 @@ export default function CustomerDetailPage() {
                         })()}
 
 
-                        {activeTab === 'INVOICES' && (
+                        {activeTab === 'PRODUCTS' && (
                             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl animate-in fade-in duration-500">
                                 <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
                                     <div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Star size={20} /></div>
@@ -1918,6 +1912,14 @@ export default function CustomerDetailPage() {
                                                         <span>{new Date(p.paymentDate).toLocaleString('ar-DZ')}</span>
                                                         <Clock size={12} />
                                                     </div>
+
+                                                    {/* Description / Note */}
+                                                    <div className={`mt-1 p-2 rounded-lg border ${p.isReturn ? 'bg-orange-100/30 border-orange-200/50' : 'bg-white border-gray-100'} flex flex-col gap-0.5`} dir="rtl">
+                                                        <span className={`text-[8px] font-black uppercase tracking-tighter ${p.isReturn ? 'text-orange-600' : 'text-gray-400'}`}>الوصف:</span>
+                                                        <p className={`text-[11px] font-black ${p.isReturn ? 'text-orange-900' : 'text-gray-700'} leading-none`}>
+                                                            {p.notes || (p.amount < 0 ? 'إرجاع رصيد زائد للعميل' : 'تسديد دفعة مالية')}
+                                                        </p>
+                                                    </div>
                                                     {(p.paymentMethod === 'CHEQUE' || p.paymentMethod === 'BANK_TRANSFER' || p.chequeNumber) && (
                                                         <div className="mt-2 flex flex-col gap-1 bg-blue-50 border border-blue-100 p-3 rounded-xl text-right" dir="rtl">
                                                             {p.bankName && <div className="text-[10px] font-black text-blue-700 flex items-center gap-1 justify-end">🏛️ {p.bankName}</div>}
@@ -2504,372 +2506,359 @@ export default function CustomerDetailPage() {
                     </div>
                 )}
 
-                {/* EDIT CUSTOMER SHEET */}
-                {isEditModalOpen && editData && (
+                {/* EDIT CUSTOMER SIDEBAR (SHEET STYLE) */}
+                {isEditModalOpen && (
                     <>
-                        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[200] transition-opacity no-print" onClick={() => setIsEditModalOpen(false)} />
-                        <div className="fixed top-0 bottom-0 right-0 w-full max-w-md bg-white border-l border-gray-200 shadow-2xl z-[201] flex flex-col animate-in slide-in-from-right duration-300 no-print">
-                            <div className="p-5 w-full flex items-center justify-between border-b border-gray-200 bg-gray-50">
-                                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                    <Plus size={20} className="text-blue-600" /> تعديل بيانات العميل
-                                </h2>
-                                <button onClick={() => setIsEditModalOpen(false)} className="text-gray-500 hover:bg-gray-200 rounded-full p-1.5 transition-colors">
-                                    <X size={18} />
+                        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[200] transition-opacity duration-300" onClick={() => setIsEditModalOpen(false)} />
+                        <div className="fixed top-0 bottom-0 left-0 w-full max-w-lg bg-white shadow-2xl z-[210] flex flex-col animate-in slide-in-from-left duration-500 overflow-hidden">
+                            {/* Header */}
+                            <div className="p-8 w-full flex items-center justify-between bg-[#8b5cf6] text-white shadow-lg">
+                                <div>
+                                    <h2 className="text-2xl font-black flex items-center gap-3">
+                                        <Edit size={28} className="bg-white/20 p-1 rounded-lg" /> تعديل بيانات العميل
+                                    </h2>
+                                    <p className="text-white/70 text-xs font-bold mt-1 tracking-tight uppercase">تحديث معلومات العميل في قاعدة البيانات</p>
+                                </div>
+                                <button onClick={() => setIsEditModalOpen(false)} className="bg-white/10 hover:bg-white/20 text-white rounded-2xl p-2 transition-all active:scale-90">
+                                    <X size={24} />
                                 </button>
                             </div>
 
-                            <div className="p-6 flex-1 overflow-y-auto space-y-5" onKeyDown={handleEditKeyDown}>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-gray-700">اسم العميل <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        value={editData.name || ''}
-                                        onChange={e => setEditData({ ...editData, name: e.target.value.toUpperCase() })}
-                                        onBlur={() => setFieldTouched('name')}
-                                        className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 uppercase transition-all
-                                            ${touched.name && !editValidations?.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
-                                        required
-                                    />
-                                    {touched.name && !editValidations?.name && (
-                                        <p className="text-[10px] text-red-500 font-bold mt-1">يجب إدخال اسم العميل (كلمتان على الأقل، كل كلمة 3 أحرف على الأقل).</p>
-                                    )}
-                                </div>
+                            <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/30" onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                    const form = e.currentTarget;
+                                    const focusableElements = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+                                    const index = focusableElements.indexOf(e.target as any);
+                                    if (index > -1 && index < focusableElements.length - 1) {
+                                        e.preventDefault();
+                                        (focusableElements[index + 1] as HTMLElement).focus();
+                                    }
+                                }
+                            }}>
+                                
+                                {/* Section 1: Basic Info - VIOLET */}
+                                <div className="space-y-6 p-6 bg-white border-2 border-violet-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-violet-200">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-8 bg-violet-500 rounded-full"></div>
+                                        <h3 className="text-sm font-black text-violet-600 uppercase tracking-widest">المعلومات الشخصية</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-5">
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">اسم العميل <span className="text-red-500">*</span></label>
+                                            <input
+                                                type="text"
+                                                value={editData.name || ''}
+                                                onChange={e => setEditData({ ...editData, name: e.target.value.toUpperCase() })}
+                                                onBlur={() => setFieldTouched('name')}
+                                                placeholder="مثال: محمد الأمين..."
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none transition-all
+                                                    ${touched.name && !editValidations?.name ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`}
+                                                required
+                                            />
+                                            {touched.name && !editValidations?.name && (
+                                                <p className="text-[10px] text-red-500 font-bold mr-2 animate-bounce">
+                                                    يجب إدخال اسم العميل (كلمتان على الأقل).
+                                                </p>
+                                            )}
+                                        </div>
 
-                                {/* ACTIVITY FIELD */}
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-gray-700">النشاط التجاري <span className="text-red-500">*</span></label>
-                                    {(() => {
-                                        const predefinedActivities = [
-                                            "شركة خاصة",
-                                            "Entreprise de Bâtiment Tous Corps d'État",
-                                            "Entreprise d'Électricité Générale",
-                                            "Entreprise d'Électricité Bâtiment",
-                                            "Entreprise d'Électricité Industrielle",
-                                            "Installateur Électricien Agréé",
-                                            "Entreprise de Travaux Publics",
-                                            "Entreprise de Construction",
-                                            "Entreprise de Plomبرية & Sanitaire",
-                                            "Entreprise de Climatisation & Froid",
-                                            "Promoteur Immobilier",
-                                            "Bureau d'Études Technique",
-                                            "Revendeur / Détaillant Électricité",
-                                            "Commerce de Matériaux de Construction",
-                                            "Administration / Établissement Public",
-                                            "Artisan Électricien",
-                                            "Particulier",
-                                        ];
-                                        const isCustom = editData.activity === 'Autre' || (editData.activity && !predefinedActivities.includes(editData.activity));
-                                        const selectValue = isCustom ? 'Autre' : editData.activity;
-                                        return (
-                                            <>
-                                                <select
-                                                    value={selectValue || ''}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">النشاط التجاري (اختياري)</label>
+                                            <input
+                                                type="text"
+                                                value={editData.activity || ''}
+                                                onChange={e => setEditData({ ...editData, activity: e.target.value.toUpperCase() })}
+                                                placeholder="أدخل النشاط التجاري هنا..."
+                                                className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white transition-all"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم الهاتف <span className="text-red-500">*</span></label>
+                                            <div className="relative group">
+                                                <input
+                                                    type="text"
+                                                    maxLength={10}
+                                                    value={editData.phone || ''}
                                                     onChange={e => {
-                                                        if (e.target.value === 'Autre') {
-                                                            setEditData({ ...editData, activity: 'Autre' });
-                                                        } else {
-                                                            setEditData({ ...editData, activity: e.target.value });
-                                                        }
+                                                        const val = e.target.value.replace(/\D/g, '');
+                                                        if (val.length === 1 && val[0] !== '0') return;
+                                                        if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return;
+                                                        setEditData({ ...editData, phone: val });
                                                     }}
-                                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                                >
-                                                    {predefinedActivities.map(a => (
-                                                        <option key={a} value={a}>{a}</option>
-                                                    ))}
-                                                    <option value="Autre">Autre (saisie manuelle)</option>
-                                                </select>
-                                                {isCustom && (
-                                                    <>
-                                                        <input
-                                                            type="text"
-                                                            value={editData.activity === 'Autre' ? '' : editData.activity}
-                                                            onChange={e => setEditData({ ...editData, activity: e.target.value || 'Autre' })}
-                                                            onBlur={() => setFieldTouched('activity')}
-                                                            placeholder="أدخل النشاط التجاري يدوياً..."
-                                                            className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all mt-2
-                                                                ${touched.activity && !editValidations?.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50'}`}
-                                                            autoFocus
-                                                        />
-                                                        {touched.activity && !editValidations?.activity && (
-                                                            <p className="text-[10px] text-red-500 font-bold mt-1">يجب إدخال كلمتين على الأقل للنشاط.</p>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </>
-                                        );
-                                    })()}
+                                                    onBlur={() => setFieldTouched('phone')}
+                                                    placeholder="05 / 06 / 07 ..."
+                                                    className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-12 py-3.5 text-gray-900 font-bold font-sans transition-all
+                                                        ${touched.phone && !editValidations?.phone ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`}
+                                                    dir="ltr"
+                                                />
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-violet-400 transition-colors">
+                                                    <Phone size={18} />
+                                                </div>
+                                            </div>
+                                            {touched.phone && !editValidations?.phone && (
+                                                <p className="text-[10px] text-red-500 font-bold mr-2">رقم الهاتف غير صحيح.</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">البريد الإلكتروني (اختياري)</label>
+                                            <input
+                                                type="email"
+                                                value={editData.email || ''}
+                                                onChange={e => setEditData({ ...editData, email: e.target.value })}
+                                                onBlur={() => setFieldTouched('email')}
+                                                placeholder="example@domain.com"
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                    ${touched.email && !editValidations?.email ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-gray-700">الحد الائتماني (دج) <span className="text-red-500">*</span></label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            dir="ltr"
-                                            value={String(editData.creditLimit || '').replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                                            onChange={e => {
-                                                const raw = e.target.value.replace(/\D/g, '');
-                                                setEditData({ ...editData, creditLimit: parseFloat(raw) || 0 });
-                                            }}
-                                            onBlur={() => setFieldTouched('creditLimit')}
-                                            className={`w-full bg-white border rounded-lg pr-16 pl-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all font-sans text-right
-                                                ${touched.creditLimit && !editValidations?.creditLimit ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
-                                            placeholder="100 000"
-                                            required
-                                        />
-                                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-sans font-bold pointer-events-none uppercase ${touched.creditLimit && !editValidations?.creditLimit ? 'text-red-500' : 'text-gray-900'}`}>DZD</span>
+                            {/* Section 2: Account Settings - BLUE */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-blue-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-blue-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest">نوع الحساب والائتمان</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button 
+                                            onClick={() => setEditData({ ...editData, type: 'REGULAR', creditLimit: 0 })}
+                                            className={`p-5 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${editData.type === 'REGULAR' ? 'border-blue-500 bg-blue-50/50 shadow-inner scale-95' : 'border-gray-50 bg-gray-50/30 hover:border-blue-200 hover:bg-white'}`}
+                                        >
+                                            <div className={`p-2 rounded-xl ${editData.type === 'REGULAR' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+                                                <Users size={22} />
+                                            </div>
+                                            <span className={`text-xs font-black ${editData.type === 'REGULAR' ? 'text-blue-700' : 'text-gray-500'}`}>بدون سقف ائتماني</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setEditData({ ...editData, type: 'LOYAL' })}
+                                            className={`p-5 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${editData.type === 'LOYAL' ? 'border-blue-500 bg-blue-50/50 shadow-inner scale-95' : 'border-gray-50 bg-gray-50/30 hover:border-blue-200 hover:bg-white'}`}
+                                        >
+                                            <div className={`p-2 rounded-xl ${editData.type === 'LOYAL' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+                                                <CreditCard size={22} />
+                                            </div>
+                                            <span className={`text-xs font-black ${editData.type === 'LOYAL' ? 'text-blue-700' : 'text-gray-500'}`}>بسقف ائتماني</span>
+                                        </button>
                                     </div>
-                                    {touched.creditLimit && !editValidations?.creditLimit && (
-                                        <p className="text-[10px] text-red-500 font-bold mt-1">يرجى تحديد الحد الائتماني للديون.</p>
+
+                                    {editData.type === 'LOYAL' && (
+                                        <div className="animate-in zoom-in-95 duration-300">
+                                            <div className="bg-blue-50/80 p-4 rounded-2xl border-2 border-blue-100 mb-5 flex items-start gap-3">
+                                                <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
+                                                <p className="text-[10px] text-blue-800 font-bold leading-relaxed">
+                                                    تحديد سقف ائتماني يسمح للعميل بالتعامل بالدين حتى مبلغ معين. سيتم تنبيهك عند اقتراب العميل من هذا السقف.
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الحد الائتماني (اختياري)</label>
+                                                <div className="relative group">
+                                                    <input
+                                                        type="text"
+                                                        dir="ltr"
+                                                        value={String(editData.creditLimit || '').replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                                                        onChange={e => setEditData({ ...editData, creditLimit: parseFloat(e.target.value.replace(/\D/g, '')) || 0 })}
+                                                        onBlur={() => setFieldTouched('creditLimit')}
+                                                        placeholder="100 000"
+                                                        className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-14 py-3.5 text-gray-900 font-black font-sans text-right focus:outline-none transition-all
+                                                            ${touched.creditLimit && !editValidations?.creditLimit ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 focus:bg-white'}`}
+                                                    />
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-400/50 uppercase tracking-widest group-focus-within:text-blue-500 transition-colors">DZD</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
+                            </div>
 
-                                <div className="space-y-1.5 flex flex-col items-start w-full">
-                                    <label className="text-sm font-bold text-gray-700">رقم الهاتف (اختياري)</label>
-                                    <div className="relative w-full group overflow-hidden">
-                                        <input
-                                            type="text"
-                                            maxLength={10}
-                                            value={editData.phone || ''}
+                            {/* Section 3: Location - EMERALD */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-emerald-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest">الموقع الجغرافي</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    {/* Wilaya */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الولاية <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={editData.wilaya || ''}
                                             onChange={e => {
-                                                const val = e.target.value.replace(/\D/g, '');
-                                                if (val.length === 1 && val[0] !== '0') return;
-                                                if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return;
-                                                setEditData({ ...editData, phone: val });
+                                                const w = ALGERIA_LOCATIONS.find(l => l.name === e.target.value);
+                                                const firstCommune = w?.communes?.[0];
+                                                setEditData({ ...editData, wilaya: e.target.value, commune: firstCommune?.name || '', postalCode: firstCommune?.postCode || '' });
                                             }}
-                                            className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                            dir="ltr"
-                                            onFocus={() => setFocusedField('phone')}
-                                            onBlur={() => {
-                                                setFocusedField(null);
-                                                setFieldTouched('phone');
-                                            }}
-                                        />
-                                        <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
-                                            ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !editValidations?.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
-                                            {[...Array(10)].map((_, i) => (
-                                                <React.Fragment key={i}>
-                                                    <div
-                                                        className={`flex-1 flex justify-center items-center h-9 rounded-md transition-all duration-200
-                                                            ${(editData.phone || '')[i] ? 'text-gray-900 font-bold' : 
-                                                                (i === (editData.phone || '').length && focusedField === 'phone') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}
-                                                    >
-                                                        {(editData.phone || '')[i] || 'x'}
-                                                    </div>
-                                                    {(i === 1 || i === 3 || i === 5 || i === 7) && <div className="w-2" />}
-                                                </React.Fragment>
+                                            onBlur={() => setFieldTouched('wilaya')}
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none transition-all appearance-none cursor-pointer
+                                                ${touched.wilaya && !editValidations?.wilaya ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-emerald-400 focus:bg-white'}`}
+                                        >
+                                            <option value="" disabled>اختر الولاية...</option>
+                                            {ALGERIA_LOCATIONS.map(w => (
+                                                <option key={w.id} value={w.name}>{w.id} - {w.name}</option>
                                             ))}
-                                        </div>
-                                        {touched.phone && !editValidations?.phone && (
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-red-500 animate-pulse pointer-events-none z-30">
-                                                <AlertTriangle size={16} />
-                                            </div>
-                                        )}
+                                        </select>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 font-bold mt-1">يجب أن يبدأ بـ 05، 06، أو 07.</p>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-bold text-gray-700">البريد الإلكتروني (اختياري)</label>
-                                    <input
-                                        type="email"
-                                        value={editData.email || ''}
-                                        onChange={e => setEditData({ ...editData, email: e.target.value })}
-                                        onBlur={() => setFieldTouched('email')}
-                                        className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 font-sans transition-all
-                                            ${touched.email && !editValidations?.email ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
-                                        placeholder="example@domain.com"
-                                    />
-                                    {touched.email && !editValidations?.email && (
-                                        <p className="text-[10px] text-red-500 font-bold mt-1 text-right">صيغة البريد الإلكتروني غير صحيحة (مثال: example@domain.com)</p>
-                                    )}
-                                </div>
-
-                                <div className="space-y-1.5 pt-4 border-t border-gray-100">
-                                    <h3 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Info size={14} /> الهوية الجبائية والقانونية
-                                    </h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {/* RC */}
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">سجل تجاري (RC)</label>
-                                            <div className="relative font-mono">
-                                                <input
-                                                    type="text" maxLength={10} value={editData.rc || ''}
-                                                    onChange={e => setEditData({ ...editData, rc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
-                                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                    dir="ltr"
-                                                    onFocus={() => setFocusedField('rc')}
-                                                    onBlur={() => {
-                                                        setFocusedField(null);
-                                                        setFieldTouched('rc');
-                                                    }}
-                                                />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
-                                                    ${focusedField === 'rc' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.rc && !editValidations?.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                    {[...Array(10)].map((_, i) => (
-                                                        <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                            ${(editData.rc || '')[i] ? 'text-gray-900 font-bold' : 
-                                                                (i === (editData.rc || '').length && focusedField === 'rc') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                            {(editData.rc || '')[i] || 'x'}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* NIF */}
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
-                                            <div className="relative font-mono">
-                                                <input
-                                                    type="text" maxLength={15} value={editData.nif || ''}
-                                                    onChange={e => setEditData({ ...editData, nif: e.target.value.replace(/\D/g, '') })}
-                                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                    dir="ltr"
-                                                    onFocus={() => setFocusedField('nif')}
-                                                    onBlur={() => {
-                                                        setFocusedField(null);
-                                                        setFieldTouched('nif');
-                                                    }}
-                                                />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
-                                                    ${focusedField === 'nif' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nif && !editValidations?.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                    {[...Array(15)].map((_, i) => (
-                                                        <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                            ${(editData.nif || '')[i] ? 'text-gray-900 font-bold' : 
-                                                                (i === (editData.nif || '').length && focusedField === 'nif') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                            {(editData.nif || '')[i] || 'x'}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                    {/* Commune */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">البلدية <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={editData.commune || ''}
+                                            onChange={e => {
+                                                const selectedWilaya = ALGERIA_LOCATIONS.find(l => l.name.toLowerCase() === editData.wilaya?.toLowerCase());
+                                                const selectedCommune = selectedWilaya?.communes?.find(c => c.name === e.target.value);
+                                                setEditData({ ...editData, commune: e.target.value, postalCode: selectedCommune?.postCode || '' });
+                                            }}
+                                            onBlur={() => setFieldTouched('commune')}
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none transition-all appearance-none cursor-pointer
+                                                ${touched.commune && !editValidations?.commune ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-emerald-400 focus:bg-white'}`}
+                                        >
+                                            <option value="" disabled>اختر البلدية...</option>
+                                            {(ALGERIA_LOCATIONS.find(l => l.name.toLowerCase() === editData.wilaya?.toLowerCase())?.communes || []).map(c => (
+                                                <option key={c.name} value={c.name}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {/* Postal Code (auto-filled) */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الرمز البريدي</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                dir="ltr"
+                                                readOnly
+                                                value={editData.postalCode || ''}
+                                                placeholder="يُملأ تلقائياً"
+                                                className="w-full bg-emerald-50/60 border-2 border-emerald-100 rounded-[1.2rem] px-5 py-3.5 text-emerald-700 font-black font-mono text-center focus:outline-none cursor-default select-all"
+                                            />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-400/70 uppercase tracking-widest">CP</span>
                                         </div>
                                     </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {/* AI */}
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">رقم المادة (AI)</label>
-                                            <div className="relative font-mono">
-                                                <input
-                                                    type="text" maxLength={11} value={editData.ai || ''}
-                                                    onChange={e => setEditData({ ...editData, ai: e.target.value.replace(/\D/g, '') })}
-                                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                    dir="ltr"
-                                                    onFocus={() => setFocusedField('ai')}
-                                                    onBlur={() => {
-                                                        setFocusedField(null);
-                                                        setFieldTouched('ai');
-                                                    }}
-                                                />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
-                                                    ${focusedField === 'ai' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.ai && !editValidations?.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                    {[...Array(11)].map((_, i) => (
-                                                        <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                            ${(editData.ai || '')[i] ? 'text-gray-900 font-bold' : 
-                                                                (i === (editData.ai || '').length && focusedField === 'ai') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                            {(editData.ai || '')[i] || 'x'}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* NIS */}
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
-                                            <div className="relative font-mono">
-                                                <input
-                                                    type="text" maxLength={15} value={editData.nis || ''}
-                                                    onChange={e => setEditData({ ...editData, nis: e.target.value.replace(/\D/g, '') })}
-                                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                    dir="ltr"
-                                                    onFocus={() => setFocusedField('nis')}
-                                                    onBlur={() => {
-                                                        setFocusedField(null);
-                                                        setFieldTouched('nis');
-                                                    }}
-                                                />
-                                                <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
-                                                    ${focusedField === 'nis' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nis && !editValidations?.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                    {[...Array(15)].map((_, i) => (
-                                                        <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                            ${(editData.nis || '')[i] ? 'text-gray-900 font-bold' : 
-                                                                (i === (editData.nis || '').length && focusedField === 'nis') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                            {(editData.nis || '')[i] || 'x'}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 pt-2">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">العنوان (الشارع / الحي) <span className="text-red-500">*</span></label>
+                                    {/* Address detail */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">العنوان بالتفصيل</label>
+                                        <div className="relative group">
                                             <input
                                                 type="text"
                                                 value={editData.address || ''}
                                                 onChange={e => setEditData({ ...editData, address: e.target.value.toUpperCase() })}
-                                                onBlur={() => setFieldTouched('address')}
-                                                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all uppercase font-black
-                                                    ${touched.address && !editValidations?.address ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
-                                                placeholder="الشارع, الحي, الطريق..." required
+                                                placeholder="اختياري (الشارع، رقم الباب...)"
+                                                className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 focus:bg-white transition-all"
                                             />
-                                            {touched.address && !editValidations?.address && (
-                                                <p className="text-[10px] text-red-500 font-bold mt-1">يرجى إدخال العنوان بالتفصيل.</p>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-500">الولاية <span className="text-red-500">*</span></label>
-                                                <select
-                                                    value={editData.wilaya || ''}
-                                                    onChange={e => {
-                                                        const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
-                                                        setEditData({ ...editData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
-                                                    }}
-                                                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold"
-                                                >
-                                                    {ALGERIA_LOCATIONS.map(w => (
-                                                        <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-500">البلدية <span className="text-red-500">*</span></label>
-                                                <input
-                                                    type="text"
-                                                    value={editData.commune || ''}
-                                                    onChange={e => setEditData({ ...editData, commune: e.target.value.toUpperCase() })}
-                                                    onBlur={() => setFieldTouched('commune')}
-                                                    className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all font-bold uppercase
-                                                        ${touched.commune && !editValidations?.commune ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
-                                                    placeholder="البلدية..." required
-                                                />
-                                                {touched.commune && !editValidations?.commune && (
-                                                    <p className="text-[10px] text-red-500 font-bold mt-1">يرجى إدخال البلدية.</p>
-                                                )}
-                                            </div>
+                                            <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-400 transition-colors" />
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-5 border-t border-gray-200 bg-gray-50 flex gap-3 shadow-sm">
+                                {/* Section 4: Legal & Tax - AMBER */}
+                                <div className="space-y-6 p-6 bg-white border-2 border-amber-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-amber-200">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
+                                        <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest">المعلومات الجبائية والقانونية</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-5">
+                                        {/* RC Field */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم السجل التجاري (RC)</label>
+                                            <input
+                                                type="text"
+                                                value={editData.rc || ''}
+                                                onChange={e => setEditData({ ...editData, rc: e.target.value.toUpperCase() })}
+                                                onBlur={() => setFieldTouched('rc')}
+                                                placeholder="WW/YY-NNNNNNN B"
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                    ${rcInfo ? (rcInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                            />
+                                            {rcInfo && (
+                                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${rcInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                    {rcInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                    <p className="text-[10px] font-bold">{rcInfo.valid ? rcInfo.breakdown : rcInfo.error}</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* NIF Field */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم التعريف الجبائي (NIF)</label>
+                                            <input
+                                                type="text"
+                                                value={editData.nif || ''}
+                                                onChange={e => setEditData({ ...editData, nif: e.target.value.replace(/\s/g, '') })}
+                                                onBlur={() => setFieldTouched('nif')}
+                                                placeholder="15 أو 20 رقماً..."
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                    ${nifInfo ? (nifInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                            />
+                                            {nifInfo && (
+                                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${nifInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                    {nifInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                    <p className="text-[10px] font-bold">{nifInfo.valid ? nifInfo.breakdown : nifInfo.error}</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* AI Field */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم المادة (AI)</label>
+                                            <input
+                                                type="text"
+                                                value={editData.ai || ''}
+                                                onChange={e => setEditData({ ...editData, ai: e.target.value.toUpperCase() })}
+                                                onBlur={() => setFieldTouched('ai')}
+                                                placeholder="مثال: B 123456"
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                    ${aiInfo ? (aiInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                            />
+                                            {aiInfo && (
+                                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${aiInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                    {aiInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                    <p className="text-[10px] font-bold">{aiInfo.valid ? aiInfo.breakdown : aiInfo.error}</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* NIS Field */}
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم التعريف الإحصائي (NIS)</label>
+                                            <input
+                                                type="text"
+                                                value={editData.nis || ''}
+                                                onChange={e => setEditData({ ...editData, nis: e.target.value.replace(/\s/g, '') })}
+                                                onBlur={() => setFieldTouched('nis')}
+                                                placeholder="15 أو 18 رقماً..."
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                    ${nisInfo ? (nisInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                            />
+                                            {nisInfo && (
+                                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${nisInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                    {nisInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                    <p className="text-[10px] font-bold">{nisInfo.valid ? nisInfo.breakdown : nisInfo.error}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-8 border-t border-gray-100 bg-white flex gap-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
                                 <button
                                     onClick={() => setIsEditModalOpen(false)}
-                                    className="flex-[0.5] bg-white text-gray-700 border border-gray-300 py-2.5 rounded-lg font-bold text-sm transition-colors"
+                                    className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-[1.2rem] font-black text-sm hover:bg-gray-200 transition-all active:scale-95"
                                 >
                                     إلغاء
                                 </button>
                                 <button
                                     onClick={handleEditCustomer}
-                                    disabled={Object.values(editValidations || {}).some(v => !v) || isSubmitting}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all"
+                                    disabled={!isEditValid || isSubmitting}
+                                    className={`flex-[2] py-4 rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
+                                        ${isEditValid 
+                                            ? 'bg-[#8b5cf6] text-white shadow-violet-200 hover:bg-[#7c3aed] hover:shadow-violet-300' 
+                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
                                 >
-                                    {isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                                    {isSubmitting ? 'جاري الحفظ...' : <><Edit size={20} /> حفظ التعديلات</>}
                                 </button>
                             </div>
                         </div>
@@ -2928,7 +2917,6 @@ export default function CustomerDetailPage() {
                     </div>
                 )}
             </div>
-
         </div>
     );
 }

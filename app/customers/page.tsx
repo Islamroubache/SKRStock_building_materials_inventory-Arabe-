@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown, Download, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown, Download, Users, RefreshCcw, MapPin, Check } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -18,6 +19,7 @@ interface Customer {
     email: string | null;
     balanceDue: number;
     creditLimit: number | null;
+    hasOverdue?: boolean;
     _count?: {
         projects: number;
         orders: number;
@@ -33,78 +35,150 @@ interface Customer {
 }
 
 export default function CustomersPage() {
+    const router = useRouter();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID'>('ALL');
+    const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID' | 'CREDIT' | 'OVERDUE' | 'ARCHIVED'>('ALL');
     const [searchTerm, setSearchTerm] = useState('');
     const [activities, setActivities] = useState<string[]>([]);
 
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [focusedField, setFocusedField] = useState<string | null>(null);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-    const [formData, setFormData] = useState<{
-        name: string, type: 'REGULAR' | 'LOYAL', phone: string, email: string, creditLimit: string,
-        rc: string, nif: string, ai: string, nis: string, address: string, activity: string, commune: string, wilaya: string
-    }>({
-        name: '', type: 'REGULAR', phone: '', email: '', creditLimit: '',
-        rc: '', nif: '', ai: '', nis: '', address: '', activity: "شركة خاصة",
-        commune: 'المسيلة',
-        wilaya: 'المسيلة'
-    });
+    const DEFAULT_FORM = {
+        name: '', type: 'REGULAR' as 'REGULAR' | 'LOYAL', phone: '', email: '', creditLimit: '',
+        rc: '', nif: '', ai: '', nis: '', address: '', activity: '',
+        wilaya: "M'Sila",
+        commune: "M'sila",
+        postCode: '28000'
+    };
+
+    const [formData, setFormData] = useState(DEFAULT_FORM);
 
     const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+    const resetForm = () => {
+        setFormData(DEFAULT_FORM);
+        setTouched({});
+        setEditingCustomer(null);
+    };
 
     const setFieldTouched = (field: string) => {
         setTouched(prev => ({ ...prev, [field]: true }));
     };
 
+    const isNameDuplicate = customers.some(c => c.name.trim().toUpperCase() === formData.name.trim().toUpperCase() && c.id !== editingCustomer?.id);
+
     const validations = {
         name: (() => {
             const words = formData.name.trim().split(/\s+/).filter(w => w.length > 0);
-            return words.length >= 2 && words.slice(0, 2).every(w => w.length >= 3);
+            return words.length >= 2 && !isNameDuplicate;
         })(),
-        activity: (() => {
-            const predefinedActivities = [
-                "شركة خاصة",
-                "Entreprise de Bâtiment Tous Corps d'État",
-                "Entreprise d'Électricité Générale",
-                "Entreprise d'Électricité Bâtiment",
-                "Entreprise d'Électricité Industrielle",
-                "Installateur Électricien Agréé",
-                "Entreprise de Travaux Publics",
-                "Entreprise de Construction",
-                "Entreprise de Plomberie & Sanitaire",
-                "Entreprise de Climatisation & Froid",
-                "Promoteur Immobilier",
-                "Bureau d'Études Technique",
-                "Revendeur / Détaillant Électricité",
-                "Commerce de Matériaux de Construction",
-                "Administration / Établissement Public",
-                "Artisan Électricien",
-                "Particulier",
-            ];
-            const isCustom = formData.activity === 'Autre' || (formData.activity && !predefinedActivities.includes(formData.activity));
-            if (!isCustom) return true;
-            const words = formData.activity.trim().split(/\s+/).filter(w => w.length > 0);
-            return words.length >= 2;
-        })(),
-        creditLimit: formData.creditLimit.length > 0,
-        phone: formData.phone === '' || /^0[567]\d{8}$/.test(formData.phone),
-        email: formData.email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email),
-        rc: formData.rc === '' || formData.rc.length === 10,
-        nif: formData.nif === '' || formData.nif.length === 15,
-        ai: formData.ai === '' || formData.ai.length === 11,
-        nis: formData.nis === '' || formData.nis.length === 15,
-        address: formData.address.length >= 5,
+        phone: /^(05|06|07|02)\d{8}$/.test(formData.phone),
         commune: formData.commune.length > 0,
         wilaya: formData.wilaya.length > 0,
     };
 
+    // --- Strict Algerian Business Number Validations ---
+    
+    const validateNIF = (nif: string) => {
+        if (!nif) return null;
+        if (!/^\d+$/.test(nif)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
+        if (nif.length !== 15 && nif.length !== 20) return { valid: false, error: "يجب أن يكون 15 أو 20 رقماً بالضبط" };
+        const cat = parseInt(nif[0]);
+        if (cat > 8) return { valid: false, error: "رقم الفئة (أول رقم) يجب أن يكون بين 0 و 8" };
+        const wilCode = parseInt(nif.substring(4, 6));
+        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${nif.substring(4, 6)}) غير صحيح (01-58)` };
+        return { 
+            valid: true, 
+            breakdown: "صحيح" 
+        };
+    };
+
+    const validateNIS = (nis: string) => {
+        if (!nis) return null;
+        if (!/^\d+$/.test(nis)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
+        if (nis.length !== 15 && nis.length !== 18) return { valid: false, error: "يجب أن يكون 15 أو 18 رقماً بالضبط" };
+        if (nis.substring(1, 4) === "000") return { valid: false, error: "سنة التأسيس (الخانة 2-4) لا يمكن أن تكون 000" };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const validateRC = (rc: string) => {
+        if (!rc) return null;
+        
+        // Pattern 1: Classical (WW/YY-NNNNNNN B)
+        const match1 = rc.match(/^(\d{2})\/(\d{2})-(\d{7})(?:\s([AB]))?$/i);
+        if (match1) {
+            const wilCode = parseInt(match1[1]);
+            if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${match1[1]}) غير صحيح (01-58)` };
+            return { valid: true, breakdown: "صحيح" };
+        }
+
+        // Pattern 2: Modern (YY [AB] NNNNNNN-WW) or (YY [AB] NNNNNNN)
+        const match2 = rc.match(/^(\d{2})\s?([AB])\s?(\d{7})(?:-(\d{2}))?$/i);
+        if (match2) {
+            const year = match2[1];
+            const type = match2[2].toUpperCase();
+            const sequence = match2[3];
+            const wilaya = match2[4];
+            
+            if (wilaya) {
+                const wilCode = parseInt(wilaya);
+                if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${wilaya}) غير صحيح (01-58)` };
+            }
+            
+            return { 
+                valid: true, 
+                breakdown: "صحيح" 
+            };
+        }
+
+        return { valid: false, error: "الصيغة غير صحيحة. أمثلة: 16/24-0012345 B أو 24 B 0012345-16" };
+    };
+
+    const validateAI = (ai: string) => {
+        if (!ai) return null;
+        const cleanAI = ai.replace(/\s/g, '');
+        
+        if (!/^\d{11}$/.test(cleanAI)) {
+            return { valid: false, error: "رقم المادة يجب أن يتكون من 11 رقماً بالضبط (بدون حروف أو مسافات)" };
+        }
+
+        const wilCode = parseInt(cleanAI.substring(0, 2));
+        if (wilCode < 1 || wilCode > 58) {
+            return { valid: false, error: `كود الولاية (${cleanAI.substring(0, 2)}) في بداية الرقم غير صحيح (01-58)` };
+        }
+
+        return { 
+            valid: true, 
+            breakdown: "صحيح" 
+        };
+    };
+
+    const nifInfo = validateNIF(formData.nif);
+    const nisInfo = validateNIS(formData.nis);
+    const rcInfo = validateRC(formData.rc);
+    const aiInfo = validateAI(formData.ai);
+
+    const emailValid = formData.email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+
+    const isFormValid = 
+        validations.name && 
+        validations.phone && 
+        validations.commune && 
+        validations.wilaya &&
+        emailValid &&
+        (nifInfo === null || nifInfo.valid) &&
+        (nisInfo === null || nisInfo.valid) &&
+        (rcInfo === null || rcInfo.valid) &&
+        (aiInfo === null || aiInfo.valid);
+
     const fetchCustomers = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/customers');
+            const isArchived = balanceFilter === 'ARCHIVED';
+            const res = await fetch(`/api/customers?isArchived=${isArchived}`);
             if (res.ok) {
                 const data = await res.json();
                 setCustomers(data);
@@ -129,14 +203,18 @@ export default function CustomersPage() {
     useEffect(() => {
         fetchCustomers();
         fetchSettings();
-    }, []);
+    }, [balanceFilter]);
 
     const filteredCustomers = customers.filter(c => {
         const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || (c.phone && c.phone.includes(searchTerm));
+        if (balanceFilter === 'ARCHIVED') return matchesSearch;
+        
         const matchesBalance =
             balanceFilter === 'ALL' ? true :
-                balanceFilter === 'DEBT' ? c.balanceDue > 0 :
-                    c.balanceDue <= 0;
+            balanceFilter === 'DEBT' ? c.balanceDue > 0 :
+            balanceFilter === 'CREDIT' ? c.balanceDue < 0 :
+            balanceFilter === 'OVERDUE' ? c.hasOverdue :
+            c.balanceDue === 0;
         return matchesSearch && matchesBalance;
     });
 
@@ -176,13 +254,7 @@ export default function CustomersPage() {
             if (res.ok) {
                 fetchCustomers();
                 setIsSheetOpen(false);
-                setFormData({
-                    name: '', type: 'REGULAR', phone: '', email: '', creditLimit: '',
-                    rc: '', nif: '', ai: '', nis: '', address: '', activity: 'شركة خاصة',
-                    commune: 'المسيلة',
-                    wilaya: 'المسيلة'
-                });
-                setTouched({});
+                resetForm();
             } else {
                 const err = await res.json();
                 alert(`خطأ: ${err.error}`);
@@ -194,20 +266,16 @@ export default function CustomersPage() {
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         const form = e.currentTarget;
-        const focusableElements = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea, button[type="submit"]'));
+        const focusableElements = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea, button[type="submit"]:not(:disabled)'));
         const index = focusableElements.indexOf(e.target as any);
 
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.key === 'ArrowRight') {
             if (index > -1 && index < focusableElements.length - 1) {
                 e.preventDefault();
                 (focusableElements[index + 1] as HTMLElement).focus();
             }
-        } else if (e.key === 'ArrowRight') {
-            // In RTL, ArrowRight moves backwards to previous field
-            const target = e.target as HTMLInputElement;
-            const isTextAtStart = target.tagName !== 'INPUT' || (target.selectionStart === 0 && target.selectionEnd === 0);
-
-            if (isTextAtStart && index > 0) {
+        } else if (e.key === 'ArrowLeft') {
+            if (index > 0) {
                 e.preventDefault();
                 (focusableElements[index - 1] as HTMLElement).focus();
             }
@@ -226,6 +294,24 @@ export default function CustomersPage() {
                 fetchCustomers();
             } else {
                 alert('فشل في أرشفة العميل');
+            }
+        } catch (e) {
+            alert('خطأ في الاتصال');
+        }
+    };
+
+    const handleRestore = async (id: number) => {
+        if (!confirm('هل تريد استعادة هذا العميل إلى القائمة النشطة؟')) return;
+        try {
+            const res = await fetch(`/api/customers/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isArchived: false })
+            });
+            if (res.ok) {
+                fetchCustomers();
+            } else {
+                alert('فشل في استعادة العميل');
             }
         } catch (e) {
             alert('خطأ في الاتصال');
@@ -303,7 +389,7 @@ export default function CustomersPage() {
     };
 
     return (
-        <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white" dir="rtl">
 
             <style jsx global>{`
                 @media print {
@@ -315,569 +401,601 @@ export default function CustomersPage() {
             `}</style>
 
             <div className="no-print">
-                <PageHeader 
-                    title="إدارة العملاء" 
-                    subtitle="إضافة وتعديل بيانات العملاء ومتابعة ديونهم" 
-                    Icon={Users} 
-                >
-                    <div className="relative flex-1 lg:w-64">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="بحث بالاسم أو الهاتف..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
-                        />
-                    </div>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={handlePrint}
-                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
-                        >
-                            <Printer size={16} /> طباعة
-                        </button>
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
-                            >
-                                <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                {/* List Header */}
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-8 pb-0">
+                    <PageHeader 
+                        title="إدارة العملاء" 
+                        subtitle="إضافة وتعديل بيانات العملاء ومتابعة ديونهم" 
+                        Icon={Users} 
+                    />
+                    <div className="flex gap-2 w-full lg:w-auto justify-end shrink-0">
+                        <div className="relative group">
+                            <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                                <Download size={14} className="text-blue-600"/> تصدير
                             </button>
-                            {isExportMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
-                                    <button
-                                        onClick={() => {
-                                            handleExport();
-                                            setIsExportMenuOpen(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border-b border-gray-100"
-                                    >
-                                        <FileSpreadsheet size={16} className="text-emerald-600" /> Excel
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            handleExportPDF();
-                                            setIsExportMenuOpen(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                                    >
-                                        <FileText size={16} className="text-rose-600" /> PDF
-                                    </button>
-                                </div>
-                            )}
+                            <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                <button 
+                                    onClick={handleExport} 
+                                    className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors"
+                                >
+                                    <FileSpreadsheet size={14} className="text-emerald-600"/> Excel (.xlsx)
+                                </button>
+                                <button 
+                                    onClick={handleExportPDF} 
+                                    className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors"
+                                >
+                                    <FileText size={14} className="text-rose-600"/> PDF (.pdf)
+                                </button>
+                            </div>
                         </div>
-                        <Link
-                            href="/customers/archive"
-                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
+                        <button 
+                            onClick={handlePrint}
+                            className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95"
                         >
-                            <Archive size={16} /> الأرشيف
-                        </Link>
+                            <Printer size={16} /> طباعة القائمة
+                        </button>
                     </div>
-                    <button
-                        onClick={() => setIsSheetOpen(true)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
-                    >
-                        <Plus size={18} /> عميل جديد
-                    </button>
-                </PageHeader>
+                </div>
             </div>
 
-            <div className="flex items-center gap-6 border-b border-gray-200 no-print">
+            {/* Tabs Header */}
+            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-8 pt-0 mt-[-8px]">
                 <button
                     onClick={() => setBalanceFilter('ALL')}
-                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'ALL' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ALL' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                 >
                     الكل
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'ALL' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'ALL' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
                         {customers.length}
                     </span>
                 </button>
                 <button
                     onClick={() => setBalanceFilter('DEBT')}
-                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'DEBT' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'DEBT' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                 >
                     عليهم ديون
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'DEBT' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'DEBT' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
                         {customers.filter(c => c.balanceDue > 0).length}
                     </span>
                 </button>
                 <button
                     onClick={() => setBalanceFilter('PAID')}
-                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'PAID' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'PAID' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                 >
                     خالصين
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {customers.filter(c => c.balanceDue <= 0).length}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {customers.filter(c => c.balanceDue === 0).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('CREDIT')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'CREDIT' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    رصيد زائد
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'CREDIT' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {customers.filter(c => c.balanceDue < 0).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('OVERDUE')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'OVERDUE' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    فواتير متجاوزة
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'OVERDUE' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {customers.filter(c => c.hasOverdue).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('ARCHIVED')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ARCHIVED' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    الأرشيف
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'ARCHIVED' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {balanceFilter === 'ARCHIVED' ? customers.length : '...'}
                     </span>
                 </button>
             </div>
 
+            {/* Filters Box */}
+            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-8">
+                <div className="flex flex-col lg:flex-row gap-3 items-center">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[300px] group">
+                        <input 
+                            type="text" 
+                            placeholder="بحث بالاسم أو الهاتف..." 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                        />
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none group-focus-within:scale-110 transition-transform">
+                            <Search size={20} strokeWidth={3} />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full lg:w-auto">
+                        <button
+                            onClick={() => setIsSheetOpen(true)}
+                            className="h-[52px] flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 rounded-2xl font-black text-sm transition-all shadow-xl shadow-blue-100 hover:shadow-blue-200 hover:scale-[1.02] active:scale-95"
+                        >
+                            <Plus size={20} /> عميل جديد
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             {loading ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium">جاري التحميل...</div>
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium italic">جاري التحميل...</div>
             ) : filteredCustomers.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-xl">لا يوجد عملاء مطابقون للبحث</div>
+                <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-8">
+                    لا يوجد عملاء مطابقون للبحث
+                </div>
             ) : (
-                <div className="flex flex-col gap-3">
-                    {filteredCustomers.map(customer => {
-                        const isLoyal = true; // All are clients now
-                        const progress = isLoyal && customer.creditLimit ? Math.min((customer.balanceDue / customer.creditLimit) * 100, 100) : 0;
-                        const isWarning = progress >= 90;
+                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-8 mb-8">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100">
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">العميل / النشاط</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">رقم الهاتف</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">الرصيد المالي</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الإحصائيات</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {filteredCustomers.map(customer => {
+                                    const rowClass = customer.hasOverdue 
+                                        ? "bg-amber-50/60 hover:bg-amber-100/80" 
+                                        : customer.balanceDue > 0 
+                                            ? "bg-red-50/50 hover:bg-red-100/70"
+                                            : customer.balanceDue < 0 
+                                                ? "bg-violet-50/50 hover:bg-violet-100/70"
+                                                : "bg-emerald-50/40 hover:bg-emerald-100/60";
 
-                        return (
-                            <div key={customer.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4">
-                                <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
-                                    <img 
-                                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name)}&backgroundColor=transparent&textColor=1e293b&fontWeight=900&fontSize=40`} 
-                                        alt={customer.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-
-                                <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                                    <div className="min-w-0 flex flex-col gap-1">
-                                        <h3 className="font-bold text-gray-900 truncate text-base" title={customer.name}>{customer.name}</h3>
-                                        {customer.activity && (
-                                            <p className="text-gray-500 text-[10px] font-bold truncate leading-tight -mt-0.5">{customer.activity}</p>
-                                        )}
-                                        {customer.phone && (
-                                            <p className="text-blue-600 bg-blue-50 self-start px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1.5" dir="ltr">
-                                                <Phone size={12} className="text-blue-500" />
-                                                {customer.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="flex flex-col justify-center">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-bold text-gray-500 flex items-center gap-1">
-                                                <CreditCard size={14} /> الرصيد:
-                                            </span>
-                                            <span className={`text-xs font-bold ${customer.balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                {customer.balanceDue.toLocaleString()} دج
-                                            </span>
-                                        </div>
-                                        {isLoyal && customer.creditLimit && (
-                                            <div className="w-full max-w-[150px]">
-                                                <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all ${isWarning ? 'bg-red-500' : 'bg-blue-500'}`}
-                                                        style={{ width: `${progress}%` }}
-                                                    />
+                                    return (
+                                        <tr 
+                                            key={customer.id} 
+                                            onClick={() => router.push(`/customers/${customer.id}`)}
+                                            className={`${rowClass} transition-all group cursor-pointer`}
+                                        >
+                                            <td className="px-8 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black text-gray-900 text-base mb-0.5">{customer.name}</span>
+                                                        {customer.hasOverdue && (
+                                                            <div className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-lg animate-pulse border border-red-200">
+                                                                <AlertTriangle size={12} strokeWidth={3} />
+                                                                <span className="text-[9px] font-black uppercase">متجاوزة</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {customer.activity && (
+                                                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{customer.activity}</span>
+                                                    )}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            {customer.phone ? (
+                                                <span className="inline-flex bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-black font-sans tracking-tight border border-blue-100 shadow-sm" dir="ltr">
+                                                    {customer.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-300 font-bold text-xs italic">---</span>
+                                            )}
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col gap-1">
+                                                {customer.balanceDue > 0 ? (
+                                                    <span className="inline-flex items-center justify-center bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-red-100 shadow-sm">
+                                                        {customer.balanceDue.toLocaleString()} دج
+                                                    </span>
+                                                ) : customer.balanceDue < 0 ? (
+                                                    <span className="inline-flex items-center justify-center bg-violet-50 text-[#8b5cf6] px-3 py-1 rounded-lg text-xs font-black font-sans border border-violet-100 shadow-sm">
+                                                        {Math.abs(customer.balanceDue).toLocaleString()} دج-
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-emerald-100 shadow-sm">
+                                                        0 دج
+                                                    </span>
+                                                )}
+                                                
+                                                {customer.balanceDue !== 0 && (
+                                                    <span className={`text-[9px] font-black uppercase tracking-tighter text-center ${customer.balanceDue > 0 ? 'text-red-400' : 'text-violet-400'}`}>
+                                                        {customer.balanceDue > 0 ? 'مديون' : 'رصيد زائد'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center justify-center gap-3">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-xs font-black text-gray-900 font-sans">{customer._count?.projects || 0}</span>
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">مشاريع</span>
+                                                </div>
+                                                <div className="w-px h-6 bg-gray-100"></div>
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-xs font-black text-gray-900 font-sans">{customer._count?.orders || 0}</span>
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">طلبات</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                 {(() => {
+                                                     const isArchivedMode = balanceFilter === 'ARCHIVED';
+                                                     
+                                                     if (isArchivedMode) {
+                                                         return (
+                                                             <button
+                                                                 onClick={() => handleRestore(customer.id)}
+                                                                 className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
+                                                                 title="استعادة العميل"
+                                                             >
+                                                                 <RefreshCcw size={18} />
+                                                             </button>
+                                                         );
+                                                     }
 
-                                    <div className="flex items-center gap-2">
-                                        <span className="bg-gray-100 bg-opacity-80 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-gray-200">
-                                            مشاريع: {customer._count?.projects || 0}
-                                        </span>
-                                        <span className="bg-gray-100 bg-opacity-80 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-gray-200">
-                                            طلبات: {customer._count?.orders || 0}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {(customer.balanceDue <= 0 && (customer._count?.projects || 0) === 0) && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleArchive(customer.id);
-                                            }}
-                                            className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                                            title="أرشفة العميل"
-                                        >
-                                            <Archive size={18} />
-                                        </button>
-                                    )}
-                                    <Link 
-                                        href={`/customers/${customer.id}`}
-                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                    >
-                                        <ChevronLeft size={20} />
-                                    </Link>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                                                     const canArchive = customer.balanceDue === 0 && (customer._count?.projects || 0) === 0;
+                                                     return (
+                                                         <button
+                                                             onClick={() => { if (canArchive) handleArchive(customer.id); }}
+                                                             disabled={!canArchive}
+                                                             className={`p-2.5 rounded-xl transition-all ${canArchive 
+                                                                 ? 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white shadow-sm' 
+                                                                 : 'bg-gray-50/50 text-gray-200 cursor-not-allowed opacity-60'}`}
+                                                             title={canArchive ? "أرشفة العميل" : "لا يمكن الأرشفة: يوجد رصيد مالي أو مشاريع نشطة"}
+                                                         >
+                                                             <Archive size={18} />
+                                                         </button>
+                                                     );
+                                                 })()}
+                                             </div>
+                                         </td>
+                                         </tr>
+                                     );
+                                 })}
+                             </tbody>
+                         </table>
+                     </div>
+                 </div>
+             )}
 
             {/* ADD CUSTOMER SHEET */}
             {isSheetOpen && (
                 <>
-                    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsSheetOpen(false)} />
-                    <div className="fixed top-0 bottom-0 right-0 w-full max-w-md bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="p-5 w-full flex items-center justify-between border-b border-gray-200 bg-gray-50">
-                            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <Plus size={20} className="text-blue-600" /> تسجيل عميل جديد
-                            </h2>
-                            <button onClick={() => setIsSheetOpen(false)} className="text-gray-500 hover:bg-gray-200 rounded-full p-1.5 transition-colors">
-                                <X size={18} />
+                    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[60] transition-opacity duration-300" onClick={() => { setIsSheetOpen(false); resetForm(); }} />
+                    <div className="fixed top-0 bottom-0 left-0 w-full max-w-lg bg-white shadow-2xl z-[70] flex flex-col animate-in slide-in-from-left duration-500 overflow-hidden">
+                        {/* Header with Sidebar Color */}
+                        <div className="p-8 w-full flex items-center justify-between bg-[#8b5cf6] text-white shadow-lg">
+                            <div>
+                                <h2 className="text-2xl font-black flex items-center gap-3">
+                                    <Plus size={28} className="bg-white/20 p-1 rounded-lg" /> تسجيل عميل جديد
+                                </h2>
+                                <p className="text-white/70 text-xs font-bold mt-1 tracking-tight uppercase">إضافة بيانات العميل الجديد إلى قاعدة البيانات</p>
+                            </div>
+                            <button onClick={() => { setIsSheetOpen(false); resetForm(); }} className="bg-white/10 hover:bg-white/20 text-white rounded-2xl p-2 transition-all active:scale-90">
+                                <X size={24} />
                             </button>
                         </div>
 
-                        <div className="p-6 flex-1 overflow-y-auto space-y-5" onKeyDown={handleKeyDown}>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700">اسم العميل <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
-                                    onBlur={() => setFieldTouched('name')}
-                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 uppercase transition-all
-                                        ${touched.name && !validations.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
-                                    required
-                                />
-                                {touched.name && !validations.name && (
-                                    <p className="text-[10px] text-red-500 font-bold mt-1">يجب إدخال اسم العميل (كلمتان على الأقل، مثلاً: أحمد محمد).</p>
-                                )}
+                        <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/30" onKeyDown={handleKeyDown}>
+                            
+                            {/* Section 1: Basic Info - VIOLET */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-violet-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-violet-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-violet-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-violet-600 uppercase tracking-widest">المعلومات الشخصية</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">اسم العميل <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
+                                            onBlur={() => setFieldTouched('name')}
+                                            placeholder="مثال: محمد الأمين..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none transition-all
+                                                ${touched.name && !validations.name ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`}
+                                            required
+                                        />
+                                        {touched.name && !validations.name && (
+                                            <p className="text-[10px] text-red-500 font-bold mr-2 animate-bounce">
+                                                {isNameDuplicate ? 'هذا الاسم موجود مسبقاً.' : 'يجب إدخال اسم العميل (كلمتان على الأقل).'}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">النشاط التجاري (اختياري)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.activity}
+                                            onChange={e => setFormData({ ...formData, activity: e.target.value.toUpperCase() })}
+                                            placeholder="أدخل النشاط التجاري هنا..."
+                                            className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم الهاتف <span className="text-red-500">*</span></label>
+                                        <div className="relative group">
+                                            <input
+                                                type="text"
+                                                maxLength={10}
+                                                value={formData.phone}
+                                                onChange={e => {
+                                                    const val = e.target.value.replace(/\D/g, '');
+                                                    if (val.length === 1 && val[0] !== '0') return;
+                                                    if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return;
+                                                    setFormData({ ...formData, phone: val });
+                                                }}
+                                                onBlur={() => setFieldTouched('phone')}
+                                                placeholder="05 / 06 / 07 ..."
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-12 py-3.5 text-gray-900 font-bold font-sans transition-all
+                                                    ${touched.phone && !validations.phone ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`}
+                                                dir="ltr"
+                                            />
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-violet-400 transition-colors">
+                                                <Phone size={18} />
+                                            </div>
+                                        </div>
+                                        {touched.phone && !validations.phone && (
+                                            <p className="text-[10px] text-red-500 font-bold mr-2">رقم الهاتف غير صحيح.</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">البريد الإلكتروني (اختياري)</label>
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                            onBlur={() => setFieldTouched('email')}
+                                            placeholder="example@domain.com"
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${touched.email && !validations.email ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700">النشاط التجاري <span className="text-red-500">*</span></label>
-                                {(() => {
-                                    const predefinedActivities = activities.length > 0 ? activities : [
-                                        "شركة خاصة",
-                                        "Entreprise de Bâtiment Tous Corps d'État",
-                                        "Entreprise d'Électricité Générale",
-                                        "Entreprise d'Électricité Bâtiment",
-                                        "Entreprise d'Électricité Industrielle",
-                                        "Installateur Électricien Agréé",
-                                        "Entreprise de Travaux Publics",
-                                        "Entreprise de Construction",
-                                        "Entreprise de Plomberie & Sanitaire",
-                                        "Entreprise de Climatisation & Froid",
-                                        "Promoteur Immobilier",
-                                        "Bureau d'Études Technique",
-                                        "Revendeur / Détaillant Électricité",
-                                        "Commerce de Matériaux de Construction",
-                                        "Administration / Établissement Public",
-                                        "Artisan Électricien",
-                                        "Particulier",
-                                    ];
-                                    const isCustom = formData.activity === 'Autre' || (formData.activity && !predefinedActivities.includes(formData.activity));
-                                    const selectValue = isCustom ? 'Autre' : formData.activity;
-                                    return (
-                                        <>
-                                            <select
-                                                value={selectValue}
-                                                onChange={e => {
-                                                    if (e.target.value === 'Autre') {
-                                                        setFormData({ ...formData, activity: 'Autre' });
-                                                    } else {
-                                                        setFormData({ ...formData, activity: e.target.value });
-                                                    }
-                                                }}
-                                                className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                            >
-                                                {predefinedActivities.map(a => (
-                                                    <option key={a} value={a}>{a}</option>
-                                                ))}
-                                                <option value="Autre">Autre (saisie manuelle)</option>
-                                            </select>
-                                            {isCustom && (
-                                                <>
+                            {/* Section 2: Account Settings - BLUE */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-blue-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-blue-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest">نوع الحساب والائتمان</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button 
+                                            onClick={() => setFormData({ ...formData, type: 'REGULAR', creditLimit: '' })}
+                                            className={`p-5 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${formData.type === 'REGULAR' ? 'border-blue-500 bg-blue-50/50 shadow-inner scale-95' : 'border-gray-50 bg-gray-50/30 hover:border-blue-200 hover:bg-white'}`}
+                                        >
+                                            <div className={`p-2 rounded-xl ${formData.type === 'REGULAR' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+                                                <Users size={22} />
+                                            </div>
+                                            <span className={`text-xs font-black ${formData.type === 'REGULAR' ? 'text-blue-700' : 'text-gray-500'}`}>بدون سقف ائتماني</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setFormData({ ...formData, type: 'LOYAL' })}
+                                            className={`p-5 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${formData.type === 'LOYAL' ? 'border-blue-500 bg-blue-50/50 shadow-inner scale-95' : 'border-gray-50 bg-gray-50/30 hover:border-blue-200 hover:bg-white'}`}
+                                        >
+                                            <div className={`p-2 rounded-xl ${formData.type === 'LOYAL' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 shadow-sm'}`}>
+                                                <CreditCard size={22} />
+                                            </div>
+                                            <span className={`text-xs font-black ${formData.type === 'LOYAL' ? 'text-blue-700' : 'text-gray-500'}`}>بسقف ائتماني</span>
+                                        </button>
+                                    </div>
+
+                                    {formData.type === 'LOYAL' && (
+                                        <div className="animate-in zoom-in-95 duration-300">
+                                            <div className="bg-blue-50/80 p-4 rounded-2xl border-2 border-blue-100 mb-5 flex items-start gap-3">
+                                                <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
+                                                <p className="text-[10px] text-blue-800 font-bold leading-relaxed">
+                                                    تحديد سقف ائتماني يسمح للعميل بالتعامل بالدين حتى مبلغ معين. سيتم تنبيهك عند اقتراب العميل من هذا السقف.
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الحد الائتماني (اختياري)</label>
+                                                <div className="relative group">
                                                     <input
                                                         type="text"
-                                                        value={formData.activity === 'Autre' ? '' : formData.activity}
-                                                        onChange={e => setFormData({ ...formData, activity: e.target.value || 'Autre' })}
-                                                        onBlur={() => setFieldTouched('activity')}
-                                                        placeholder="أدخل النشاط التجاري يدوياً..."
-                                                        className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all mt-2
-                                                            ${touched.activity && !validations.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50'}`}
-                                                        autoFocus
+                                                        dir="ltr"
+                                                        value={formData.creditLimit.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                                                        onChange={e => setFormData({ ...formData, creditLimit: e.target.value.replace(/\D/g, '') })}
+                                                        placeholder="100 000"
+                                                        className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-14 py-3.5 text-gray-900 font-black font-sans text-right focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 focus:bg-white transition-all"
                                                     />
-                                                    {touched.activity && !validations.activity && (
-                                                        <p className="text-[10px] text-red-500 font-bold mt-1">يجب إدخال كلمتين على الأقل للنشاط.</p>
-                                                    )}
-                                                </>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </div>
-
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start gap-3">
-                                <User className="text-blue-600 shrink-0" size={20} />
-                                <div>
-                                    <p className="text-sm font-bold text-blue-900">حساب عميل معتمد</p>
-                                    <p className="text-xs text-blue-700 leading-relaxed">سيتم إنشاء حساب عميل يسمح بتتبع المشاريع والديون مع تحديد سقف ائتماني.</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700">الحد الائتماني (دج) <span className="text-red-500">*</span></label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        dir="ltr"
-                                        value={formData.creditLimit.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                                        onChange={e => {
-                                            const raw = e.target.value.replace(/\D/g, '');
-                                            setFormData({ ...formData, type: 'LOYAL', creditLimit: raw });
-                                        }}
-                                        onBlur={() => setFieldTouched('creditLimit')}
-                                        className={`w-full bg-white border rounded-lg pr-16 pl-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 transition-all font-sans text-right
-                                            ${touched.creditLimit && !validations.creditLimit ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
-                                        placeholder="100 000"
-                                        required
-                                    />
-                                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-sans font-bold pointer-events-none uppercase ${touched.creditLimit && !validations.creditLimit ? 'text-red-500' : 'text-gray-900'}`}>DZD</span>
-                                </div>
-                                {touched.creditLimit && !validations.creditLimit && (
-                                    <p className="text-[10px] text-red-500 font-bold mt-1">يرجى تحديد الحد الائتماني للديون.</p>
-                                )}
-                                <p className="text-xs text-gray-500">الحد الأقصى للديون المسموح بها لهذا العميل.</p>
-                            </div>
-
-                            <div className="space-y-1.5 flex flex-col items-start w-full">
-                                <label className="text-sm font-bold text-gray-700">رقم الهاتف (اختياري)</label>
-                                <div className="relative w-full group overflow-hidden">
-                                    <input
-                                        type="text"
-                                        maxLength={10}
-                                        value={formData.phone}
-                                        onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '');
-                                            if (val.length === 1 && val[0] !== '0') return;
-                                            if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return;
-                                            setFormData({ ...formData, phone: val });
-                                        }}
-                                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                        dir="ltr"
-                                        onFocus={() => setFocusedField('phone')}
-                                        onBlur={() => {
-                                            setFocusedField(null);
-                                            setFieldTouched('phone');
-                                        }}
-                                        autoFocus
-                                    />
-                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
-                                        ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !validations.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
-                                        {[...Array(10)].map((_, i) => (
-                                            <React.Fragment key={i}>
-                                                <div
-                                                    className={`flex-1 flex justify-center items-center h-9 rounded-md transition-all duration-200
-                                                        ${formData.phone[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.phone.length && focusedField === 'phone') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}
-                                                >
-                                                    {formData.phone[i] || 'x'}
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-400/50 uppercase tracking-widest group-focus-within:text-blue-500 transition-colors">DZD</span>
                                                 </div>
-                                                {(i === 1 || i === 3 || i === 5 || i === 7) && <div className="w-2" />}
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                    {touched.phone && !validations.phone && (
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-red-500 animate-pulse pointer-events-none z-30">
-                                            <AlertTriangle size={16} />
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                                <p className="text-[10px] text-gray-400 font-bold mt-1">يجب أن يبدأ بـ 05، 06، أو 07.</p>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700">البريد الإلكتروني (اختياري)</label>
-                                <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    onBlur={() => setFieldTouched('email')}
-                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 font-sans transition-all
-                                        ${touched.email && !validations.email ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-blue-500/50'}`}
-                                    placeholder="example@domain.com"
-                                />
-                                {touched.email && !validations.email && (
-                                    <p className="text-[10px] text-red-500 font-bold mt-1 text-right">صيغة البريد الإلكتروني غير صحيحة (مثال: example@domain.com)</p>
-                                )}
-                            </div>
-
-                            <div className="space-y-1.5 pt-4 border-t border-gray-100">
-                                <h3 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <Info size={14} /> الهوية الجبائية والقانونية
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {/* RC - 10 chars */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">سجل تجاري (RC)</label>
-                                        <div className="relative font-mono">
+                            {/* Section 3: Location - EMERALD */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-emerald-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest">الموقع الجغرافي</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    {/* Wilaya */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الولاية <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={formData.wilaya}
+                                            onChange={e => {
+                                                const w = ALGERIA_LOCATIONS.find(l => l.name === e.target.value);
+                                                const firstCommune = w?.communes?.[0];
+                                                setFormData({ ...formData, wilaya: e.target.value, commune: firstCommune?.name || '', postCode: firstCommune?.postCode || '' });
+                                            }}
+                                            className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none focus:border-emerald-400 focus:bg-white transition-all appearance-none cursor-pointer"
+                                        >
+                                            {ALGERIA_LOCATIONS.map(w => (
+                                                <option key={w.id} value={w.name}>{w.id} - {w.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {/* Commune */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">البلدية <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={formData.commune}
+                                            onChange={e => {
+                                                const selectedWilaya = ALGERIA_LOCATIONS.find(l => l.name === formData.wilaya);
+                                                const selectedCommune = selectedWilaya?.communes?.find(c => c.name === e.target.value);
+                                                setFormData({ ...formData, commune: e.target.value, postCode: selectedCommune?.postCode || '' });
+                                            }}
+                                            onBlur={() => setFieldTouched('commune')}
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none transition-all appearance-none cursor-pointer
+                                                ${touched.commune && !validations.commune ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 focus:bg-white'}`}
+                                        >
+                                            {(ALGERIA_LOCATIONS.find(l => l.name === formData.wilaya)?.communes || []).map(c => (
+                                                <option key={c.name} value={c.name}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {/* Postal Code (auto-filled) */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الرمز البريدي</label>
+                                        <div className="relative">
                                             <input
-                                                type="text" maxLength={10} value={formData.rc}
-                                                onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
+                                                type="text"
                                                 dir="ltr"
-                                                onFocus={() => setFocusedField('rc')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('rc');
-                                                }}
+                                                readOnly
+                                                value={formData.postCode}
+                                                placeholder="يُملأ تلقائياً"
+                                                className="w-full bg-emerald-50/60 border-2 border-emerald-100 rounded-[1.2rem] px-5 py-3.5 text-emerald-700 font-black font-mono text-center focus:outline-none cursor-default select-all"
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
-                                                ${focusedField === 'rc' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.rc && !validations.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(10)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.rc[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.rc.length && focusedField === 'rc') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.rc[i] || 'x'}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-400/70 uppercase tracking-widest">CP</span>
                                         </div>
                                     </div>
-
-                                    {/* NIF - 15 digits */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
-                                        <div className="relative font-mono">
+                                    {/* Address detail */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">العنوان بالتفصيل</label>
+                                        <div className="relative group">
                                             <input
-                                                type="text" maxLength={15} value={formData.nif}
-                                                onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '') })}
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                dir="ltr"
-                                                onFocus={() => setFocusedField('nif')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('nif');
-                                                }}
+                                                type="text"
+                                                value={formData.address}
+                                                onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })}
+                                                placeholder="اختياري (الشارع، رقم الباب...)"
+                                                className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 focus:bg-white transition-all"
                                             />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
-                                                ${focusedField === 'nif' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nif && !validations.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(15)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.nif[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.nif.length && focusedField === 'nif') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.nif[i] || 'x'}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* AI - 11 digits */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">رقم المادة (AI)</label>
-                                        <div className="relative font-mono">
-                                            <input
-                                                type="text" maxLength={11} value={formData.ai}
-                                                onChange={e => setFormData({ ...formData, ai: e.target.value.replace(/\D/g, '') })}
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                dir="ltr"
-                                                onFocus={() => setFocusedField('ai')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('ai');
-                                                }}
-                                            />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
-                                                ${focusedField === 'ai' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.ai && !validations.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(11)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.ai[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.ai.length && focusedField === 'ai') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.ai[i] || 'x'}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* NIS - 15 digits */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
-                                        <div className="relative font-mono">
-                                            <input
-                                                type="text" maxLength={15} value={formData.nis}
-                                                onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '') })}
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                dir="ltr"
-                                                onFocus={() => setFocusedField('nis')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('nis');
-                                                }}
-                                            />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
-                                                ${focusedField === 'nis' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.nis && !validations.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(15)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.nis[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.nis.length && focusedField === 'nis') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.nis[i] || 'x'}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-400 transition-colors" />
                                         </div>
                                     </div>
                                 </div>
-                                <div className="space-y-3 pt-2">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">العنوان (الشارع / الحي) <span className="text-red-500">*</span></label>
+                            </div>
+
+                            {/* Section 4: Legal & Tax - AMBER */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-amber-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-amber-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest">المعلومات الجبائية والاتصال</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    {/* RC Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم السجل التجاري (RC)</label>
                                         <input
                                             type="text"
-                                            value={formData.address}
-                                            onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })}
-                                            onBlur={() => setFieldTouched('address')}
-                                            className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all uppercase font-black
-                                                ${touched.address && !validations.address ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
-                                            placeholder="الشارع, الحي, الطريق..." required
+                                            value={formData.rc}
+                                            onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase() })}
+                                            placeholder="WW/YY-NNNNNNN B"
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${rcInfo ? (rcInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
-                                        {touched.address && !validations.address && (
-                                            <p className="text-[10px] text-red-500 font-bold mt-1">يرجى إدخال العنوان بالتفصيل.</p>
+                                        {rcInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${rcInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {rcInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{rcInfo.valid ? rcInfo.breakdown : rcInfo.error}</p>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">الولاية <span className="text-red-500">*</span></label>
-                                            <select
-                                                value={formData.wilaya}
-                                                onChange={e => {
-                                                    const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
-                                                    setFormData({ ...formData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
-                                                }}
-                                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 font-bold"
-                                            >
-                                                {ALGERIA_LOCATIONS.map(w => (
-                                                    <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-500">البلدية <span className="text-red-500">*</span></label>
-                                            <input
-                                                type="text"
-                                                value={formData.commune}
-                                                onChange={e => setFormData({ ...formData, commune: e.target.value.toUpperCase() })}
-                                                onBlur={() => setFieldTouched('commune')}
-                                                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 transition-all font-bold uppercase
-                                                    ${touched.commune && !validations.commune ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-blue-500'}`}
-                                                placeholder="البلدية..." required
-                                            />
-                                            {touched.commune && !validations.commune && (
-                                                <p className="text-[10px] text-red-500 font-bold mt-1">يرجى إدخال البلدية.</p>
-                                            )}
-                                        </div>
+
+                                    {/* NIF Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم التعريف الجبائي (NIF)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.nif}
+                                            onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\s/g, '') })}
+                                            placeholder="15 أو 20 رقماً..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${nifInfo ? (nifInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {nifInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${nifInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {nifInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{nifInfo.valid ? nifInfo.breakdown : nifInfo.error}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* AI Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم المادة (AI)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.ai}
+                                            onChange={e => setFormData({ ...formData, ai: e.target.value.toUpperCase() })}
+                                            placeholder="مثال: B 123456"
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${aiInfo ? (aiInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {aiInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${aiInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {aiInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{aiInfo.valid ? aiInfo.breakdown : aiInfo.error}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* NIS Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم التعريف الإحصائي (NIS)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.nis}
+                                            onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\s/g, '') })}
+                                            placeholder="15 أو 18 رقماً..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${nisInfo ? (nisInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {nisInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${nisInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {nisInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{nisInfo.valid ? nisInfo.breakdown : nisInfo.error}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex gap-3 shadow-sm">
+                        {/* Footer with Dynamic Button */}
+                        <div className="p-8 border-t border-gray-100 bg-white flex gap-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
                             <button
                                 onClick={() => setIsSheetOpen(false)}
-                                className="flex-[0.5] bg-white text-gray-700 border border-gray-300 py-2.5 rounded-lg font-bold text-sm transition-colors"
+                                className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-[1.2rem] font-black text-sm hover:bg-gray-200 transition-all active:scale-95"
                             >
                                 إلغاء
                             </button>
                             <button
                                 onClick={handleSaveCustomer}
-                                disabled={Object.values(validations).some(v => !v)}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all"
+                                disabled={!isFormValid}
+                                className={`flex-[2] py-4 rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
+                                    ${isFormValid 
+                                        ? 'bg-[#8b5cf6] text-white shadow-violet-200 hover:bg-[#7c3aed] hover:shadow-violet-300' 
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
                             >
-                                تسجيل العميل
+                                <Plus size={20} /> تسجيل العميل
                             </button>
                         </div>
                     </div>

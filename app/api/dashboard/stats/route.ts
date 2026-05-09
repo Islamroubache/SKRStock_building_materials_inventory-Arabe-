@@ -284,6 +284,14 @@ export async function GET(request: Request) {
             totalDebt += remaining;
         });
 
+        const unpaidInvoicesCount = await prisma.invoice.count({
+            where: { status: 'UNPAID', remaining: { gt: 0 } }
+        });
+
+        const partialInvoicesCount = await prisma.invoice.count({
+            where: { status: 'PARTIAL', remaining: { gt: 0 } }
+        });
+
         return NextResponse.json({
             totalProducts,
             todaySales,
@@ -307,7 +315,9 @@ export async function GET(request: Request) {
             todayCustomerCollections,
             todaySupplierPayments,
             todayNet,
-            monthlyGrowth
+            monthlyGrowth,
+            unpaidInvoicesCount,
+            partialInvoicesCount
         });
 
     } catch (error) {

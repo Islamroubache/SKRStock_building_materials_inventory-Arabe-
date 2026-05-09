@@ -217,29 +217,31 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Supplier Payments Today */}
+                {/* Total Debt (Transferred Style) */}
                 <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
                     <div className="absolute -top-10 -left-10 w-24 h-24 bg-rose-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
                     <div className="bg-rose-50 p-3.5 rounded-2xl text-rose-600 relative z-10">
                         <ArrowDownLeft size={22} />
                     </div>
                     <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-rose-500 uppercase tracking-wider block mb-0.5">مدفوعات {getPeriodLabel()}</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todaySupplierPayments?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                        <span className="text-[10px] font-black text-rose-600 uppercase tracking-wider block mb-0.5">إجمالي الديون</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalDebt || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
+                        <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">مبالغ لم يتم تحصيلها</p>
                     </div>
                 </div>
 
-                {/* Net Liquidity (Dark Card) */}
-                <div className="bg-gray-900 p-5 rounded-[2rem] border border-gray-800 shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full"></div>
-                    <div className="bg-blue-600 p-3.5 rounded-2xl text-white relative z-10 shadow-lg shadow-blue-500/20">
-                        <TrendingUp size={22} />
+                {/* Open Invoices Breakdown (Transferred Style) */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-amber-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <div className="bg-amber-50 p-3.5 rounded-2xl text-amber-600 relative z-10">
+                        <Clock size={22} />
                     </div>
                     <div className="flex-1 relative z-10">
-                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block mb-0.5">السيولة الفعلية</span>
-                        <h3 className="text-lg font-black text-white font-sans truncate">
-                            {((stats?.todayNet || 0) + (stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} <span className="text-[8px] text-gray-500">دج</span>
-                        </h3>
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider block mb-0.5">فواتير مفتوحة</span>
+                        <h3 className="text-2xl font-black text-gray-900 font-sans">{(stats?.unpaidInvoicesCount || 0) + (stats?.partialInvoicesCount || 0)}</h3>
+                        <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">
+                            {stats?.unpaidInvoicesCount || 0} غير مدفوعة • {stats?.partialInvoicesCount || 0} جزئية
+                        </p>
                     </div>
                 </div>
 
@@ -255,27 +257,17 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Total Debt */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-amber-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-amber-50 p-3.5 rounded-2xl text-amber-600 relative z-10">
-                        <ArrowDownLeft size={22} />
+                {/* Net Liquidity (Dark Card) */}
+                <div className="bg-gray-900 p-5 rounded-[2rem] border border-gray-800 shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full"></div>
+                    <div className="bg-blue-600 p-3.5 rounded-2xl text-white relative z-10 shadow-lg shadow-blue-500/20">
+                        <TrendingUp size={22} />
                     </div>
                     <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider block mb-0.5">إجمالي الديون</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalDebt || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
-                    </div>
-                </div>
-
-                {/* Pending Orders (Transferred from Orders) */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-orange-50 p-3.5 rounded-2xl text-orange-600 relative z-10">
-                        <RotateCcw size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-orange-500 uppercase tracking-wider block mb-0.5">طلبيات معلقة</span>
-                        <h3 className="text-2xl font-black text-gray-900 font-sans">{stats?.pendingOrdersCount || 0}</h3>
+                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block mb-0.5">السيولة الفعلية</span>
+                        <h3 className="text-lg font-black text-white font-sans truncate">
+                            {((stats?.todayNet || 0) + (stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} <span className="text-[8px] text-gray-500">دج</span>
+                        </h3>
                     </div>
                 </div>
             </div>

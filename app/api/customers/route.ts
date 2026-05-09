@@ -16,10 +16,25 @@ export async function GET(request: Request) {
                         projects: { where: { status: 'ACTIVE' } }, 
                         orders: true 
                     } 
-                } 
+                },
+                invoices: {
+                    where: {
+                        status: { not: 'PAID' },
+                        remaining: { gt: 0 },
+                        dueDate: { lte: new Date() }
+                    },
+                    select: { id: true },
+                    take: 1
+                }
             }
         });
-        return NextResponse.json(customers);
+
+        const customersWithOverdue = customers.map(c => ({
+            ...c,
+            hasOverdue: c.invoices.length > 0
+        }));
+
+        return NextResponse.json(customersWithOverdue);
     } catch (e: any) {
         console.error('API /api/customers GET Error:', e);
         return NextResponse.json({ error: 'Failed' }, { status: 500 });

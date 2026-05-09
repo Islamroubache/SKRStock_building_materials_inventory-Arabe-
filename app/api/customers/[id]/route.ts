@@ -66,9 +66,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             data: updateData
         });
         return NextResponse.json(updated);
-    } catch (e) {
+    } catch (e: any) {
         console.error('Update Error:', e);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        return NextResponse.json({ error: e?.message || 'Failed' }, { status: 500 });
     }
 }
 

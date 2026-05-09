@@ -15,13 +15,15 @@ interface InvoicesTableProps {
     setPaymentAmount: (amount: number) => void;
     handleRefundExcess: (inv: any) => void;
     setShowHistoryModal: (inv: any) => void;
-    fetchPaymentHistory: (id: number) => void;
+    fetchPaymentHistory: (inv: any) => void;
     setShowReturnsModal: (inv: any) => void;
-    fetchReturnsHistory: (orderNumber: string) => void;
+    fetchReturnsHistory: (id: number) => void;
+    setShowReturnProcessModal: (inv: any) => void;
     hideParty?: boolean;
 }
 
-export const StatusBadge = ({ status, remaining, total, originalTotal, dueDate }: { status: string, remaining: number, total: number, originalTotal: number, dueDate?: string }) => {
+export const StatusBadge = ({ status, remaining, total, originalTotal, dueDate }: { status: string, remaining: number, total: number, originalTotal?: number, dueDate?: string }) => {
+    const orig = originalTotal ?? total;
     const overdue = isOverdue(dueDate) && remaining > 0;
 
     // 1. خالص بالكامل (Paid): Balance = 0
@@ -35,13 +37,18 @@ export const StatusBadge = ({ status, remaining, total, originalTotal, dueDate }
     }
     
     // 3. مدفوع جزئي (Partial): Balance > 0 and < Original Total
-    if (remaining > 0 && remaining < originalTotal) {
-        const percent = Math.round(((originalTotal - remaining) / originalTotal) * 100);
+    if (remaining > 0 && remaining < orig) {
+        const percent = Math.round(((orig - remaining) / orig) * 100);
         return (
             <div className="flex flex-col items-start gap-1">
                 <div className="flex items-center gap-2">
                     <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">مدفوع جزئي ({percent}%)</span>
-                    {overdue && <span className="bg-red-500 text-white p-1 rounded-full animate-pulse" title="متأخرة"><Clock size={10} /></span>}
+                    {overdue && (
+                        <div className="flex items-center gap-1 bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse">
+                            <Clock size={10} strokeWidth={3}/>
+                            <span className="text-[8px] font-black uppercase">متجاوزة</span>
+                        </div>
+                    )}
                 </div>
                 <div className="w-20 h-1 bg-gray-100 rounded-full overflow-hidden">
                     <div className="bg-amber-500 h-full" style={{ width: `${percent}%` }}></div>
@@ -52,16 +59,27 @@ export const StatusBadge = ({ status, remaining, total, originalTotal, dueDate }
     
     // 4. غير مدفوع (Unpaid): Balance = Original Total (or > 0 and not partial/paid)
     return (
-        <div className="flex items-center gap-2">
-            <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">غير مدفوع</span>
-            {overdue && <span className="bg-red-600 text-white p-1 rounded-full animate-bounce" title="متأخرة"><AlertCircle size={10} /></span>}
+        <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center gap-2">
+                <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">غير مدفوع</span>
+                {overdue && (
+                    <div className="flex items-center gap-1 bg-red-600 text-white px-2 py-0.5 rounded-full animate-bounce">
+                        <AlertCircle size={10} strokeWidth={3}/>
+                        <span className="text-[8px] font-black uppercase">متجاوزة</span>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
 const isOverdue = (dueDate?: string) => {
     if (!dueDate) return false;
-    return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString();
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return due <= today;
 };
 
 export const InvoicesTable: React.FC<InvoicesTableProps> = ({
@@ -72,8 +90,11 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
     setShowPaymentModal,
     setPaymentAmount,
     handleRefundExcess,
+    setShowHistoryModal,
+    fetchPaymentHistory,
     setShowReturnsModal,
     fetchReturnsHistory,
+    setShowReturnProcessModal,
     hideParty = false
 }) => {
     return (
@@ -111,26 +132,32 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                                     <td className="px-8 py-6">
                                         <div className="flex flex-col gap-1">
                                             <span className="font-black text-gray-900 font-sans tracking-tight">{inv.invoiceNumber}</span>
-                                            <span className="text-[10px] font-black text-gray-400 font-sans">{formatDate(inv.date)}</span>
+                                            <span className="text-[10px] font-black text-[#8b5cf6] font-sans opacity-80">{formatDate(inv.date)}</span>
                                         </div>
                                     </td>
                                     {!hideParty && (
                                         <td className="px-8 py-6 text-right" dir="rtl">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-3 justify-start">
-                                                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
-                                                        <img 
-                                                            src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(inv.customerName)}&backgroundColor=transparent&textColor=1e293b&fontWeight=900&fontSize=40`} 
-                                                            alt={inv.customerName}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-black text-gray-900 leading-none mb-1">{inv.customerName}</span>
-                                                        {inv.projectName && (
-                                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">مشروع: {inv.projectName}</span>
-                                                        )}
-                                                    </div>
+                                                    {(() => {
+                                                        const partyName = invoiceType === 'SALE' 
+                                                            ? (inv.customer?.name || inv.customerName || 'عميل عابر')
+                                                            : (inv.supplier?.name || inv.customerName || 'مورد عابر');
+                                                        const projectName = inv.order?.project?.name;
+                                                        
+                                                        return (
+                                                            <>
+                                                            <>
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-black text-gray-900 leading-none mb-1">{partyName}</span>
+                                                                    {projectName && (
+                                                                        <span className="text-[10px] font-black text-[#8b5cf6] uppercase tracking-tighter">مشروع: {projectName}</span>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         </td>
@@ -201,7 +228,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
 
                                             {/* 4. History Button (Always Active) */}
                                             <button
-                                                onClick={() => { setShowHistoryModal(inv); fetchPaymentHistory(inv.id); }}
+                                                onClick={() => { fetchPaymentHistory(inv); }}
                                                 className="p-2.5 bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white rounded-xl transition-all shadow-sm"
                                                 title="سجل المدفوعات"
                                             >
@@ -219,13 +246,13 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
 
                                                 if (isActive) {
                                                     return (
-                                                        <Link 
-                                                            href={`/orders/${order.id}/return`}
+                                                        <button 
+                                                            onClick={() => setShowReturnProcessModal(inv)}
                                                             className="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm"
                                                             title="استرجاع"
                                                         >
                                                             <RotateCcw size={18} />
-                                                        </Link>
+                                                        </button>
                                                     );
                                                 }
                                                 return (

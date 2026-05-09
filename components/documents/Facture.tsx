@@ -6,6 +6,7 @@ interface FactureProps {
     settings: any;
     order: any;
     items: any[];
+    invoice?: any;
 }
 
 function formatNum(n: number | undefined | null): string {
@@ -20,7 +21,6 @@ function formatDateFr(d?: string | Date | null): string {
 }
 
 function toFrenchWords(amount: number): string {
-    // Simple French number to words - abbreviated
     if (amount === 0) return 'ZÉRO DINAR';
     const rounded = Math.round(amount * 100);
     const dinars = Math.floor(rounded / 100);
@@ -28,22 +28,22 @@ function toFrenchWords(amount: number): string {
     return `${dinars.toLocaleString('fr-FR')} DINARS${centimes > 0 ? ` ET ${centimes} CENTIMES` : ''}`;
 }
 
-export const Facture: React.FC<FactureProps> = ({ settings, order, items }) => {
+export const Facture: React.FC<FactureProps> = ({ settings, order, items, invoice }) => {
     const subtotalHT = items.reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
     const tvaRate = order?.taxRate || settings?.tvaRate || 19;
     const taxTotal = order?.taxTotal ?? (order?.taxRate ? subtotalHT * (order.taxRate / 100) : 0);
     const timbreAmount = order?.timbreAmount ?? 0;
     const grandTotal = order?.grandTotal ?? (subtotalHT + taxTotal + timbreAmount);
 
-    const invoiceNumber = order?.invoice?.invoiceNumber || order?.orderNumber || '—';
-    const invoiceDate = formatDateFr(order?.orderDate || new Date());
+    const invoiceNumber = invoice?.invoiceNumber || order?.invoice?.invoiceNumber || order?.orderNumber || '—';
+    const invoiceDate = formatDateFr(invoice?.date || order?.orderDate || new Date());
 
-    const clientName = order?.customer?.name || order?.customerName || '';
-    const clientAddress = order?.customer?.address || '';
-    const clientRC = order?.customer?.rc || order?.customerRC || '';
-    const clientNIF = order?.customer?.nif || order?.customerNIF || '';
-    const clientAI = order?.customer?.ai || order?.customerAI || '';
-    const clientNIS = order?.customer?.nis || order?.customerNIS || '';
+    const clientName = order?.customer?.name || order?.supplier?.name || invoice?.customerName || order?.customerName || '';
+    const clientAddress = order?.customer?.address || order?.supplier?.address || invoice?.customerAddress || '';
+    const clientRC = order?.customer?.rc || order?.supplier?.rc || invoice?.customerRC || order?.customerRC || '';
+    const clientNIF = order?.customer?.nif || order?.supplier?.nif || invoice?.customerNIF || order?.customerNIF || '';
+    const clientAI = order?.customer?.ai || order?.supplier?.ai || invoice?.customerAI || order?.customerAI || '';
+    const clientNIS = order?.customer?.nis || order?.supplier?.nis || invoice?.customerNIS || order?.customerNIS || '';
     const clientActivity = '';
 
     const paymentMethod = order?.paymentMethod === 'CHEQUE' ? 'CHEQUE' : order?.paymentMethod === 'BANK_TRANSFER' ? 'VIREMENT' : 'ESPÈCES';

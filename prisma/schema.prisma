@@ -43,6 +43,7 @@ model Supplier {
   nis             String?
   commune         String?
   wilaya          String?
+  postalCode      String?
   balanceDue      Float             @default(0)
   isArchived      Boolean           @default(false)
   createdAt       DateTime          @default(now())
@@ -68,6 +69,7 @@ model Customer {
   address           String?
   commune           String?
   wilaya            String?
+  postalCode        String?
   creditLimit       Float     @default(0)
   balanceDue        Float     @default(0)
   isArchived        Boolean   @default(false)

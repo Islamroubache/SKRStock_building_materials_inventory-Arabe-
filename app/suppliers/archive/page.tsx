@@ -91,7 +91,6 @@ export default function SuppliersArchivePage() {
                         />
                     </div>
                 </div>
-            </div>
 
             {loading ? (
                 <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium">جاري التحميل...</div>
