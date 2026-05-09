@@ -138,16 +138,16 @@ export default function DateRangePicker({ startDate, endDate, onChange }: DateRa
         <div className="relative" ref={containerRef} dir="rtl">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-3 bg-[#8b5cf6] text-white border border-[#8b5cf6] rounded-2xl px-4 h-[52px] shadow-lg shadow-violet-100 hover:bg-[#7c3aed] transition-all group min-w-[160px]"
+                className="flex items-center gap-3 bg-white text-gray-900 border-2 border-gray-900 rounded-2xl px-4 h-[52px] shadow-sm hover:bg-gray-50 transition-all group min-w-[160px]"
             >
-                <div className="bg-white/20 p-1.5 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
+                <div className="bg-gray-900 p-1.5 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
                     <CalendarIcon size={14} />
                 </div>
                 <div className="text-right flex-1">
-                    <p className="text-[9px] font-black text-violet-100 uppercase tracking-tighter leading-none">فلترة حسب التاريخ</p>
-                    <p className="text-[10px] font-black text-white leading-none mt-1">{displayRange()}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">فلترة حسب التاريخ</p>
+                    <p className="text-[10px] font-black text-gray-900 leading-none mt-1">{displayRange()}</p>
                 </div>
-                <Filter size={14} className={`text-violet-200 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <Filter size={14} className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (

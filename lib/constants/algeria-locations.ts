@@ -432,7 +432,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Ouled Zouai",
-        "postCode": "04000"
+        "postCode": ""
       },
       {
         "name": "Oum El Bouaghi",
@@ -578,7 +578,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Larbaa",
-        "postCode": "05000"
+        "postCode": ""
       },
       {
         "name": "Lazrou",
@@ -586,7 +586,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Lemcene",
-        "postCode": "05000"
+        "postCode": ""
       },
       {
         "name": "M Doukal",
@@ -670,7 +670,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Talkhamt",
-        "postCode": "05000"
+        "postCode": ""
       },
       {
         "name": "Taxlent",
@@ -1344,7 +1344,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Ouled Rached",
-        "postCode": "10000"
+        "postCode": ""
       },
       {
         "name": "Raouraoua",
@@ -1574,7 +1574,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Beni Boussaid",
-        "postCode": "13000"
+        "postCode": ""
       },
       {
         "name": "Beni Khellad",
@@ -1860,7 +1860,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sebt",
-        "postCode": "14000"
+        "postCode": ""
       },
       {
         "name": "Serghine",
@@ -1872,7 +1872,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Abderrahmane",
-        "postCode": "14000"
+        "postCode": ""
       },
       {
         "name": "Sidi Ali Mellal",
@@ -1922,7 +1922,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
     "communes": [
       {
         "name": "Abi-Youcef",
-        "postCode": "15000"
+        "postCode": ""
       },
       {
         "name": "Aghribs",
@@ -1974,7 +1974,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Ait-Oumalou",
-        "postCode": "15000"
+        "postCode": ""
       },
       {
         "name": "Ait-Toudert",
@@ -2838,7 +2838,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Guelta Zerka",
-        "postCode": "19000"
+        "postCode": ""
       },
       {
         "name": "Guenzet",
@@ -3122,7 +3122,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Ouldja Boulbalout",
-        "postCode": "21000"
+        "postCode": ""
       },
       {
         "name": "Ouled Attia",
@@ -3332,7 +3332,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Khaled",
-        "postCode": "22000"
+        "postCode": ""
       },
       {
         "name": "Sidi Lahcene",
@@ -3410,7 +3410,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "El Eulma",
-        "postCode": "23000"
+        "postCode": ""
       },
       {
         "name": "El Hadjar",
@@ -3430,7 +3430,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Treat",
-        "postCode": "23000"
+        "postCode": ""
       }
     ]
   },
@@ -3468,7 +3468,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Beni Mezline",
-        "postCode": "24000"
+        "postCode": ""
       },
       {
         "name": "Bordj Sabath",
@@ -3480,7 +3480,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Bou Hamdane",
-        "postCode": "24000"
+        "postCode": ""
       },
       {
         "name": "Bouati Mahmoud",
@@ -3532,7 +3532,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Khezaras",
-        "postCode": "24000"
+        "postCode": ""
       },
       {
         "name": "Medjez Amar",
@@ -3676,7 +3676,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Bouaiche",
-        "postCode": "26000"
+        "postCode": ""
       },
       {
         "name": "Bouaichoune",
@@ -3740,7 +3740,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "El Ouinet",
-        "postCode": "26000"
+        "postCode": ""
       },
       {
         "name": "Hannacha",
@@ -3776,7 +3776,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Mezerana",
-        "postCode": "26000"
+        "postCode": ""
       },
       {
         "name": "Mihoub",
@@ -3860,7 +3860,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Ziane",
-        "postCode": "26000"
+        "postCode": ""
       },
       {
         "name": "Souagui",
@@ -3982,7 +3982,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Safsaf",
-        "postCode": "27000"
+        "postCode": ""
       },
       {
         "name": "Sayada",
@@ -4100,7 +4100,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "El Houamed",
-        "postCode": "28000"
+        "postCode": ""
       },
       {
         "name": "Hammam Dalaa",
@@ -4144,7 +4144,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Menaa",
-        "postCode": "28000"
+        "postCode": ""
       },
       {
         "name": "Mohamed Boudiaf",
@@ -4188,7 +4188,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Ameur",
-        "postCode": "28000"
+        "postCode": ""
       },
       {
         "name": "Sidi Hadjeres",
@@ -4226,7 +4226,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
     "communes": [
       {
         "name": "Ain Fares",
-        "postCode": "29000"
+        "postCode": ""
       },
       {
         "name": "Ain Fekan",
@@ -4402,7 +4402,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Tizi",
-        "postCode": "29000"
+        "postCode": ""
       },
       {
         "name": "Zahana",
@@ -4420,7 +4420,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
     "communes": [
       {
         "name": "Ain Beida",
-        "postCode": "30000"
+        "postCode": ""
       },
       {
         "name": "El Borma",
@@ -4636,11 +4636,11 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Ameur",
-        "postCode": "32000"
+        "postCode": ""
       },
       {
         "name": "Sidi Slimane",
-        "postCode": "32000"
+        "postCode": ""
       },
       {
         "name": "Sidi Tiffour",
@@ -4744,7 +4744,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Elhammadia",
-        "postCode": "34000"
+        "postCode": ""
       },
       {
         "name": "Ghailasa",
@@ -4882,7 +4882,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "El Kharrouba",
-        "postCode": "35000"
+        "postCode": ""
       },
       {
         "name": "Hammedi",
@@ -4910,7 +4910,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Ouled Aissa",
-        "postCode": "35000"
+        "postCode": ""
       },
       {
         "name": "Ouled Hedadj",
@@ -4930,7 +4930,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Souk El Had",
-        "postCode": "35000"
+        "postCode": ""
       },
       {
         "name": "Taourga",
@@ -5104,7 +5104,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Larbaa",
-        "postCode": "38000"
+        "postCode": ""
       },
       {
         "name": "Lardjem",
@@ -5144,7 +5144,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Slimane",
-        "postCode": "38000"
+        "postCode": ""
       },
       {
         "name": "Tamellahet",
@@ -5300,7 +5300,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "El Oueldja",
-        "postCode": "40000"
+        "postCode": ""
       },
       {
         "name": "Ensigha",
@@ -5354,7 +5354,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
     "communes": [
       {
         "name": "Ain Soltane",
-        "postCode": "41000"
+        "postCode": ""
       },
       {
         "name": "Ain Zana",
@@ -5430,7 +5430,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi Fredj",
-        "postCode": "41000"
+        "postCode": ""
       },
       {
         "name": "Souk Ahras",
@@ -5568,7 +5568,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi-Amar",
-        "postCode": "42000"
+        "postCode": ""
       },
       {
         "name": "Tipaza",
@@ -5840,7 +5840,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Sidi-Lakhdar",
-        "postCode": "44000"
+        "postCode": ""
       },
       {
         "name": "Tacheta Zegagha",
@@ -5956,7 +5956,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Chentouf",
-        "postCode": "46000"
+        "postCode": ""
       },
       {
         "name": "El Amria",
@@ -5972,7 +5972,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Emir Abdelkader",
-        "postCode": "46000"
+        "postCode": ""
       },
       {
         "name": "Hammam Bou Hadjar",
@@ -5980,7 +5980,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Hassasna",
-        "postCode": "46000"
+        "postCode": ""
       },
       {
         "name": "Hassi El Ghella",
@@ -6128,7 +6128,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "El Ouldja",
-        "postCode": "48000"
+        "postCode": ""
       },
       {
         "name": "El-Guettar",
@@ -6224,7 +6224,7 @@ export const ALGERIA_LOCATIONS: Wilaya[] = [
       },
       {
         "name": "Souk El Had",
-        "postCode": "48000"
+        "postCode": ""
       },
       {
         "name": "Yellel",
