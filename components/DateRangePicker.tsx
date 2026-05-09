@@ -15,9 +15,10 @@ interface DateRangePickerProps {
     startDate: string;
     endDate: string;
     onChange: (start: string, end: string) => void;
+    theme?: 'yellow' | 'violet';
 }
 
-export default function DateRangePicker({ startDate, endDate, onChange }: DateRangePickerProps) {
+export default function DateRangePicker({ startDate, endDate, onChange, theme = 'yellow' }: DateRangePickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [tempStart, setTempStart] = useState(startDate);
     const [tempEnd, setTempEnd] = useState(endDate);
@@ -138,16 +139,26 @@ export default function DateRangePicker({ startDate, endDate, onChange }: DateRa
         <div className="relative" ref={containerRef} dir="rtl">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-3 bg-white text-gray-900 border-2 border-gray-900 rounded-2xl px-4 h-[52px] shadow-sm hover:bg-gray-50 transition-all group min-w-[160px]"
+                className={`w-full h-[52px] flex items-center gap-3 border rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right group min-w-[160px] ${
+                    theme === 'violet' ? 'bg-[#8b5cf6] border-[#8b5cf6]' : 'bg-[#fbb815] border-[#fbb815]'
+                }`}
             >
-                <div className="bg-gray-900 p-1.5 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
+                <div className={`p-1.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform ${
+                    theme === 'violet' ? 'bg-white/20 text-white' : 'bg-white/30 text-gray-900'
+                }`}>
                     <CalendarIcon size={14} />
                 </div>
-                <div className="text-right flex-1">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">فلترة حسب التاريخ</p>
-                    <p className="text-[10px] font-black text-gray-900 leading-none mt-1">{displayRange()}</p>
+                <div className="flex-1">
+                    <p className={`text-[9px] font-medium uppercase tracking-tighter leading-none ${
+                        theme === 'violet' ? 'text-white/80' : 'text-gray-800'
+                    }`}>فلترة حسب التاريخ</p>
+                    <p className={`text-[10px] font-bold mt-1 truncate max-w-[120px] ${
+                        theme === 'violet' ? 'text-white' : 'text-gray-900'
+                    }`}>{displayRange()}</p>
                 </div>
-                <Filter size={14} className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <Filter size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''} ${
+                    theme === 'violet' ? 'text-white/80' : 'text-gray-800'
+                }`} />
             </button>
 
             {isOpen && (

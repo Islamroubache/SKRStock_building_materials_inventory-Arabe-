@@ -513,6 +513,7 @@ export default function InvoicesPage() {
                         startDate={dateRange.start}
                         endDate={dateRange.end}
                         onChange={(start, end) => { setDateRange({ start, end }); setCurrentPage(1); }}
+                        theme="violet"
                     />
                 </div>
             </div>

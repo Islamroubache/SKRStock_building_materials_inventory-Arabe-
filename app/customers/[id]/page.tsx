@@ -13,11 +13,14 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
+import * as xlsx from 'xlsx';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 import { numberToFrenchWords } from '@/lib/number-to-french-words';
 import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable, StatusBadge } from '@/components/InvoicesTable';
 import DateRangePicker from '@/components/DateRangePicker';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 
 export default function CustomerDetailPage() {
@@ -76,6 +79,8 @@ export default function CustomerDetailPage() {
     const [soaProjectFilter, setSoaProjectFilter] = useState('ALL');
     const [soaRange, setSoaRange] = useState({ start: '', end: new Date().toISOString().split('T')[0] });
     const [isSOAFiltering, setIsSOAFiltering] = useState(false);
+    const [soaCurrentPage, setSoaCurrentPage] = useState(1);
+    const soaItemsPerPage = 15;
 
     // Edit Modal states
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -95,6 +100,12 @@ export default function CustomerDetailPage() {
     const [projectOrderCurrentPage, setProjectOrderCurrentPage] = useState(1);
     const projectOrderItemsPerPage = 10;
 
+    // General Order Filters
+    const [generalOrderSearch, setGeneralOrderSearch] = useState('');
+    const [generalOrderStatusFilter, setGeneralOrderStatusFilter] = useState('ALL');
+    const [generalOrderDateFrom, setGeneralOrderDateFrom] = useState('');
+    const [generalOrderDateTo, setGeneralOrderDateTo] = useState('');
+    const [generalOrderCurrentPage, setGeneralOrderCurrentPage] = useState(1);
     // Project Filters/Sort
     const [projectStatusFilter, setProjectStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DISABLED'>('ACTIVE');
     const [projectFinanceFilter, setProjectFinanceFilter] = useState<'ALL' | 'PAID' | 'DEBT' | 'SURPLUS'>('ALL');
@@ -402,7 +413,66 @@ export default function CustomerDetailPage() {
         }
     };
 
-    const handleRecordPayment = async () => {
+    const handleExportExcelSOA = (data: any[]) => {
+        const exportData = data.map(tx => ({
+            'التاريخ': tx.date.toLocaleDateString('ar-DZ'),
+            'رقم العملية': tx.number,
+            'البيان (نوع العملية)': tx.motif,
+            'طريقة الدفع': tx.method,
+            'المرجع': tx.ref,
+            'المشروع': tx.project,
+            'مبلغ البيع': tx.vente,
+            'المبلغ المقبوض': tx.versement,
+            'الرصيد': tx.balance
+        }));
+        const ws = xlsx.utils.json_to_sheet(exportData);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, "StatementOfAccount");
+        xlsx.writeFile(wb, `كشف_حساب_${customer.name}_${new Date().toLocaleDateString()}.xlsx`);
+    };
+
+    const handleExportPDFSOA = (data: any[]) => {
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const dateStr = new Date().toLocaleDateString('ar-DZ').replace(/\//g, '-');
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(`Releve de Compte - ${customer.name} (${dateStr})`, 14, 20);
+
+        const headers = [
+            ['Date', 'N° Opération', 'Motif', 'Méthode', 'Réf', 'Projet', 'Vente (DZD)', 'Versé (DZD)', 'Solde (DZD)']
+        ];
+
+        const tableData = data.map(tx => [
+            tx.date.toLocaleDateString('fr-FR'),
+            tx.number,
+            tx.motif,
+            tx.method,
+            tx.ref,
+            tx.project,
+            tx.vente.toLocaleString(),
+            tx.versement.toLocaleString(),
+            tx.balance.toLocaleString()
+        ]);
+
+        autoTable(doc, {
+            head: headers,
+            body: tableData,
+            startY: 30,
+            theme: 'grid',
+            headStyles: { fillColor: [139, 92, 246] }, // Purple 500
+            styles: { font: 'helvetica', fontSize: 8 },
+            columnStyles: {
+                6: { halign: 'right' },
+                7: { halign: 'right' },
+                8: { halign: 'right' }
+            }
+        });
+
+        doc.save(`كشف_حساب_${customer.name}_${dateStr}.pdf`);
+    };
+
+    const handleRecordPayment = async (e: React.FormEvent) => {
         if (!showPaymentModal || paymentAmount <= 0) return;
 
         setIsSubmitting(true);
@@ -1012,38 +1082,52 @@ export default function CustomerDetailPage() {
 
 
                 <div className="mt-8 flex flex-col gap-6">
-                    <div className="flex items-center gap-8 no-print border-b border-gray-100 px-4">
-                        <button 
-                            onClick={() => setActiveTab('PROJECTS')} 
-                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'PROJECTS' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <Briefcase size={16} /> المشاريع
-                            {activeTab === 'PROJECTS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
-                        </button>
+                    <div className="flex items-center gap-8 no-print px-4">
+                        {(() => {
+                            const isOverdue = (o: any) => {
+                                const inv = o?.invoice;
+                                if (!inv) return false;
+                                const remaining = Number(inv.remaining ?? ((o.grandTotal || o.total || 0) - (inv.paid || 0)));
+                                return inv.status !== 'PAID' && remaining > 0 && inv.dueDate && new Date(inv.dueDate) <= new Date();
+                            };
+                            const hasOverdueProjects = (customer?.orders || []).some((o: any) => o.projectId && isOverdue(o));
+
+                            return (
+                                <button 
+                                    onClick={() => setActiveTab('PROJECTS')} 
+                                    className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'PROJECTS' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    <Briefcase size={16} /> المشاريع
+                                    {hasOverdueProjects && <span className="absolute top-0 left-0 w-2 h-2 rounded-full bg-red-500 shadow-sm shadow-red-200 animate-pulse"></span>}
+                                    {activeTab === 'PROJECTS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
+                                </button>
+                            );
+                        })()}
                         
-                        <button 
-                            onClick={() => setActiveTab('ORDERS')} 
-                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'ORDERS' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <ShoppingCart size={16} /> طلبيات عامة
-                            {(() => {
-                                const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && o.type === 'SALE');
-                                if (generalOrders.length > 0) {
-                                    return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === 'ORDERS' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{generalOrders.length}</span>;
-                                }
-                                return null;
-                            })()}
-                            {activeTab === 'ORDERS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
-                        </button>
+                        {(() => {
+                            const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && (o.type === 'SALE' || o.type === 'RETURN_SALE'));
+                            if (generalOrders.length === 0) return null;
+                            const isOverdue = (o: any) => {
+                                const inv = o?.invoice;
+                                if (!inv) return false;
+                                const remaining = Number(inv.remaining ?? ((o.grandTotal || o.total || 0) - (inv.paid || 0)));
+                                return inv.status !== 'PAID' && remaining > 0 && inv.dueDate && new Date(inv.dueDate) <= new Date();
+                            };
+                            const hasOverdueGeneral = generalOrders.some((o: any) => isOverdue(o));
+
+                            return (
+                                <button 
+                                    onClick={() => setActiveTab('ORDERS')} 
+                                    className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'ORDERS' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    <ShoppingCart size={16} /> طلبيات عامة
+                                    {hasOverdueGeneral && <span className="absolute top-0 left-0 w-2 h-2 rounded-full bg-red-500 shadow-sm shadow-red-200 animate-pulse"></span>}
+                                    {activeTab === 'ORDERS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
+                                </button>
+                            );
+                        })()}
                         
-                        <button 
-                            onClick={() => setActiveTab('PRODUCTS')} 
-                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'PRODUCTS' ? 'text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <Star size={16} /> المنتجات الأكثر طلباً
-                            {activeTab === 'PRODUCTS' && <div className="absolute bottom-0 left-0 w-full h-1 bg-orange-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
-                        </button>
-                        
+
                         <button 
                             onClick={() => setActiveTab('SOA')} 
                             className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${activeTab === 'SOA' ? 'text-[#8b5cf6]' : 'text-gray-400 hover:text-gray-600'}`}
@@ -1055,724 +1139,10 @@ export default function CustomerDetailPage() {
 
                     <div className="min-h-[400px]">
                         {activeTab === 'PROJECTS' && (
-                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 rounded-[2.5rem] border-2 border-gray-900 shadow-xl">
-                                {/* Project Sub-Tabs Header */}
-                                <div className="flex items-center justify-between no-print border-b border-gray-100 px-4 mb-2">
-                                    <div className="flex items-center gap-8">
-                                        <button 
-                                            onClick={() => setProjectStatusFilter('ACTIVE')} 
-                                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${projectStatusFilter === 'ACTIVE' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
-                                        >
-                                            المشاريع النشطة
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${projectStatusFilter === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                                                {(customer?.projects || []).filter((p: any) => p.status === 'ACTIVE').length}
-                                            </span>
-                                            {projectStatusFilter === 'ACTIVE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
-                                        </button>
-                                        
-                                        <button 
-                                            onClick={() => setProjectStatusFilter('DISABLED')} 
-                                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${projectStatusFilter === 'DISABLED' ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}
-                                        >
-                                            الأرشيف
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${projectStatusFilter === 'DISABLED' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
-                                                {(customer?.projects || []).filter((p: any) => p.status === 'DISABLED').length}
-                                            </span>
-                                            {projectStatusFilter === 'DISABLED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-amber-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
-                                        </button>
-                                    </div>
-
-                                    <button 
-                                        onClick={() => setIsProjectSheetOpen(true)} 
-                                        className="mb-4 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-2 shadow-sm hover:bg-gray-800 transition-all"
-                                    >
-                                        <Plus size={14} /> إضافة مشروع جديد
-                                    </button>
-                                </div>
-
-                                {/* Filter & Sort Bar */}
-                                <div className="bg-gray-50/50 p-4 rounded-3xl border border-gray-100 shadow-sm">
-                                    <div className="flex flex-wrap items-center gap-4 no-print" ref={dropdownRef}>
-                                        {/* Search Field */}
-                                        <div className="relative group flex-1 min-w-[280px]">
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-900 p-2 rounded-xl text-white transition-all shadow-md shadow-gray-200">
-                                                <Search size={20} />
-                                            </div>
-                                            <input 
-                                                type="text"
-                                                placeholder="ابحث باسم المشروع، الموقع أو الوصف..."
-                                                value={projectSearchQuery}
-                                                onChange={(e) => setProjectSearchQuery(e.target.value)}
-                                                className="w-full h-[52px] bg-white border border-gray-200 rounded-2xl pr-16 pl-4 text-[11px] font-black outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/5 transition-all shadow-sm"
-                                            />
-                                            {projectSearchQuery && (
-                                                <button 
-                                                    onClick={() => setProjectSearchQuery('')}
-                                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-900 transition-colors"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Finance Status Filter */}
-                                        <div className="relative group min-w-[180px]">
-                                            <button
-                                                onClick={() => setActiveDropdown(activeDropdown === 'proj_finance' ? null : 'proj_finance')}
-                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
-                                            >
-                                                <div className="bg-purple-50 p-1.5 rounded-lg text-purple-600">
-                                                    <Activity size={14} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">الحالة المالية</p>
-                                                    <p className="text-[10px] font-black text-gray-900 mt-1">
-                                                        {projectFinanceFilter === 'ALL' ? 'كل الحالات' : 
-                                                         projectFinanceFilter === 'DEBT' ? 'عليه ديون' : 
-                                                         projectFinanceFilter === 'PAID' ? 'مسواة' : 'رصيد زائد'}
-                                                    </p>
-                                                </div>
-                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'proj_finance' ? 'rotate-180' : ''}`} />
-                                            </button>
-                                            
-                                            {activeDropdown === 'proj_finance' && (
-                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
-                                                    <button onClick={() => { setProjectFinanceFilter('ALL'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'ALL' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}>كل الحالات المالية</button>
-                                                    <button onClick={() => { setProjectFinanceFilter('DEBT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'DEBT' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع عليها ديون</button>
-                                                    <button onClick={() => { setProjectFinanceFilter('PAID'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع مسواة</button>
-                                                    <button onClick={() => { setProjectFinanceFilter('SURPLUS'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'SURPLUS' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع فيها رصيد زائد</button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Sorting Filter */}
-                                        <div className="relative group min-w-[180px]">
-                                            <button
-                                                onClick={() => setActiveDropdown(activeDropdown === 'proj_sort' ? null : 'proj_sort')}
-                                                className={`w-full h-[52px] flex items-center gap-3 border rounded-2xl px-4 transition-all text-right group ${projectSortBy === 'RECENT' ? 'bg-amber-400 border-amber-500 shadow-lg shadow-amber-100' : 'bg-[#8b5cf6] border-[#8b5cf6] shadow-lg shadow-purple-100 hover:shadow-purple-200'}`}
-                                            >
-                                                <div className={`p-1.5 rounded-lg ${projectSortBy === 'RECENT' ? 'bg-black/10 text-amber-900' : 'bg-white/10 text-amber-400'}`}>
-                                                    <SortDesc size={14} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className={`text-[9px] font-black uppercase tracking-tighter leading-none ${projectSortBy === 'RECENT' ? 'text-amber-900/60' : 'text-gray-400'}`}>ترتيب حسب</p>
-                                                    <p className={`text-[10px] font-black mt-1 ${projectSortBy === 'RECENT' ? 'text-amber-950' : 'text-white'}`}>
-                                                        {projectSortBy === 'RECENT' ? 'الأحدث' : 
-                                                         projectSortBy === 'OLD' ? 'الأقدم' : 
-                                                         projectSortBy === 'ALPHA' ? 'أبجدياً' : 
-                                                         projectSortBy === 'ORDERS' ? 'الأكثر طلباً' : 'الأكبر قيمة'}
-                                                    </p>
-                                                </div>
-                                                <ChevronDown size={14} className={`transition-transform ${projectSortBy === 'RECENT' ? 'text-amber-900/40' : 'text-gray-500'} ${activeDropdown === 'proj_sort' ? 'rotate-180' : ''}`} />
-                                            </button>
-                                            
-                                            {activeDropdown === 'proj_sort' && (
-                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
-                                                    <button onClick={() => { setProjectSortBy('RECENT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'RECENT' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأحدث (تاريخ البدء)</button>
-                                                    <button onClick={() => { setProjectSortBy('OLD'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'OLD' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأقدم (تاريخ البدء)</button>
-                                                    <button onClick={() => { setProjectSortBy('ALPHA'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'ALPHA' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>أبجدياً (الاسم)</button>
-                                                    <button onClick={() => { setProjectSortBy('ORDERS'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'ORDERS' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأكثر طلباً</button>
-                                                    <button onClick={() => { setProjectSortBy('PURCHASES'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'PURCHASES' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأكبر قيمة</button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {filteredAndSortedProjects.length === 0 ? (
-                                    <div className="py-20 text-center bg-white rounded-[2.5rem] border border-gray-100 border-dashed">
-                                        <Briefcase size={48} className="mx-auto text-gray-200 mb-4" />
-                                        <p className="font-black text-gray-400">لا توجد مشاريع تطابق الفلاتر المختارة</p>
-                                    </div>
-                                ) : (
-                                <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
-                                    <table className="w-full text-right border-collapse" dir="rtl">
-                                        <thead>
-                                            <tr className="bg-gray-50/80 border-b border-gray-100">
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-16 text-center">#</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">المشروع / الموقع</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">تاريخ البدء</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الطلبيات</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">إجمالي المشتريات</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">المستحقات</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الحالة</th>
-                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الإجراءات</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {filteredAndSortedProjects.map((p: any, idx: number) => {
-                                                // Filter orders specifically for this project
-                                                const projectOrders = (customer.orders || []).filter((o: any) => 
-                                                    o.projectId === p.id && 
-                                                    o.type !== 'RETURN_SALE' && 
-                                                    o.type !== 'RETURN_PURCHASE'
-                                                );
-                                                
-                                                const projectTotalPurchases = projectOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || o.total || 0), 0);
-                                                
-                                                // Calculate balance: Sum of (Net Total - Paid) for each invoice in this project
-                                                const projectBalance = projectOrders.reduce((sum: number, o: any) => {
-                                                    const netTotal = o.grandTotal || o.total || 0;
-                                                    const paid = o.invoice?.paid || 0;
-                                                    return sum + (netTotal - paid);
-                                                }, 0);
-
-                                                const hasDebt = projectBalance > 0.01;
-                                                const hasSurplus = projectBalance < -0.01;
-
-                                                return (
-                                                    <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors group ${p.status === 'DISABLED' ? 'opacity-50' : ''}`}>
-                                                        <td className="p-4 text-center">
-                                                            <span className="text-[11px] font-black text-gray-300 font-sans">{idx + 1}</span>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <span className="font-black text-gray-900 group-hover:text-blue-600 transition-colors text-sm">{p.name}</span>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-[10px] font-bold text-gray-400 truncate max-w-[150px]" title={p.description}>
-                                                                        {p.description || 'بدون وصف'}
-                                                                    </span>
-                                                                    <span className="text-gray-200">|</span>
-                                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                                                                        <MapPin size={10} className="text-gray-300" />
-                                                                        <span className="truncate max-w-[120px]">{p.address || 'عنوان غير محدد'}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4 text-center">
-                                                            <span className="text-xs font-black text-gray-600 font-sans">
-                                                                {new Date(p.startDate).toLocaleDateString('ar-DZ')}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 text-center">
-                                                            <div className="inline-flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-lg">
-                                                                <span className="text-sm font-black text-gray-900 font-sans">{projectOrders.length}</span>
-                                                                <ShoppingCart size={12} className="text-gray-400" />
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-black text-gray-900 font-sans">{projectTotalPurchases.toLocaleString()}</span>
-                                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">دج</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            {hasDebt ? (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-sm font-black text-rose-600 font-sans">+{projectBalance.toLocaleString()} دج</span>
-                                                                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-tighter">ديون عالقة</span>
-                                                                </div>
-                                                            ) : hasSurplus ? (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-sm font-black text-purple-600 font-sans">{projectBalance.toLocaleString()} دج</span>
-                                                                    <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">رصيد زائد</span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <span className="text-sm font-black text-emerald-600 font-sans">0 دج</span>
-                                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">خالص</span>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="p-4 text-center">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                                                                {p.status === 'ACTIVE' ? 'نشط' : 'معطل'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                {hasDebt && (
-                                                                    <button 
-                                                                        onClick={() => {
-                                                                            setShowPaymentModal({
-                                                                                isGlobal: true,
-                                                                                projectId: p.id,
-                                                                                invoiceNumber: `تسديد ديون مشروع: ${p.name}`,
-                                                                                remaining: projectBalance
-                                                                            });
-                                                                            setPaymentAmount(projectBalance);
-                                                                        }}
-                                                                        className="p-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-md shadow-rose-100 active:scale-95"
-                                                                        title="تسديد ديون هذا المشروع (الأقدم فالأحدث)"
-                                                                    >
-                                                                        <Banknote size={16} />
-                                                                    </button>
-                                                                )}
-                                                                <button 
-                                                                    onClick={() => setSelectedProjectForOrders(p)}
-                                                                    className="p-2.5 bg-white border border-gray-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm active:scale-95"
-                                                                    title="عرض سجل الطلبيات"
-                                                                >
-                                                                    <Info size={16} />
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => toggleProjectStatus(p.id, p.status)}
-                                                                    className={`p-2.5 border border-gray-200 rounded-xl transition-all shadow-sm active:scale-95 ${p.status === 'DISABLED' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white'}`}
-                                                                    title={p.status === 'DISABLED' ? 'تنشيط المشروع' : 'تعطيل المشروع'}
-                                                                >
-                                                                    <Power size={16} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                )}
-
-                            </div>
-                        )}
-
-
-                        {activeTab === 'ORDERS' && (() => {
-                            const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && (o.type === 'SALE' || o.type === 'RETURN_SALE'));
-                            const saleOrders = generalOrders.filter((o: any) => o.type === 'SALE');
-                            const totalPurchases = saleOrders.reduce((s: number, o: any) => s + (o.grandTotal || o.total || 0), 0);
-                            const totalPaid = saleOrders.reduce((s: number, o: any) => s + (o.invoice?.paid || 0), 0);
-                            const totalRemaining = totalPurchases - totalPaid;
-                            return (
-                                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-blue-50/20 p-8 rounded-[2.5rem] border-2 border-blue-600 shadow-xl">
-                                    {/* Summary bar */}
-                                    <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm grid grid-cols-3 gap-4">
-                                        <div className="text-center">
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي الطلبيات</p>
-                                            <p className="text-2xl font-black text-gray-900 font-sans">{saleOrders.length}</p>
-                                        </div>
-                                        <div className="text-center border-x border-gray-100">
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي المشتريات</p>
-                                            <p className="text-2xl font-black text-gray-900 font-sans">{totalPurchases.toLocaleString()} دج</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">المستحقات المتبقية</p>
-                                            <p className={`text-2xl font-black font-sans ${totalRemaining > 0.01 ? 'text-red-600' : 'text-emerald-600'}`}>{totalRemaining.toLocaleString()} دج</p>
-                                        </div>
-                                    </div>
-                                    {/* Orders Table */}
-                                    <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
-                                        <div className="p-5 border-b border-gray-100 flex items-center gap-3">
-                                            <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><ShoppingCart size={18} /></div>
-                                            <div>
-                                                <h3 className="font-black text-gray-900">طلبيات عامة / بدون مشروع</h3>
-                                                <p className="text-[10px] text-gray-400 font-bold mt-0.5">طلبيات لم تُربط بأي مشروع</p>
-                                            </div>
-                                        </div>
-                                        <InvoicesTable
-                                            invoices={saleOrders.map((o: any) => {
-                                                const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
-                                                const netTotal = o.grandTotal || o.total || 0;
-                                                const paid = o.invoice?.paid || 0;
-                                                const remaining = o.invoice?.remaining ?? (netTotal - paid);
-                                                return {
-                                                    ...o.invoice,
-                                                    id: o.invoice?.id,
-                                                    invoiceNumber: o.invoice?.invoiceNumber || o.orderNumber,
-                                                    customerName: customer.name,
-                                                    projectName: 'عام',
-                                                    total: netTotal,
-                                                    originalTotal: netTotal + returnsValue,
-                                                    returnsValue,
-                                                    remaining,
-                                                    paid,
-                                                    status: remaining <= 0 ? (remaining < 0 ? 'CREDIT' : 'PAID') : (paid > 0 ? 'PARTIAL' : 'UNPAID'),
-                                                    order: o,
-                                                    date: o.orderDate
-                                                };
-                                            })}
-                                            loading={loading}
-                                            invoiceType="SALE"
-                                            setSelectedInvoice={setSelectedInvoice}
-                                            setShowPaymentModal={setShowPaymentModal}
-                                            setPaymentAmount={setPaymentAmount}
-                                            handleRefundExcess={handleRefundExcess}
-                                            setShowHistoryModal={setShowHistoryModal}
-                                            fetchPaymentHistory={fetchPaymentHistory}
-                                            setShowReturnsModal={setShowReturnsModal}
-                                            fetchReturnsHistory={fetchReturnsHistory}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-
-                        {activeTab === 'PRODUCTS' && (
-                            <div className="bg-white p-8 rounded-[2.5rem] border-2 border-orange-600 shadow-xl animate-in fade-in duration-500">
-                                <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                                    <div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Star size={20} /></div>
-                                    المنتجات الأكثر طلباً من قبل هذا العميل
-                                </h3>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {topProducts.length === 0 ? (
-                                        <div className="col-span-2 py-20 text-center text-gray-300 flex flex-col items-center gap-4">
-                                            <Package size={48} />
-                                            <p className="font-black">لا توجد منتجات مسجلة لهذا العميل بعد</p>
-                                        </div>
-                                    ) : (
-                                        topProducts.map((p, idx) => (
-                                            <div key={idx} className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 hover:bg-white hover:shadow-xl transition-all duration-500 flex items-center justify-between group">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl ${
-                                                        idx === 0 ? 'bg-amber-100 text-amber-600 shadow-lg shadow-amber-50' : 
-                                                        idx === 1 ? 'bg-slate-100 text-slate-600' : 
-                                                        idx === 2 ? 'bg-orange-100 text-orange-600' : 
-                                                        'bg-gray-100 text-gray-400'
-                                                    }`}>
-                                                        {idx + 1}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-black text-gray-900 text-lg leading-tight">{p.name}</p>
-                                                        <div className="flex flex-col gap-1 mt-1">
-                                                            <p className="text-[10px] font-bold text-gray-500">الكمية: <span className="text-gray-900 font-black font-sans">{p.qty.toLocaleString()}</span> وحدة</p>
-                                                            <div className="flex items-center gap-3">
-                                                                <p className="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md">أول طلب: <span className="font-sans">{p.firstDate.toLocaleDateString('ar-DZ')}</span></p>
-                                                                <p className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-md">آخر طلب: <span className="font-sans">{p.lastDate.toLocaleDateString('ar-DZ')}</span></p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي المبيعات</p>
-                                                    <p className="text-xl font-black text-gray-900 font-sans">{p.total.toLocaleString()} دج</p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'SOA' && (
-                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[600px] bg-white rounded-[2.5rem] border-2 border-[#8b5cf6] p-8 shadow-xl overflow-x-auto">
-                                <div className="flex justify-between items-center mb-6 no-print">
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-gray-900 text-white p-3 rounded-2xl shadow-lg"><Printer size={24} /></div>
-                                        <div className="text-right">
-                                            <h3 className="text-xl font-black text-gray-900">كشف الحساب التفصيلي</h3>
-                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">سجل كامل للحركات المالية والطلبيات</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <button onClick={() => printDocument()} className="bg-gray-900 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg hover:scale-105 transition-all">
-                                            <Printer size={16} /> طباعة الكشف
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Filters Row */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6 no-print bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">بحث (رقم العملية / المرجع)</label>
-                                        <div className="relative">
-                                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                                            <input 
-                                                type="text" 
-                                                placeholder="مثلاً: 2026/04/..."
-                                                value={soaSearchQuery || ''}
-                                                onChange={(e) => setSoaSearchQuery(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pr-10 pl-4 text-xs font-bold outline-none focus:border-gray-900 transition-all"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">نوع العملية (البيان)</label>
-                                        <select 
-                                            value={soaMotifFilter || 'ALL'}
-                                            onChange={(e) => setSoaMotifFilter(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
-                                        >
-                                            <option value="ALL">كل الأنواع</option>
-                                            <option value="SALE">مبيعات</option>
-                                            <option value="RETURN">مرتجعات</option>
-                                            <option value="PAYMENT">تسديد ديون</option>
-                                            <option value="REFUND">استرداد أموال</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">طريقة الدفع</label>
-                                        <select 
-                                            value={soaMethodFilter || 'ALL'}
-                                            onChange={(e) => setSoaMethodFilter(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
-                                        >
-                                            <option value="ALL">كل الطرق</option>
-                                            <option value="CASH">نقداً (CASH)</option>
-                                            <option value="CHEQUE">شيك (CHEQUE)</option>
-                                            <option value="BANK_TRANSFER">تحويل بنكي</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">المشروع</label>
-                                        <select 
-                                            value={soaProjectFilter || 'ALL'}
-                                            onChange={(e) => setSoaProjectFilter(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-xs font-bold outline-none focus:border-gray-900 cursor-pointer"
-                                        >
-                                            <option value="ALL">كل المشاريع</option>
-                                            <option value="GENERAL">عام / بدون مشروع</option>
-                                            {customer?.projects?.map((p: any) => (
-                                                <option key={p.id} value={p.id.toString()}>{p.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">من تاريخ</label>
-                                        <input 
-                                            type="date" 
-                                            value={soaDateFrom || ''}
-                                            onChange={(e) => setSoaDateFrom(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mr-2">إلى تاريخ</label>
-                                        <input 
-                                            type="date" 
-                                            value={soaDateTo || ''}
-                                            onChange={(e) => setSoaDateTo(e.target.value)}
-                                            className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-xs font-bold outline-none focus:border-gray-900"
-                                        />
-                                    </div>
-                                </div>
-
-                                {(() => {
-                                    const allTxs: any[] = [];
-                                    const usedPaymentIds = new Set<number>();
-
-                                    // 1. Process Orders (Sales & Returns)
-                                    (customer.orders || []).forEach((o: any) => {
-                                        if (o.type === 'SALE') {
-                                            const returnsValue = (o.items || []).reduce((sum: number, item: any) => 
-                                                sum + ((item.returnedQuantity || 0) * (item.unitPrice || 0)), 0
-                                            );
-                                            const netTotal = o.grandTotal || o.total || 0;
-                                            const originalTotal = netTotal + returnsValue;
-
-                                            const initialPayment = (o.invoice?.payments || []).find((p: any) => {
-                                                const orderTime = new Date(o.orderDate).getTime();
-                                                const payTime = new Date(p.paymentDate).getTime();
-                                                return Math.abs(orderTime - payTime) < 120000;
-                                            });
-
-                                            if (initialPayment) usedPaymentIds.add(initialPayment.id);
-                                            const versement = initialPayment ? initialPayment.amount : 0;
-                                            
-                                            let motif = '';
-                                            if (Math.abs(versement - originalTotal) < 0.01) motif = 'دفع كامل (الكل نقداً)';
-                                            else if (versement > 0) motif = 'دفع جزئي (عربون وتسديد لاحق)';
-                                            else motif = 'تسليف / آجل';
-
-                                            allTxs.push({
-                                                date: new Date(o.orderDate),
-                                                number: o.orderNumber,
-                                                vente: originalTotal,
-                                                method: initialPayment?.paymentMethod || '---',
-                                                motif: motif,
-                                                ref: '---',
-                                                versement: versement,
-                                                type: 'SALE',
-                                                project: o.project?.name || 'عام',
-                                                projectId: o.projectId
-                                            });
-                                        } else if (o.type === 'RETURN_SALE') {
-                                            allTxs.push({
-                                                date: new Date(o.orderDate),
-                                                number: 'Retours',
-                                                vente: -(o.grandTotal || o.total || 0),
-                                                method: '---',
-                                                motif: 'إرجاع سلع',
-                                                ref: o.externalNumber || o.notes || o.orderNumber,
-                                                versement: 0,
-                                                type: 'RETURN',
-                                                project: o.project?.name || 'عام',
-                                                projectId: o.projectId
-                                            });
-                                        }
-                                    });
-
-                                    // 2. Process Payments (Tasdid & Refunds)
-                                    (customer.payments || []).forEach((p: any) => {
-                                        if (usedPaymentIds.has(p.id)) return;
-                                        const isRefund = p.amount < 0;
-                                        allTxs.push({
-                                            date: new Date(p.paymentDate),
-                                            number: isRefund ? 'Remboursement' : 'Droits',
-                                            vente: 0,
-                                            method: isRefund ? '---' : p.paymentMethod,
-                                            motif: isRefund ? 'استرداد أموال' : 'تسديد ديون',
-                                            ref: p.invoice?.order?.orderNumber || p.invoice?.invoiceNumber?.replace('INV/', '') || '---',
-                                            versement: p.amount,
-                                            type: isRefund ? 'REFUND' : 'PAYMENT',
-                                            project: p.invoice?.order?.project?.name || 'عام',
-                                            projectId: p.invoice?.order?.projectId || null
-                                        });
-                                    });
-
-                                    // 3. Sort Chronologically
-                                    allTxs.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-                                    // 4. Calculate Full History Balance
-                                    let runningBalance = 0;
-                                    const historyWithBalance = allTxs.map(tx => {
-                                        runningBalance += (tx.vente - tx.versement);
-                                        return { ...tx, balance: runningBalance };
-                                    });
-
-                                    // 5. Apply Filters
-                                    let filteredTxs = historyWithBalance.filter(tx => {
-                                        // Date Filter
-                                        if (soaDateFrom && tx.date < new Date(soaDateFrom)) return false;
-                                        if (soaDateTo) {
-                                            const toDate = new Date(soaDateTo);
-                                            toDate.setHours(23, 59, 59, 999);
-                                            if (tx.date > toDate) return false;
-                                        }
-
-                                        // Motif Filter
-                                        if (soaMotifFilter && soaMotifFilter !== 'ALL') {
-                                            if (tx.type !== soaMotifFilter) return false;
-                                        }
-
-                                        // Method Filter
-                                        if (soaMethodFilter && soaMethodFilter !== 'ALL') {
-                                            if (tx.method !== soaMethodFilter) return false;
-                                        }
-
-                                        // Project Filter
-                                        if (soaProjectFilter && soaProjectFilter !== 'ALL') {
-                                            const hasProject = tx.projectId !== null && tx.projectId !== undefined;
-                                            if (soaProjectFilter === 'GENERAL') {
-                                                // Show only transactions WITHOUT a project
-                                                if (hasProject) return false;
-                                            } else {
-                                                // Show only transactions WITH this specific project
-                                                if (!hasProject || tx.projectId?.toString() !== soaProjectFilter) return false;
-                                            }
-                                        }
-
-                                        // Search Query
-                                        if (soaSearchQuery) {
-                                            const q = soaSearchQuery.toLowerCase();
-                                            const matchNum = tx.number?.toLowerCase().includes(q);
-                                            const matchRef = tx.ref?.toLowerCase().includes(q);
-                                            if (!matchNum && !matchRef) return false;
-                                        }
-
-                                        return true;
-                                    });
-
-                                    // 6. Calculate Initial Balance (Balance just before the first visible transaction)
-                                    // 6. Calculate Initial Balance (Balance just before the first visible transaction)
-                                    let initialBalance = 0;
-                                    if (filteredTxs.length > 0) {
-                                        const firstVisibleIndex = historyWithBalance.findIndex(tx => tx === filteredTxs[0]);
-                                        if (firstVisibleIndex > 0) {
-                                            initialBalance = historyWithBalance[firstVisibleIndex - 1].balance;
-                                        }
-                                    } else if (historyWithBalance.length > 0) {
-                                        if (soaDateFrom) {
-                                            const lastBeforeDate = historyWithBalance.filter(tx => tx.date < new Date(soaDateFrom)).pop();
-                                            initialBalance = lastBeforeDate ? lastBeforeDate.balance : 0;
-                                        }
-                                    }
-
-                                    // 7. Reverse for Newest-First Display
-                                    const displayedTxs = [...filteredTxs].reverse();
-
-                                    return (
-                                        <div className="flex flex-col">
-                                            {/* Initial Balance Header */}
-                                            <div className="bg-gray-900 text-white p-6 rounded-t-[2rem] flex justify-between items-center shadow-lg no-print">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="bg-white/10 p-2 rounded-xl"><Activity size={18} /></div>
-                                                    <span className="text-xs font-black uppercase tracking-widest opacity-70">الرصيد قبل الفلترة (Solde Initial)</span>
-                                                </div>
-                                                <span className={`text-2xl font-black font-sans ${initialBalance > 0.01 ? 'text-red-400' : (initialBalance < -0.01 ? 'text-emerald-400' : 'text-white')}`}>
-                                                    {initialBalance.toLocaleString()} دج
-                                                </span>
-                                            </div>
-
-                                            <table className="w-full text-right border-collapse min-w-[1000px] print-area">
-                                                <thead>
-                                                    <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
-                                                        <th className="p-4 text-center">N°</th>
-                                                        <th className="p-4">تاريخ العملية</th>
-                                                        <th className="p-4">رقم العملية</th>
-                                                        <th className="p-4 text-center">المشروع</th>
-                                                        <th className="p-4">مبلغ البيع (دج)</th>
-                                                        <th className="p-4">طريقة الدفع</th>
-                                                        <th className="p-4">البيان (Motif)</th>
-                                                        <th className="p-4 text-center">المرجع / الطلبية</th>
-                                                        <th className="p-4 text-emerald-600">المدفوعات (دج)</th>
-                                                        <th className="p-4 bg-gray-100/50 text-gray-900">الرصيد المتبقي (دج)</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {displayedTxs.map((tx, idx) => (
-                                                        <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors font-bold text-sm">
-                                                            <td className="p-4 text-center text-gray-400 font-sans">{filteredTxs.length - idx}</td>
-                                                            <td className="p-4 font-sans">{tx.date.toLocaleDateString('ar-DZ')}</td>
-                                                            <td className="p-4 font-sans text-xs">{tx.number}</td>
-                                                            <td className="p-4 text-center text-[10px] font-bold text-gray-500 bg-gray-50/50">
-                                                                {tx.project}
-                                                            </td>
-                                                            <td className="p-4 font-sans">
-                                                                {tx.vente !== 0 ? (
-                                                                    <span className={tx.vente < 0 ? 'text-orange-600' : 'text-gray-900'}>
-                                                                        {tx.vente.toLocaleString()}
-                                                                    </span>
-                                                                ) : '---'}
-                                                            </td>
-                                                            <td className="p-4 text-xs">
-                                                                {tx.method !== '---' ? (
-                                                                    <span className="bg-gray-100 px-2 py-1 rounded-lg">{tx.method}</span>
-                                                                ) : '---'}
-                                                            </td>
-                                                            <td className="p-4">
-                                                                <span className={`text-[10px] px-2 py-1 rounded-lg ${
-                                                                    tx.type === 'SALE' ? 'bg-blue-50 text-blue-700' :
-                                                                    tx.type === 'RETURN' ? 'bg-orange-50 text-orange-700' :
-                                                                    tx.type === 'REFUND' ? 'bg-purple-50 text-purple-700' :
-                                                                    'bg-emerald-50 text-emerald-700'
-                                                                }`}>
-                                                                    {tx.motif}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-4 text-center font-sans text-[11px] text-gray-500">
-                                                                {tx.ref}
-                                                            </td>
-                                                            <td className="p-4 font-sans text-emerald-600">
-                                                                {tx.versement !== 0 ? (
-                                                                    <span className={tx.versement < 0 ? 'text-purple-600' : ''}>
-                                                                        {tx.versement.toLocaleString()}
-                                                                    </span>
-                                                                ) : '---'}
-                                                            </td>
-                                                            <td className={`p-4 font-sans bg-gray-50/30 ${tx.balance > 0.01 ? 'text-red-600' : (tx.balance < -0.01 ? 'text-emerald-600' : 'text-gray-400')}`}>
-                                                                {Math.abs(tx.balance) < 0.01 ? '0' : tx.balance.toLocaleString()}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* MODALS */}
-                {/* PROJECT ORDERS MODAL */}
-                {selectedProjectForOrders && (
-                    <div className={`fixed inset-0 z-[150] bg-gray-900/80 backdrop-blur-md flex justify-center items-center p-4 md:p-6 no-print animate-in fade-in duration-300 ${
+                            selectedProjectForOrders ? (
+                <div className={`bg-[#f8fafc] w-full rounded-[2.5rem] shadow-xl border-2 border-violet-600 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-500 flex flex-col min-h-[600px] ${
                         (selectedInvoice || showPaymentModal || showHistoryModal || showReturnsHistoryModal || showReturnModal || showReturnSuccessModal || showRefundConfirmModal || showRefundSuccessModal) ? 'hidden' : ''
                     }`}>
-                        <div className="bg-[#f8fafc] w-full max-w-[95vw] h-full max-h-[95vh] rounded-[2.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-500 flex flex-col border border-white">
                             
                             {/* White Header - Matches Invoices Page Style */}
                             <div className="bg-white p-6 md:p-8 border-b border-gray-100 flex flex-col lg:flex-row items-center justify-between gap-6">
@@ -2127,10 +1497,910 @@ export default function CustomerDetailPage() {
                                     )})()}
                                 </div>
                             </div>
-                        </div>
-                    )}
+                            ) : (
+                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 rounded-[2.5rem] border-2 border-gray-900 shadow-xl">
+                                {/* Project Sub-Tabs Header */}
+                                <div className="flex items-center justify-between no-print border-b border-gray-100 px-4 mb-2">
+                                    <div className="flex items-center gap-8">
+                                        <button 
+                                            onClick={() => setProjectStatusFilter('ACTIVE')} 
+                                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${projectStatusFilter === 'ACTIVE' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                            المشاريع النشطة
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${projectStatusFilter === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                {(customer?.projects || []).filter((p: any) => p.status === 'ACTIVE').length}
+                                            </span>
+                                            {projectStatusFilter === 'ACTIVE' && <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-900 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => setProjectStatusFilter('DISABLED')} 
+                                            className={`pb-4 px-2 text-sm font-black transition-all flex items-center gap-2 relative ${projectStatusFilter === 'DISABLED' ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                            الأرشيف
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${projectStatusFilter === 'DISABLED' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                {(customer?.projects || []).filter((p: any) => p.status === 'DISABLED').length}
+                                            </span>
+                                            {projectStatusFilter === 'DISABLED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-amber-600 rounded-full animate-in slide-in-from-bottom-1 duration-300"></div>}
+                                        </button>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => setIsProjectSheetOpen(true)} 
+                                        className="mb-4 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-[11px] flex items-center gap-2 shadow-sm hover:bg-gray-800 transition-all"
+                                    >
+                                        <Plus size={14} /> إضافة مشروع جديد
+                                    </button>
+                                </div>
+
+                                {/* Filter & Sort Bar */}
+                                <div className="bg-gray-50/50 p-4 rounded-3xl border border-gray-100 shadow-sm">
+                                    <div className="flex flex-wrap items-center gap-4 no-print" ref={dropdownRef}>
+                                        {/* Search Field */}
+                                        <div className="relative group flex-1 min-w-[280px]">
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-900 p-2 rounded-xl text-white transition-all shadow-md shadow-gray-200">
+                                                <Search size={20} />
+                                            </div>
+                                            <input 
+                                                type="text"
+                                                placeholder="ابحث باسم المشروع، الموقع أو الوصف..."
+                                                value={projectSearchQuery}
+                                                onChange={(e) => setProjectSearchQuery(e.target.value)}
+                                                className="w-full h-[52px] bg-white border border-gray-200 rounded-2xl pr-16 pl-4 text-[11px] font-black outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/5 transition-all shadow-sm"
+                                            />
+                                            {projectSearchQuery && (
+                                                <button 
+                                                    onClick={() => setProjectSearchQuery('')}
+                                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-900 transition-colors"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Finance Status Filter */}
+                                        <div className="relative group min-w-[180px]">
+                                            <button
+                                                onClick={() => setActiveDropdown(activeDropdown === 'proj_finance' ? null : 'proj_finance')}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                            >
+                                                <div className="bg-purple-50 p-1.5 rounded-lg text-purple-600">
+                                                    <Activity size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">الحالة المالية</p>
+                                                    <p className="text-[10px] font-black text-gray-900 mt-1">
+                                                        {projectFinanceFilter === 'ALL' ? 'كل الحالات' : 
+                                                         projectFinanceFilter === 'DEBT' ? 'عليه ديون' : 
+                                                         projectFinanceFilter === 'PAID' ? 'مسواة' : 'رصيد زائد'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'proj_finance' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            
+                                            {activeDropdown === 'proj_finance' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    <button onClick={() => { setProjectFinanceFilter('ALL'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'ALL' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}>كل الحالات المالية</button>
+                                                    <button onClick={() => { setProjectFinanceFilter('DEBT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'DEBT' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع عليها ديون</button>
+                                                    <button onClick={() => { setProjectFinanceFilter('PAID'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع مسواة</button>
+                                                    <button onClick={() => { setProjectFinanceFilter('SURPLUS'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${projectFinanceFilter === 'SURPLUS' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-700'}`}>مشاريع فيها رصيد زائد</button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Sorting Filter */}
+                                        <div className="relative group min-w-[180px]">
+                                            <button
+                                                onClick={() => setActiveDropdown(activeDropdown === 'proj_sort' ? null : 'proj_sort')}
+                                                className={`w-full h-[52px] flex items-center gap-3 border rounded-2xl px-4 transition-all text-right group ${projectSortBy === 'RECENT' ? 'bg-amber-400 border-amber-500 shadow-lg shadow-amber-100' : 'bg-[#8b5cf6] border-[#8b5cf6] shadow-lg shadow-purple-100 hover:shadow-purple-200'}`}
+                                            >
+                                                <div className={`p-1.5 rounded-lg ${projectSortBy === 'RECENT' ? 'bg-black/10 text-amber-900' : 'bg-white/10 text-amber-400'}`}>
+                                                    <SortDesc size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className={`text-[9px] font-black uppercase tracking-tighter leading-none ${projectSortBy === 'RECENT' ? 'text-amber-900/60' : 'text-gray-400'}`}>ترتيب حسب</p>
+                                                    <p className={`text-[10px] font-black mt-1 ${projectSortBy === 'RECENT' ? 'text-amber-950' : 'text-white'}`}>
+                                                        {projectSortBy === 'RECENT' ? 'الأحدث' : 
+                                                         projectSortBy === 'OLD' ? 'الأقدم' : 
+                                                         projectSortBy === 'ALPHA' ? 'أبجدياً' : 
+                                                         projectSortBy === 'ORDERS' ? 'الأكثر طلباً' : 'الأكبر قيمة'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`transition-transform ${projectSortBy === 'RECENT' ? 'text-amber-900/40' : 'text-gray-500'} ${activeDropdown === 'proj_sort' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            
+                                            {activeDropdown === 'proj_sort' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    <button onClick={() => { setProjectSortBy('RECENT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'RECENT' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأحدث (تاريخ البدء)</button>
+                                                    <button onClick={() => { setProjectSortBy('OLD'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'OLD' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأقدم (تاريخ البدء)</button>
+                                                    <button onClick={() => { setProjectSortBy('ALPHA'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'ALPHA' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>أبجدياً (الاسم)</button>
+                                                    <button onClick={() => { setProjectSortBy('ORDERS'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'ORDERS' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأكثر طلباً</button>
+                                                    <button onClick={() => { setProjectSortBy('PURCHASES'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-2.5 text-[10px] font-black transition-colors ${projectSortBy === 'PURCHASES' ? 'bg-amber-400 text-amber-950' : 'hover:bg-gray-50 text-gray-700'}`}>الأكبر قيمة</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {filteredAndSortedProjects.length === 0 ? (
+                                    <div className="py-20 text-center bg-white rounded-[2.5rem] border border-gray-100 border-dashed">
+                                        <Briefcase size={48} className="mx-auto text-gray-200 mb-4" />
+                                        <p className="font-black text-gray-400">لا توجد مشاريع تطابق الفلاتر المختارة</p>
+                                    </div>
+                                ) : (
+                                <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
+                                    <table className="w-full text-right border-collapse" dir="rtl">
+                                        <thead>
+                                            <tr className="bg-gray-50/80 border-b border-gray-100">
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest w-16 text-center">#</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">المشروع / الموقع</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">تاريخ البدء</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الطلبيات</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">إجمالي المشتريات</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">المستحقات</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الحالة</th>
+                                                <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">الإجراءات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {filteredAndSortedProjects.map((p: any, idx: number) => {
+                                                // Filter orders specifically for this project
+                                                const projectOrders = (customer.orders || []).filter((o: any) => 
+                                                    o.projectId === p.id && 
+                                                    o.type !== 'RETURN_SALE' && 
+                                                    o.type !== 'RETURN_PURCHASE'
+                                                );
+                                                
+                                                const projectTotalPurchases = projectOrders.reduce((sum: number, o: any) => sum + (o.grandTotal || o.total || 0), 0);
+                                                
+                                                // Calculate balance: Sum of (Net Total - Paid) for each invoice in this project
+                                                const projectBalance = projectOrders.reduce((sum: number, o: any) => {
+                                                    const netTotal = o.grandTotal || o.total || 0;
+                                                    const paid = o.invoice?.paid || 0;
+                                                    return sum + (netTotal - paid);
+                                                }, 0);
+
+                                                const hasDebt = projectBalance > 0.01;
+                                                const hasSurplus = projectBalance < -0.01;
+
+                                                return (
+                                                    <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors group ${p.status === 'DISABLED' ? 'opacity-50' : ''}`}>
+                                                        <td className="p-4 text-center">
+                                                            <span className="text-[11px] font-black text-gray-300 font-sans">{idx + 1}</span>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="font-black text-gray-900 group-hover:text-blue-600 transition-colors text-sm">{p.name}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-gray-400 truncate max-w-[150px]" title={p.description}>
+                                                                        {p.description || 'بدون وصف'}
+                                                                    </span>
+                                                                    <span className="text-gray-200">|</span>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
+                                                                        <MapPin size={10} className="text-gray-300" />
+                                                                        <span className="truncate max-w-[120px]">{p.address || 'عنوان غير محدد'}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className="text-xs font-black text-gray-600 font-sans">
+                                                                {new Date(p.startDate).toLocaleDateString('ar-DZ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <div className="inline-flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-lg">
+                                                                <span className="text-sm font-black text-gray-900 font-sans">{projectOrders.length}</span>
+                                                                <ShoppingCart size={12} className="text-gray-400" />
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-black text-gray-900 font-sans">{projectTotalPurchases.toLocaleString()}</span>
+                                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">دج</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {hasDebt ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-sm font-black text-rose-600 font-sans">+{projectBalance.toLocaleString()} دج</span>
+                                                                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-tighter">ديون عالقة</span>
+                                                                </div>
+                                                            ) : hasSurplus ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-sm font-black text-purple-600 font-sans">{projectBalance.toLocaleString()} دج</span>
+                                                                    <span className="text-[9px] font-black text-purple-400 uppercase tracking-tighter">رصيد زائد</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-sm font-black text-emerald-600 font-sans">0 دج</span>
+                                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">خالص</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                                                                {p.status === 'ACTIVE' ? 'نشط' : 'معطل'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                {hasDebt && (
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setShowPaymentModal({
+                                                                                isGlobal: true,
+                                                                                projectId: p.id,
+                                                                                invoiceNumber: `تسديد ديون مشروع: ${p.name}`,
+                                                                                remaining: projectBalance
+                                                                            });
+                                                                            setPaymentAmount(projectBalance);
+                                                                        }}
+                                                                        className="p-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-md shadow-rose-100 active:scale-95"
+                                                                        title="تسديد ديون هذا المشروع (الأقدم فالأحدث)"
+                                                                    >
+                                                                        <Banknote size={16} />
+                                                                    </button>
+                                                                )}
+                                                                <button 
+                                                                    onClick={() => setSelectedProjectForOrders(p)}
+                                                                    className="p-2.5 bg-white border border-gray-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm active:scale-95"
+                                                                    title="عرض سجل الطلبيات"
+                                                                >
+                                                                    <Info size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => toggleProjectStatus(p.id, p.status)}
+                                                                    className={`p-2.5 border border-gray-200 rounded-xl transition-all shadow-sm active:scale-95 ${p.status === 'DISABLED' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white'}`}
+                                                                    title={p.status === 'DISABLED' ? 'تنشيط المشروع' : 'تعطيل المشروع'}
+                                                                >
+                                                                    <Power size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                )}
+
+                            </div>
+                            )
+                        )}
 
 
+                        {activeTab === 'ORDERS' && (() => {
+                            const generalOrders = (customer?.orders || []).filter((o: any) => !o.projectId && (o.type === 'SALE' || o.type === 'RETURN_SALE'));
+                            const saleOrders = generalOrders.filter((o: any) => o.type === 'SALE');
+                            
+                            const mappedGeneralInvoices = saleOrders.map((o: any) => {
+                                const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+                                const netTotal = o.grandTotal || o.total || 0;
+                                const paid = o.invoice?.paid || 0;
+                                const remaining = o.invoice?.remaining ?? (netTotal - paid);
+                                return {
+                                    ...o.invoice,
+                                    id: o.invoice?.id,
+                                    invoiceNumber: o.invoice?.invoiceNumber || o.orderNumber,
+                                    customerName: customer.name,
+                                    projectName: 'عام',
+                                    total: netTotal,
+                                    originalTotal: netTotal + returnsValue,
+                                    returnsValue,
+                                    remaining,
+                                    paid,
+                                    status: remaining <= 0 ? (remaining < 0 ? 'CREDIT' : 'PAID') : (paid > 0 ? 'PARTIAL' : 'UNPAID'),
+                                    order: o,
+                                    date: o.orderDate,
+                                    invoiceDate: o.invoice?.invoiceDate || o.orderDate
+                                };
+                            });
+
+                            const filteredGeneralInvoices = mappedGeneralInvoices.filter((inv: any) => {
+                                const matchesSearch = !generalOrderSearch || 
+                                    (inv.invoiceNumber || '').toLowerCase().includes(generalOrderSearch.toLowerCase()) ||
+                                    (inv.order?.orderNumber || '').toLowerCase().includes(generalOrderSearch.toLowerCase());
+                                    
+                                let matchesStatus = true;
+                                if (generalOrderStatusFilter !== 'ALL') {
+                                    const r = Number(inv.remaining ?? (inv.total - (inv.paid || 0)));
+                                    const orig = inv.total || 0;
+                                    if (generalOrderStatusFilter === 'PAID') matchesStatus = r === 0;
+                                    else if (generalOrderStatusFilter === 'PARTIAL') matchesStatus = r > 0 && r < orig;
+                                    else if (generalOrderStatusFilter === 'UNPAID') matchesStatus = r >= orig;
+                                    else if (generalOrderStatusFilter === 'CREDIT') matchesStatus = r < 0;
+                                }
+
+                                let matchesDate = true;
+                                if (generalOrderDateFrom && generalOrderDateTo) {
+                                    const d = new Date(inv.date || inv.invoiceDate);
+                                    matchesDate = d >= new Date(generalOrderDateFrom) && d <= new Date(generalOrderDateTo);
+                                }
+                                
+                                return matchesSearch && matchesStatus && matchesDate;
+                            });
+
+                            const totalPurchases = filteredGeneralInvoices.reduce((s: number, inv: any) => s + (inv.total || 0), 0);
+                            const totalPaid = filteredGeneralInvoices.reduce((s: number, inv: any) => s + (inv.paid || 0), 0);
+                            const totalRemaining = totalPurchases - totalPaid;
+
+                            return (
+                                <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-blue-50/20 p-8 rounded-[2.5rem] border-2 border-blue-600 shadow-xl">
+                                    {/* Page Header */}
+                                    <div className="flex justify-between items-center mb-2 no-print">
+                                        <div className="flex items-center gap-4">
+                                            <div className="bg-blue-600 text-white p-3 rounded-2xl shadow-lg shadow-blue-200"><ShoppingCart size={24} /></div>
+                                            <div className="text-right">
+                                                <h3 className="text-xl font-black text-blue-600">طلبيات عامة / بدون مشروع</h3>
+                                                <p className="text-[10px] font-black text-[#fbb815] uppercase tracking-widest mt-1">طلبيات لم تُربط بأي مشروع</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Unified Filter Bar */}
+                                    <div className="px-6 py-5 no-print bg-blue-50/50 rounded-[1.5rem] mb-2 border border-blue-100 flex flex-col gap-4">
+                                        <div className="flex flex-col lg:flex-row gap-3 items-center" ref={dropdownRef}>
+                                            {/* Search */}
+                                            <div className="relative flex-1 min-w-[300px] group">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="بحث برقم فاتورة..."
+                                                    value={generalOrderSearch} 
+                                                    onChange={(e) => setGeneralOrderSearch(e.target.value)} 
+                                                    className="w-full h-[52px] bg-white border border-gray-200 focus:border-blue-300 focus:ring-4 focus:ring-blue-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                                                />
+                                                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-blue-600 rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none">
+                                                    <Search size={20} strokeWidth={3} />
+                                                </div>
+                                            </div>
+
+                                            {/* Status Dropdown */}
+                                            <div className="relative group min-w-[160px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveDropdown(activeDropdown === 'gen_status' ? null : 'gen_status'); }}
+                                                    className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                                >
+                                                    <div className="bg-blue-600/10 p-1.5 rounded-lg text-blue-600">
+                                                        <Filter size={14} />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">حالة الفاتورة</p>
+                                                        <p className="text-[10px] font-black text-gray-900 mt-1">
+                                                            {generalOrderStatusFilter === 'ALL' ? 'الكل' : 
+                                                             generalOrderStatusFilter === 'PAID' ? 'خالص بالكامل' : 
+                                                             generalOrderStatusFilter === 'PARTIAL' ? 'مدفوع جزئي' : 
+                                                             generalOrderStatusFilter === 'UNPAID' ? 'غير مدفوع' : 
+                                                             generalOrderStatusFilter === 'CREDIT' ? 'رصيد زائد' : 'الكل'}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronDown size={14} className={`text-gray-400 transition-transform ${activeDropdown === 'gen_status' ? 'rotate-180' : ''}`} />
+                                                </button>
+                                                {activeDropdown === 'gen_status' && (
+                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGeneralOrderStatusFilter('ALL'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-blue-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الكل</button>
+                                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGeneralOrderStatusFilter('UNPAID'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-red-50 text-[10px] font-black text-red-600 border-b border-gray-50 transition-colors">غير مدفوع</button>
+                                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGeneralOrderStatusFilter('PARTIAL'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-amber-50 text-[10px] font-black text-amber-600 border-b border-gray-50 transition-colors">مدفوع جزئي</button>
+                                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGeneralOrderStatusFilter('PAID'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-[10px] font-black text-emerald-600 border-b border-gray-50 transition-colors">خالص بالكامل</button>
+                                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setGeneralOrderStatusFilter('CREDIT'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-purple-50 text-[10px] font-black text-purple-600 transition-colors">رصيد زائد</button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* DateRangePicker */}
+                                            <DateRangePicker 
+                                                startDate={generalOrderDateFrom}
+                                                endDate={generalOrderDateTo}
+                                                onChange={(start, end) => { setGeneralOrderDateFrom(start); setGeneralOrderDateTo(end); setGeneralOrderCurrentPage(1); }}
+                                                theme="violet"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Orders Table */}
+                                    <div className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
+
+                                        <InvoicesTable
+                                            invoices={filteredGeneralInvoices}
+                                            loading={loading}
+                                            invoiceType="SALE"
+                                            setSelectedInvoice={setSelectedInvoice}
+                                            setShowPaymentModal={setShowPaymentModal}
+                                            setPaymentAmount={setPaymentAmount}
+                                            handleRefundExcess={handleRefundExcess}
+                                            setShowHistoryModal={setShowHistoryModal}
+                                            fetchPaymentHistory={fetchPaymentHistory}
+                                            setShowReturnsModal={setShowReturnsModal}
+                                            fetchReturnsHistory={fetchReturnsHistory}
+                                        />
+                                    </div>
+                                    {/* Summary bar */}
+                                    <div className="bg-blue-600 border border-blue-500 rounded-[1.5rem] p-5 shadow-lg grid grid-cols-3 gap-4 text-white">
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">إجمالي الطلبيات</p>
+                                            <p className="text-2xl font-black font-sans">{saleOrders.length}</p>
+                                        </div>
+                                        <div className="text-center border-x border-blue-500/50">
+                                            <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">إجمالي المشتريات</p>
+                                            <p className="text-2xl font-black font-sans">{totalPurchases.toLocaleString()} دج</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">المستحقات المتبقية</p>
+                                            <p className={`text-2xl font-black font-sans ${totalRemaining > 0.01 ? 'text-rose-300' : 'text-emerald-300'}`}>{totalRemaining.toLocaleString()} دج</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+
+                        {activeTab === 'SOA' && (
+                            <div className="flex flex-col pb-6 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[600px] bg-white rounded-[2.5rem] border-2 border-[#8b5cf6] p-8 shadow-xl">
+                                <div className="flex justify-between items-center mb-6 no-print">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-[#8b5cf6] text-white p-3 rounded-2xl shadow-lg shadow-purple-100"><FileText size={24} /></div>
+                                        <div className="text-right">
+                                            <h3 className="text-xl font-black text-[#8b5cf6]">كشف الحساب التفصيلي</h3>
+                                            <p className="text-[10px] font-black text-[#fbb815] uppercase tracking-widest mt-1">سجل كامل للحركات المالية والطلبيات</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <div className="relative group">
+                                            <button className="bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-2xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                                                <Download size={16} className="text-[#8b5cf6]"/> تصدير
+                                            </button>
+                                            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+                                                <button onClick={() => { const d = (document as any).filteredSOAData || []; handleExportExcelSOA(d); }} className="w-full text-right px-5 py-4 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-3 border-b border-gray-50 transition-colors">
+                                                    <FileSpreadsheet size={16} className="text-emerald-600"/> Excel (.xlsx)
+                                                </button>
+                                                <button onClick={() => { const d = (document as any).filteredSOAData || []; handleExportPDFSOA(d); }} className="w-full text-right px-5 py-4 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-3 transition-colors">
+                                                    <FileText size={16} className="text-rose-600"/> PDF (.pdf)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => printDocument()} className="bg-[#8b5cf6] text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-purple-100 hover:bg-[#7c3aed] hover:scale-105 transition-all active:scale-95">
+                                            <Printer size={16} /> طباعة الكشف
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Filters Row */}
+                                <div ref={dropdownRef} className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm flex flex-col gap-5 no-print mb-4 overflow-visible">
+                                    <div className="flex flex-wrap items-end gap-4">
+                                        {/* Search Filter (Exact Orders style) */}
+                                        <div className="relative group flex-[4] min-w-[500px]">
+                                            <input 
+                                                type="text" 
+                                                placeholder="بحث برقم العملية أو المرجع..."
+                                                value={soaSearchQuery || ''}
+                                                onChange={(e) => setSoaSearchQuery(e.target.value)}
+                                                className="w-full h-[52px] bg-white border border-gray-200 rounded-2xl pr-14 pl-4 text-sm font-black placeholder:font-black placeholder:text-gray-500 outline-none focus:border-[#8b5cf6] focus:ring-4 focus:ring-[#8b5cf6]/5 transition-all shadow-sm"
+                                            />
+                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none group-focus-within:scale-110 transition-transform">
+                                                <Search size={20} strokeWidth={3} />
+                                            </div>
+                                        </div>
+
+                                        {/* Motif Filter (Exact Orders style) */}
+                                        <div className="relative group flex-1 min-w-[200px]">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setActiveDropdown(activeDropdown === 'soa-motif' ? null : 'soa-motif');
+                                                }}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                            >
+                                                <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                                    <Activity size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-medium text-gray-400 uppercase tracking-tighter leading-none">نوع العملية</p>
+                                                    <p className="text-[10px] font-medium text-gray-900 mt-1">
+                                                        {soaMotifFilter === 'ALL' ? 'كل الأنواع' : 
+                                                         soaMotifFilter === 'SALE' ? 'مبيعات' : 
+                                                         soaMotifFilter === 'RETURN' ? 'مرتجعات' :
+                                                         soaMotifFilter === 'PAYMENT' ? 'تسديد ديون' : 'استرداد أموال'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'soa-motif' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {activeDropdown === 'soa-motif' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    {['ALL', 'SALE', 'RETURN', 'PAYMENT', 'REFUND'].map(m => (
+                                                        <button 
+                                                            key={m}
+                                                            type="button"
+                                                            onClick={(e) => { 
+                                                                e.preventDefault();
+                                                                e.stopPropagation(); 
+                                                                setSoaMotifFilter(m); 
+                                                                setActiveDropdown(null); 
+                                                            }} 
+                                                            className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaMotifFilter === m ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                        >
+                                                            {m === 'ALL' ? 'كل الأنواع' : m === 'SALE' ? 'مبيعات' : m === 'RETURN' ? 'مرتجعات' : m === 'PAYMENT' ? 'تسديد ديون' : 'استرداد أموال'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Payment Method Filter (Exact Orders style) */}
+                                        <div className="relative group flex-1 min-w-[200px]">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setActiveDropdown(activeDropdown === 'soa-method' ? null : 'soa-method');
+                                                }}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                            >
+                                                <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                                    <CreditCard size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-medium text-gray-400 uppercase tracking-tighter leading-none">طريقة الدفع</p>
+                                                    <p className="text-[10px] font-medium text-gray-900 mt-1">
+                                                        {soaMethodFilter === 'ALL' ? 'كل الطرق' : 
+                                                         soaMethodFilter === 'CASH' ? 'نقداً (CASH)' : 
+                                                         soaMethodFilter === 'CHEQUE' ? 'شيك (CHEQUE)' : 'تحويل بنكي'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'soa-method' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {activeDropdown === 'soa-method' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    {['ALL', 'CASH', 'CHEQUE', 'BANK_TRANSFER'].map(m => (
+                                                        <button 
+                                                            key={m}
+                                                            type="button"
+                                                            onClick={(e) => { 
+                                                                e.preventDefault();
+                                                                e.stopPropagation(); 
+                                                                setSoaMethodFilter(m); 
+                                                                setActiveDropdown(null); 
+                                                            }} 
+                                                            className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaMethodFilter === m ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                        >
+                                                            {m === 'ALL' ? 'كل الطرق' : m === 'CASH' ? 'نقداً' : m === 'CHEQUE' ? 'شيك' : 'تحويل بنكي'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Project Filter (Exact Orders style) */}
+                                        <div className="relative group flex-1 min-w-[200px]">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setActiveDropdown(activeDropdown === 'soa-project' ? null : 'soa-project');
+                                                }}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                            >
+                                                <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                                    <Briefcase size={14} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-medium text-gray-400 uppercase tracking-tighter leading-none">المشروع</p>
+                                                    <p className="text-[10px] font-medium text-gray-900 mt-1 truncate max-w-[120px]">
+                                                        {soaProjectFilter === 'ALL' ? 'كل المشاريع' : 
+                                                         soaProjectFilter === 'GENERAL' ? 'بدون مشروع' : 
+                                                         (customer?.projects?.find((p: any) => p.id.toString() === soaProjectFilter)?.name || 'غير معروف')}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'soa-project' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {activeDropdown === 'soa-project' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200 max-h-[300px] overflow-y-auto">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSoaProjectFilter('ALL'); setActiveDropdown(null); }} 
+                                                        className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaProjectFilter === 'ALL' ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                    >
+                                                        كل المشاريع
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSoaProjectFilter('GENERAL'); setActiveDropdown(null); }} 
+                                                        className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaProjectFilter === 'GENERAL' ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                    >
+                                                        بدون مشروع
+                                                    </button>
+                                                    {customer?.projects?.filter((p: any) => p.status === 'ACTIVE').map((p: any) => (
+                                                        <button 
+                                                            key={p.id}
+                                                            type="button"
+                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSoaProjectFilter(p.id.toString()); setActiveDropdown(null); }} 
+                                                            className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaProjectFilter === p.id.toString() ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                        >
+                                                            {p.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Date Range Picker Filter (Exact weight/style) */}
+                                        <div className="flex-[1.5] min-w-[240px]">
+                                            <DateRangePicker 
+                                                startDate={soaDateFrom}
+                                                endDate={soaDateTo}
+                                                onChange={(start, end) => { setSoaDateFrom(start); setSoaDateTo(end); }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    const allTxs: any[] = [];
+                                    const usedPaymentIds = new Set<number>();
+
+                                    // 1. Process Orders (Sales & Returns)
+                                    (customer.orders || []).forEach((o: any) => {
+                                        if (o.type === 'SALE') {
+                                            const returnsValue = (o.items || []).reduce((sum: number, item: any) => 
+                                                sum + ((item.returnedQuantity || 0) * (item.unitPrice || 0)), 0
+                                            );
+                                            const netTotal = o.grandTotal || o.total || 0;
+                                            const originalTotal = netTotal + returnsValue;
+
+                                            const initialPayment = (o.invoice?.payments || []).find((p: any) => {
+                                                const orderTime = new Date(o.orderDate).getTime();
+                                                const payTime = new Date(p.paymentDate).getTime();
+                                                return Math.abs(orderTime - payTime) < 120000;
+                                            });
+
+                                            if (initialPayment) usedPaymentIds.add(initialPayment.id);
+                                            const versement = initialPayment ? initialPayment.amount : 0;
+                                            
+                                            let motif = '';
+                                            if (Math.abs(versement - originalTotal) < 0.01) motif = 'دفع كامل (الكل نقداً)';
+                                            else if (versement > 0) motif = 'دفع جزئي (عربون وتسديد لاحق)';
+                                            else motif = 'تسليف / آجل';
+
+                                            allTxs.push({
+                                                date: new Date(o.orderDate),
+                                                number: o.orderNumber,
+                                                vente: originalTotal,
+                                                method: initialPayment?.paymentMethod || '---',
+                                                motif: motif,
+                                                ref: '---',
+                                                versement: versement,
+                                                type: 'SALE',
+                                                project: o.project?.name || 'عام',
+                                                projectId: o.projectId
+                                            });
+                                        } else if (o.type === 'RETURN_SALE') {
+                                            allTxs.push({
+                                                date: new Date(o.orderDate),
+                                                number: 'Retours',
+                                                vente: -(o.grandTotal || o.total || 0),
+                                                method: '---',
+                                                motif: 'إرجاع سلع',
+                                                ref: o.externalNumber || o.notes || o.orderNumber,
+                                                versement: 0,
+                                                type: 'RETURN',
+                                                project: o.project?.name || 'عام',
+                                                projectId: o.projectId
+                                            });
+                                        }
+                                    });
+
+                                    // 2. Process Payments (Tasdid & Refunds)
+                                    (customer.payments || []).forEach((p: any) => {
+                                        if (usedPaymentIds.has(p.id)) return;
+                                        const isRefund = p.amount < 0;
+                                        allTxs.push({
+                                            date: new Date(p.paymentDate),
+                                            number: isRefund ? 'Remboursement' : 'Droits',
+                                            vente: 0,
+                                            method: isRefund ? '---' : p.paymentMethod,
+                                            motif: isRefund ? 'استرداد أموال' : 'تسديد ديون',
+                                            ref: p.invoice?.order?.orderNumber || p.invoice?.invoiceNumber?.replace('INV/', '') || '---',
+                                            versement: p.amount,
+                                            type: isRefund ? 'REFUND' : 'PAYMENT',
+                                            project: p.invoice?.order?.project?.name || 'عام',
+                                            projectId: p.invoice?.order?.projectId || null
+                                        });
+                                    });
+
+                                    // 3. Sort Chronologically
+                                    allTxs.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+                                    // 4. Calculate Full History Balance
+                                    let runningBalance = 0;
+                                    const historyWithBalance = allTxs.map(tx => {
+                                        runningBalance += (tx.vente - tx.versement);
+                                        return { ...tx, balance: runningBalance };
+                                    });
+
+                                    // 5. Apply Filters
+                                    let filteredTxs = historyWithBalance.filter(tx => {
+                                        // Date Filter
+                                        if (soaDateFrom && tx.date < new Date(soaDateFrom)) return false;
+                                        if (soaDateTo) {
+                                            const toDate = new Date(soaDateTo);
+                                            toDate.setHours(23, 59, 59, 999);
+                                            if (tx.date > toDate) return false;
+                                        }
+
+                                        // Motif Filter
+                                        if (soaMotifFilter && soaMotifFilter !== 'ALL') {
+                                            if (tx.type !== soaMotifFilter) return false;
+                                        }
+
+                                        // Method Filter
+                                        if (soaMethodFilter && soaMethodFilter !== 'ALL') {
+                                            if (tx.method !== soaMethodFilter) return false;
+                                        }
+
+                                        // Project Filter
+                                        if (soaProjectFilter && soaProjectFilter !== 'ALL') {
+                                            const hasProject = tx.projectId !== null && tx.projectId !== undefined;
+                                            if (soaProjectFilter === 'GENERAL') {
+                                                // Show only transactions WITHOUT a project
+                                                if (hasProject) return false;
+                                            } else {
+                                                // Show only transactions WITH this specific project
+                                                if (!hasProject || tx.projectId?.toString() !== soaProjectFilter) return false;
+                                            }
+                                        }
+
+                                        // Search Query
+                                        if (soaSearchQuery) {
+                                            const q = soaSearchQuery.toLowerCase();
+                                            const matchNum = tx.number?.toLowerCase().includes(q);
+                                            const matchRef = tx.ref?.toLowerCase().includes(q);
+                                            if (!matchNum && !matchRef) return false;
+                                        }
+
+                                        return true;
+                                    });
+
+                                    (document as any).filteredSOAData = filteredTxs;
+
+                                    // 6. Calculate Initial Balance (Balance just before the first visible transaction)
+                                    let initialBalance = 0;
+                                    if (filteredTxs.length > 0) {
+                                        const firstVisibleIndex = historyWithBalance.findIndex(tx => tx === filteredTxs[0]);
+                                        if (firstVisibleIndex > 0) {
+                                            initialBalance = historyWithBalance[firstVisibleIndex - 1].balance;
+                                        }
+                                    } else if (historyWithBalance.length > 0) {
+                                        if (soaDateFrom) {
+                                            const lastBeforeDate = historyWithBalance.filter(tx => tx.date < new Date(soaDateFrom)).pop();
+                                            initialBalance = lastBeforeDate ? lastBeforeDate.balance : 0;
+                                        }
+                                    }
+
+                                    // 7. Reverse for Newest-First Display
+                                    const displayedTxs = [...filteredTxs].reverse();
+
+                                    const totalSoaPages = Math.max(1, Math.ceil(displayedTxs.length / soaItemsPerPage));
+                                    const validCurrentPage = Math.min(soaCurrentPage, totalSoaPages);
+                                    const paginatedTxs = displayedTxs.slice((validCurrentPage - 1) * soaItemsPerPage, validCurrentPage * soaItemsPerPage);
+
+                                    return (
+                                        <div className="flex flex-col">
+                                            {/* Initial Balance Header */}
+                                            <div className="bg-[#8b5cf6] text-white p-6 rounded-t-[2rem] flex justify-between items-center shadow-lg shadow-purple-100 no-print">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-white/10 p-2 rounded-xl"><Activity size={18} /></div>
+                                                    <span className="text-xs font-black uppercase tracking-widest opacity-70">الرصيد قبل الفلترة (Solde Initial)</span>
+                                                </div>
+                                                <span className={`text-2xl font-black font-sans ${initialBalance > 0.01 ? 'text-red-400' : (initialBalance < -0.01 ? 'text-emerald-400' : 'text-white')}`}>
+                                                    {initialBalance.toLocaleString()} دج
+                                                </span>
+                                            </div>
+
+                                            <table className="w-full text-right border-collapse min-w-[1000px] print-area">
+                                                <thead>
+                                                    <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                                                        <th className="p-4 text-center">N°</th>
+                                                        <th className="p-4">تاريخ العملية</th>
+                                                        <th className="p-4">رقم العملية</th>
+                                                        <th className="p-4 text-center">المشروع</th>
+                                                        <th className="p-4">مبلغ البيع (دج)</th>
+                                                        <th className="p-4">طريقة الدفع</th>
+                                                        <th className="p-4">البيان (Motif)</th>
+                                                        <th className="p-4 text-center">المرجع / الطلبية</th>
+                                                        <th className="p-4 text-emerald-600">المدفوعات (دج)</th>
+                                                        <th className="p-4 bg-gray-100/50 text-gray-900">الرصيد المتبقي (دج)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {paginatedTxs.map((tx, idx) => (
+                                                        <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors font-bold text-sm">
+                                                            <td className="p-4 text-center text-gray-400 font-sans">{filteredTxs.length - ((validCurrentPage - 1) * soaItemsPerPage + idx)}</td>
+                                                            <td className="p-4 font-sans">{tx.date.toLocaleDateString('ar-DZ')}</td>
+                                                            <td className="p-4 font-sans text-xs">{tx.number}</td>
+                                                            <td className="p-4 text-center text-[10px] font-bold text-gray-500 bg-gray-50/50">
+                                                                {tx.project}
+                                                            </td>
+                                                            <td className="p-4 font-sans">
+                                                                {tx.vente !== 0 ? (
+                                                                    <span className={tx.vente < 0 ? 'text-orange-600' : 'text-gray-900'}>
+                                                                        {tx.vente.toLocaleString()}
+                                                                    </span>
+                                                                ) : '---'}
+                                                            </td>
+                                                            <td className="p-4 text-xs">
+                                                                {tx.method !== '---' ? (
+                                                                    <span className="bg-gray-100 px-2 py-1 rounded-lg">{tx.method}</span>
+                                                                ) : '---'}
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <span className={`text-[10px] px-2 py-1 rounded-lg ${
+                                                                    tx.type === 'SALE' ? 'bg-blue-50 text-blue-700' :
+                                                                    tx.type === 'RETURN' ? 'bg-orange-50 text-orange-700' :
+                                                                    tx.type === 'REFUND' ? 'bg-purple-50 text-purple-700' :
+                                                                    'bg-emerald-50 text-emerald-700'
+                                                                }`}>
+                                                                    {tx.motif}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-center font-sans text-[11px] text-gray-500">
+                                                                {tx.ref}
+                                                            </td>
+                                                            <td className="p-4 font-sans text-emerald-600">
+                                                                {tx.versement !== 0 ? (
+                                                                    <span className={tx.versement < 0 ? 'text-purple-600' : ''}>
+                                                                        {tx.versement.toLocaleString()}
+                                                                    </span>
+                                                                ) : '---'}
+                                                            </td>
+                                                            <td className={`p-4 font-sans bg-gray-50/30 ${tx.balance > 0.01 ? 'text-red-600' : (tx.balance < -0.01 ? 'text-emerald-600' : 'text-gray-400')}`}>
+                                                                {Math.abs(tx.balance) < 0.01 ? '0' : tx.balance.toLocaleString()}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                            
+                                            {/* Pagination Controls */}
+                                            {totalSoaPages > 1 && (
+                                                <div className="p-4 border-t border-gray-100 flex items-center justify-between no-print bg-white rounded-b-[2rem]">
+                                                    <span className="text-xs font-bold text-gray-400">
+                                                        إظهار {(validCurrentPage - 1) * soaItemsPerPage + 1} إلى {Math.min(validCurrentPage * soaItemsPerPage, displayedTxs.length)} من أصل {displayedTxs.length} عملية
+                                                    </span>
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => setSoaCurrentPage(p => Math.max(1, p - 1))}
+                                                            disabled={validCurrentPage === 1}
+                                                            className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            السابق
+                                                        </button>
+                                                        <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                                            {validCurrentPage} / {totalSoaPages}
+                                                        </span>
+                                                        <button 
+                                                            onClick={() => setSoaCurrentPage(p => Math.min(totalSoaPages, p + 1))}
+                                                            disabled={validCurrentPage === totalSoaPages}
+                                                            className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            التالي
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* MODALS */}
                 {/* PROJECT SHEET (Creation) */}
                 {isProjectSheetOpen && (
                     <>
