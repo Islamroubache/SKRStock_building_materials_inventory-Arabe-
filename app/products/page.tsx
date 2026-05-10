@@ -9,6 +9,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 import { printDocument } from '@/lib/print-helper';
 import PageHeader from '@/components/PageHeader';
+import SingleDatePicker from '@/components/SingleDatePicker';
+import ModernDropdown from '@/components/ModernDropdown';
 
 interface Supplier {
     id: number;
@@ -82,7 +84,6 @@ function ProductsContent() {
     });
 
     // UI specific states for the panel
-    const [enableCodeEdit, setEnableCodeEdit] = useState(false);
 
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; product: Product | null }>({ isOpen: false, product: null });
     const [historyDialog, setHistoryDialog] = useState<{ isOpen: boolean; movements: StockMovement[], loading: boolean }>({ isOpen: false, movements: [], loading: false });
@@ -230,7 +231,6 @@ function ProductsContent() {
                 quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false
             });
         }
-        setEnableCodeEdit(false);
         setIsPanelOpen(true);
     };
 
@@ -365,7 +365,14 @@ function ProductsContent() {
                 )}
             </div>
         );
-    }; const isSaveDisabled = !formData.name || (formData.sellPrice !== undefined && formData.purchasePrice !== undefined && formData.sellPrice < formData.purchasePrice);
+    }; 
+    
+    const isSaveDisabled = !formData.name?.trim() || 
+        !formData.purchasePrice || 
+        !formData.sellPrice || 
+        (formData.sellPrice < formData.purchasePrice) || 
+        (formData.minQuantity === undefined || formData.minQuantity === null) ||
+        (formData.hasExpiryDate !== false && !formData.expiryDate);
 
     return (
         <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-8 print:p-0 print:bg-white pb-12" dir="rtl">
@@ -381,6 +388,15 @@ function ProductsContent() {
                     .print-table { width: 100%; border-collapse: collapse; }
                     .print-table th, .print-table td { border: 1px solid #ccc; padding: 8px; text-align: right; }
                     .print-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; color: #000; }
+                }
+                /* Hide number input spinners */
+                input[type=number]::-webkit-inner-spin-button, 
+                input[type=number]::-webkit-outer-spin-button { 
+                  -webkit-appearance: none; 
+                  margin: 0; 
+                }
+                input[type=number] {
+                  -moz-appearance: textfield;
                 }
             `}} />
 
@@ -654,122 +670,144 @@ function ProductsContent() {
             {isPanelOpen && (
                 <>
                     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 transition-opacity print-hide" onClick={closePanel} />
-                    <div className="fixed top-0 bottom-0 right-0 w-full max-w-[500px] bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300 print-hide">
-                        <div className="px-6 py-5 w-full flex items-center justify-between border-b border-gray-100 bg-gray-50/80">
-                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                {editingProduct ? <Edit size={22} className="text-blue-600" /> : <Plus size={22} className="text-blue-600" />}
-                                {editingProduct ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
-                            </h2>
-                            <button onClick={closePanel} className="text-gray-400 hover:text-red-500 bg-white border shadow-sm hover:border-red-200 rounded-full p-2 transition-colors">
-                                <X size={20} />
+                    <div className="fixed top-0 bottom-0 right-0 w-full max-w-[550px] bg-white border-l border-gray-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300 print-hide">
+                        <div className="p-8 w-full flex items-center justify-between bg-[#8b5cf6] text-white shadow-lg">
+                            <div>
+                                <h2 className="text-2xl font-black flex items-center gap-3">
+                                    {editingProduct ? <Edit size={28} className="bg-white/20 p-1 rounded-lg" /> : <Plus size={28} className="bg-white/20 p-1 rounded-lg" />}
+                                    {editingProduct ? 'تعديل بيانات المنتج' : 'تسجيل منتج جديد'}
+                                </h2>
+                                <p className="text-white/70 text-xs font-bold mt-1 tracking-tight uppercase">إضافة بيانات المنتج الجديد إلى قاعدة البيانات</p>
+                            </div>
+                            <button onClick={closePanel} className="bg-white/10 hover:bg-white/20 text-white rounded-2xl p-2 transition-all active:scale-90">
+                                <X size={24} />
                             </button>
                         </div>
 
-                        <div className="p-6 flex-1 overflow-y-auto space-y-6 custom-scrollbar bg-white">
-                            {/* Code Field */}
-                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm font-bold text-gray-700">كود المنتج (Barcode)</label>
-                                    <button
-                                        onClick={() => setEnableCodeEdit(!enableCodeEdit)}
-                                        className="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline"
-                                    >
-                                        <Edit size={12} /> {enableCodeEdit ? 'قفل' : 'تعديل يدوي'}
-                                    </button>
+                        <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/30 custom-scrollbar" onKeyDown={(e) => {
+                            const form = e.currentTarget;
+                            const focusableElements = Array.from(form.querySelectorAll('input:not([type="hidden"]), select, textarea, button[type="submit"]:not(:disabled)'));
+                            const index = focusableElements.indexOf(e.target as any);
+
+                            if (e.key === 'Enter' || e.key === 'ArrowRight') {
+                                if (index > -1 && index < focusableElements.length - 1) {
+                                    e.preventDefault();
+                                    (focusableElements[index + 1] as HTMLElement).focus();
+                                }
+                            } else if (e.key === 'ArrowLeft') {
+                                if (index > 0) {
+                                    e.preventDefault();
+                                    (focusableElements[index - 1] as HTMLElement).focus();
+                                }
+                            }
+                        }}>
+                            {/* Section 1: Basic Info - VIOLET */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-violet-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-violet-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-violet-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-violet-600 uppercase tracking-widest">المعلومات الأساسية</h3>
                                 </div>
-                                <input
-                                    type="text"
-                                    placeholder={!editingProduct ? "سيتم التوليد تلقائياً (PRD-XXX)" : ""}
-                                    value={formData.code || ''}
-                                    onChange={e => setFormData({ ...formData, code: e.target.value })}
-                                    disabled={!enableCodeEdit}
-                                    className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-500 font-mono font-bold border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">اسم المنتج <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text" autoFocus
-                                    value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors shadow-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700">الفئة <span className="text-red-500">*</span></label>
-                                <select
-                                    value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-sans shadow-sm"
-                                >
-                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">سعر الشراء <span className="text-red-500">*</span></label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            value={formData.purchasePrice || ''} onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
-                                        />
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase pt-1">دج</span>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-700">سعر البيع <span className="text-red-500">*</span></label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            value={formData.sellPrice || ''} onChange={e => setFormData({ ...formData, sellPrice: parseFloat(e.target.value) || 0 })}
-                                            className={`w-full bg-white border rounded-lg pl-10 pr-4 py-2.5 font-bold font-sans focus:outline-none shadow-sm
-                        ${(formData.sellPrice !== undefined && formData.purchasePrice !== undefined && formData.sellPrice < formData.purchasePrice) ? 'border-red-500 focus:ring-2 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500/50'}`}
-                                        />
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs uppercase pt-1">دج</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Quantity Block */}
-                            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                                <h3 className="font-bold text-sm text-gray-800 border-b pb-2">إعدادات المخزون</h3>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-5">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-600">الكمية {(editingProduct) ? 'الحالية' : 'الأولية'}</label>
+                                        <div className="flex justify-between items-center mr-1">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter">كود المنتج (Barcode)</label>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder={!editingProduct ? "سيتم التوليد تلقائياً (PRD-XXX)" : ""}
+                                            value={formData.code || ''}
+                                            onChange={e => setFormData({ ...formData, code: e.target.value })}
+                                            disabled={true}
+                                            className="w-full bg-gray-50/50 disabled:bg-gray-100 disabled:text-gray-400 font-mono border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">اسم المنتج <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text" autoFocus
+                                            value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="أدخل اسم المنتج هنا..."
+                                            className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white transition-all"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 2: Pricing - BLUE */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-blue-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-blue-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest">إعدادات التسعير</h3>
+                                </div>
+                                <div className="grid grid-cols-2 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">سعر الشراء <span className="text-red-500">*</span></label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                value={formData.purchasePrice || ''} onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
+                                                className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] pl-12 pr-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 focus:bg-white transition-all"
+                                            />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-[10px] uppercase pt-1">دج</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">سعر البيع <span className="text-red-500">*</span></label>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                value={formData.sellPrice || ''} onChange={e => setFormData({ ...formData, sellPrice: parseFloat(e.target.value) || 0 })}
+                                                className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] pl-12 pr-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                    ${(formData.sellPrice !== undefined && formData.purchasePrice !== undefined && formData.sellPrice < formData.purchasePrice) ? 'border-red-200 bg-red-50/50 focus:border-red-400 focus:ring-red-400/10' : 'border-transparent focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 focus:bg-white transition-all'}`}
+                                            />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-[10px] uppercase pt-1">دج</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Inventory - EMERALD */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-emerald-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                                    <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest">إدارة المخزون</h3>
+                                </div>
+                                <div className="grid grid-cols-2 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الكمية {(editingProduct) ? 'الحالية' : 'الأولية'} <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.quantity || ''} onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-center font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                            className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-center text-gray-900 font-bold font-sans focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 focus:bg-white transition-all"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-600">الوحدة</label>
-                                        <select
-                                            value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                        >
-                                            {units.map(u => <option key={u} value={u}>{u}</option>)}
-                                        </select>
+                                    <div className="space-y-0">
+                                        <ModernDropdown 
+                                            label="الوحدة"
+                                            options={units}
+                                            value={formData.unit || 'قطعة'}
+                                            onChange={(val) => setFormData({ ...formData, unit: val })}
+                                            theme="emerald"
+                                        />
                                     </div>
                                     <div className="space-y-2 col-span-2">
-                                        <label className="text-xs font-bold text-gray-600">الحد الأدنى للتنبيه</label>
+                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">الحد الأدنى للتنبيه <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.minQuantity || ''} onChange={e => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                                            className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 focus:bg-white transition-all"
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Expiry & Batch Toggle Block */}
-                            <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-4">
-                                <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Calendar size={18} className="text-blue-600" />
-                                        <span className="text-sm font-bold text-blue-800">تتبع تاريخ الصلاحية</span>
+                            {/* Section 4: Expiry - AMBER */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-amber-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-amber-200">
+                                <div className="flex items-center justify-between border-b border-amber-50 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-8 bg-amber-500 rounded-full"></div>
+                                        <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest">تاريخ الصلاحية</h3>
                                     </div>
                                     <div className="flex flex-col items-end">
                                         <label className={`relative inline-flex items-center ${editingProduct ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
@@ -780,51 +818,35 @@ function ProductsContent() {
                                                 onChange={e => setFormData({ ...formData, hasExpiryDate: e.target.checked })}
                                                 disabled={!!editingProduct}
                                             />
-                                            <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${editingProduct ? 'peer-checked:bg-blue-400' : 'peer-checked:bg-blue-600'}`}></div>
+                                            <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500`}></div>
                                         </label>
-                                        {editingProduct && (
-                                            <span className="text-[10px] text-gray-500 mt-1 font-bold">هذا الخيار يُحدد عند الإنشاء فقط</span>
-                                        )}
                                     </div>
                                 </div>
 
                                 {formData.hasExpiryDate !== false ? (
-                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-blue-700">
-                                                {editingProduct && (editingProduct as any)._count?.batches > 0
-                                                    ? 'تاريخ الانتهاء الأقرب (تلقائي)'
-                                                    : 'تاريخ انتهاء الصلاحية للدفعة الأولى'}
-                                            </span>
-                                            <span className="text-[10px] text-blue-500 font-medium">(اختياري)</span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <input
-                                                type="date"
-                                                value={formData.expiryDate || ''}
-                                                onChange={e => setFormData({ ...formData, expiryDate: e.target.value || null })}
-                                                disabled={!!(editingProduct && (editingProduct as any)._count?.batches > 0)}
-                                                className="w-full bg-white disabled:bg-gray-100 disabled:text-gray-500 border border-blue-200 rounded-lg px-4 py-2.5 font-bold font-sans focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                            />
-                                            {editingProduct && (editingProduct as any)._count?.batches > 0 ? (
-                                                <div className="flex items-start gap-2 bg-blue-100/50 p-2 rounded-lg border border-blue-200">
-                                                    <AlertCircle size={14} className="text-blue-600 shrink-0 mt-0.5" />
-                                                    <p className="text-[10px] text-blue-700 font-bold leading-tight">
-                                                        لا يمكن تعديل التاريخ يدوياً لأن المنتج يحتوي على {editingProduct._count?.batches} دفعات مسجلة.
-                                                        يتم تحديث التاريخ تلقائياً بناءً على نظام الدفعات.
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <p className="text-[10px] text-blue-500 font-medium font-tajawal">
-                                                    سيتم استخدام نظام FIFO لتتبع تواريخ الصلاحية لكل دفعة شراء جديدة.
+                                    <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <SingleDatePicker 
+                                            selectedDate={formData.expiryDate || null}
+                                            onChange={(date) => setFormData({ ...formData, expiryDate: date })}
+                                            label={editingProduct && (editingProduct as any)._count?.batches > 0
+                                                ? 'تاريخ الانتهاء الأقرب (تلقائي)'
+                                                : 'تاريخ انتهاء الصلاحية'}
+                                            disabled={!!(editingProduct && (editingProduct as any)._count?.batches > 0)}
+                                            placeholder="اختر تاريخ الانتهاء..."
+                                        />
+                                        {editingProduct && (editingProduct as any)._count?.batches > 0 && (
+                                            <div className="flex items-start gap-2 bg-amber-50 p-3 rounded-[1.2rem] border border-amber-100 mt-3">
+                                                <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                                                <p className="text-[10px] text-amber-700 font-black leading-tight">
+                                                    لا يمكن تعديل التاريخ يدوياً لوجود دفعات مسجلة. يتم التحديث تلقائياً.
                                                 </p>
-                                            )}
-                                        </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-2 bg-gray-100 p-3 rounded-lg border border-gray-200">
-                                        <CheckCircle size={16} className="text-gray-500" />
-                                        <p className="text-xs text-gray-600 font-bold">هذا المنتج لا يتطلب تتبع تاريخ انتهاء الصلاحية.</p>
+                                    <div className="flex items-center gap-3 bg-gray-50/50 p-4 rounded-[1.2rem] border-2 border-dashed border-gray-100 opacity-60">
+                                        <CheckCircle size={18} className="text-gray-400" />
+                                        <p className="text-xs text-gray-500 font-black tracking-tight">لا يتطلب تتبع تاريخ انتهاء</p>
                                     </div>
                                 )}
                             </div>
@@ -833,17 +855,17 @@ function ProductsContent() {
 
                         </div>
 
-                        <div className="px-6 py-4 flex flex-col sm:flex-row gap-3 bg-white border-t border-gray-100">
+                        <div className="px-8 py-6 flex flex-col sm:flex-row gap-4 bg-white border-t border-gray-100 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
                             <button
                                 onClick={handleSaveProduct}
                                 disabled={isSaveDisabled}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold transition-all shadow-md shadow-blue-600/20 active:scale-[0.98]"
+                                className="flex-[2] bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-black transition-all shadow-xl shadow-violet-100 hover:shadow-violet-200 hover:scale-[1.02] active:scale-95"
                             >
-                                حفظ بيانات المنتج
+                                {editingProduct ? 'تحديث البيانات' : 'تسجيل المنتج'}
                             </button>
                             <button
                                 onClick={closePanel}
-                                className="flex-[0.5] bg-white hover:bg-gray-50 text-gray-700 py-3 rounded-lg border border-gray-200 font-bold transition-colors shadow-sm"
+                                className="flex-1 bg-white hover:bg-gray-50 text-gray-400 py-4 rounded-2xl border-2 border-gray-50 font-black transition-all hover:text-gray-600 active:scale-95 uppercase tracking-tight text-xs"
                             >
                                 إلغاء
                             </button>

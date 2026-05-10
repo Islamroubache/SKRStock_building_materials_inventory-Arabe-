@@ -425,26 +425,26 @@ export default function OrdersPage() {
                                     <div className="relative group min-w-[160px]">
                                         <button
                                             onClick={() => setActiveDropdown(activeDropdown === 'customer' ? null : 'customer')}
-                                            className="w-full h-[52px] flex items-center gap-3 bg-[#fbb815] text-white border border-[#fbb815] rounded-2xl px-4 shadow-lg shadow-amber-100 hover:bg-[#f59e0b] transition-all text-right"
+                                            className="w-full h-[52px] flex items-center gap-3 bg-[#8b5cf6] text-white border border-[#8b5cf6] rounded-2xl px-4 shadow-lg shadow-violet-100 hover:bg-[#7c3aed] transition-all text-right"
                                         >
                                             <div className="bg-white/20 p-1.5 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
                                                 <Users size={14} />
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-[9px] font-black text-amber-50 uppercase tracking-tighter leading-none">نوع العميل</p>
+                                                <p className="text-[9px] font-black text-violet-50 uppercase tracking-tighter leading-none">نوع العميل</p>
                                                 <p className="text-[10px] font-black text-white mt-1">
                                                     {customerTypeFilter === 'ALL' ? 'الكل' : 
                                                      customerTypeFilter === 'FIDEL' ? 'مسجل' : 'عابر'}
                                                 </p>
                                             </div>
-                                            <ChevronDown size={14} className={`text-amber-50 transition-transform ${activeDropdown === 'customer' ? 'rotate-180' : ''}`} />
+                                            <ChevronDown size={14} className={`text-violet-50 transition-transform ${activeDropdown === 'customer' ? 'rotate-180' : ''}`} />
                                         </button>
 
                                         {activeDropdown === 'customer' && (
                                             <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-20 py-2 animate-in zoom-in-95 duration-200">
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setCustomerTypeFilter('ALL'); setActiveDropdown(null); }} 
-                                                    className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${customerTypeFilter === 'ALL' ? 'bg-amber-50 text-[#fbb815]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                    className={`w-full text-right px-4 py-2 text-[10px] font-bold transition-colors ${customerTypeFilter === 'ALL' ? 'bg-violet-50 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
                                                 >
                                                     الكل
                                                 </button>
@@ -480,7 +480,6 @@ export default function OrdersPage() {
                                     <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider">المبلغ الإجمالي</th>
                                     <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider">المبلغ الباقي</th>
                                     <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider">الحالة</th>
-                                    <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -543,28 +542,6 @@ export default function OrdersPage() {
                                                      order.status === 'PENDING' ? 'معلقة' : 
                                                      order.status === 'CANCELLED' ? 'ملغية' : 'مسترجعة'}
                                                 </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {order.status === 'PENDING' && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => handleUpdateStatus(order.id, 'DONE')}
-                                                                className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all shadow-sm"
-                                                                title="إتمام الطلبية"
-                                                            >
-                                                                <CheckCircle size={16} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => handleUpdateStatus(order.id, 'CANCELLED')}
-                                                                className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm"
-                                                                title="إلغاء الطلبية"
-                                                            >
-                                                                <XCircle size={16} />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
                                             </td>
 
                                         </tr>
