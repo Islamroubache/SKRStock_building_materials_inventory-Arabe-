@@ -94,8 +94,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ orderId, onClose, onSuccess }
             }
         }
 
-        if (!confirm(`هل أنت متأكد من استرجاع هذه المنتجات؟ لا يمكن التراجع عن هذه العملية.`)) return;
-
         setSaving(true);
         try {
             const res = await fetch(`/api/orders/${orderId}/return`, {
@@ -163,8 +161,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ orderId, onClose, onSuccess }
                             <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <CheckCircle size={40} className="text-emerald-500" />
                             </div>
-                            <h2 className="text-2xl font-black text-gray-900 mb-2">تم الاسترجاع بنجاح!</h2>
-                            <p className="text-gray-500 font-medium mb-6">تم إنشاء طلبية الاسترجاع وتحديث المخزون تلقائياً.</p>
+                            <h2 className="text-2xl font-black text-gray-900 mb-2">تم الاسترجاع بنجاح</h2>
+                            <p className="text-gray-500 font-medium mb-6">تم تسجيل المرتجع وتحديث المخزون بنجاح</p>
                             <div className="bg-gray-50 rounded-2xl p-6 text-right space-y-3 mb-8">
                                 <div className="flex justify-between">
                                     <span className="text-gray-500 font-bold text-sm">رقم الاسترجاع:</span>
@@ -184,7 +182,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ orderId, onClose, onSuccess }
                                         }}
                                         className="flex-1 bg-[#5EABD5] hover:bg-[#4d9bc2] text-white py-4 rounded-2xl font-black text-sm shadow-lg flex items-center justify-center gap-2"
                                     >
-                                        <Printer size={18} /> طباعة الوصل
+                                        <Printer size={18} /> طباعة وصل الاسترجاع
                                     </button>
                                 )}
                             </div>
@@ -205,7 +203,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ orderId, onClose, onSuccess }
                             <div className="border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
                                 <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex justify-between items-center">
                                     <h3 className="font-black text-gray-700 text-sm">تفاصيل السلع المرتجعة</h3>
-                                    <button onClick={handleReturnAll} className="text-[10px] font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">استرجاع الكل</button>
                                 </div>
                                 <table className="w-full text-right text-xs">
                                     <thead>
@@ -268,14 +265,22 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ orderId, onClose, onSuccess }
                                     <p className="text-[10px] font-black text-gray-400 uppercase">إجمالي الاسترجاع</p>
                                     <p className="text-2xl font-black text-rose-600 font-sans">{returnTotal.toLocaleString()} دج</p>
                                 </div>
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={saving || selectedItems.length === 0}
-                                    className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-xl shadow-rose-100 transition-all flex items-center gap-2"
-                                >
-                                    <RotateCcw size={18} className={saving ? 'animate-spin' : ''} />
-                                    {saving ? 'جاري المعالجة...' : 'تأكيد الاسترجاع'}
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={handleReturnAll} 
+                                        className="text-xs font-black text-rose-600 bg-rose-50 px-6 py-4 rounded-2xl border border-rose-100 hover:bg-rose-100 transition-colors"
+                                    >
+                                        استرجاع الكل
+                                    </button>
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={saving || selectedItems.length === 0}
+                                        className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-xl shadow-rose-100 transition-all flex items-center gap-2"
+                                    >
+                                        <RotateCcw size={18} className={saving ? 'animate-spin' : ''} />
+                                        {saving ? 'جاري المعالجة...' : 'تأكيد الاسترجاع'}
+                                    </button>
+                                </div>
                             </div>
                         </>
                     )}

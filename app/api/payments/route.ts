@@ -16,59 +16,77 @@ export async function POST(req: Request) {
             let payment;
             if (supplierId) {
                 // Create SupplierPayment
+                const sId = parseInt(supplierId);
+                const iId = invoiceId ? parseInt(invoiceId) : null;
+                const payAmount = parseFloat(amount);
+
+                if (isNaN(sId)) throw new Error('Invalid Supplier ID');
+                if (isNaN(payAmount)) throw new Error('Invalid Amount');
+
                 payment = await tx.supplierPayment.create({
                     data: {
-                        supplierId,
-                        invoiceId,
-                        amount: parseFloat(amount),
-                        paymentMethod,
-                        chequeNumber,
-                        bankName,
-                        notes,
-                        paymentDate: new Date()
+                        amount: payAmount,
+                        paymentMethod: paymentMethod || 'CASH',
+                        chequeNumber: chequeNumber || null,
+                        bankName: bankName || null,
+                        notes: notes || null,
+                        paymentDate: new Date(),
+                        supplier: { connect: { id: sId } },
+                        ...(iId ? { invoice: { connect: { id: iId } } } : {})
                     }
                 });
 
                 // Update Supplier Balance
                 await tx.supplier.update({
-                    where: { id: supplierId },
+                    where: { id: sId },
                     data: {
-                        balanceDue: { decrement: parseFloat(amount) }
+                        balanceDue: { decrement: payAmount }
                     }
                 });
             } else {
                 // Create regular Customer Payment
+                const iId = parseInt(invoiceId);
+                const cId = customerId ? parseInt(customerId) : null;
+                const payAmount = parseFloat(amount);
+
+                if (isNaN(iId)) throw new Error('Invalid Invoice ID');
+                if (isNaN(payAmount)) throw new Error('Invalid Amount');
+
                 const paymentData: any = {
-                    invoiceId,
-                    amount: parseFloat(amount),
-                    paymentMethod,
-                    chequeNumber,
-                    bankName,
-                    notes,
-                    paymentDate: new Date()
+                    amount: payAmount,
+                    paymentMethod: paymentMethod || 'CASH',
+                    chequeNumber: chequeNumber || null,
+                    bankName: bankName || null,
+                    notes: notes || null,
+                    paymentDate: new Date(),
+                    invoice: { connect: { id: iId } }
                 };
-                if (customerId) paymentData.customerId = customerId;
+                
+                if (cId && !isNaN(cId)) {
+                    paymentData.customer = { connect: { id: cId } };
+                }
 
                 payment = await tx.payment.create({
                     data: paymentData
                 });
 
                 // Update Customer balance
-                if (customerId) {
+                if (cId && !isNaN(cId)) {
                     await tx.customer.update({
-                        where: { id: customerId },
+                        where: { id: cId },
                         data: {
-                            balanceDue: { decrement: parseFloat(amount) },
+                            balanceDue: { decrement: payAmount },
                             lastPaymentDate: new Date(),
-                            lastPaymentAmount: parseFloat(amount)
+                            lastPaymentAmount: payAmount
                         }
                     });
                 }
             }
 
             // 2. Update the Invoice (shared logic)
+            const invId = parseInt(invoiceId);
             const invoice = await tx.invoice.findUnique({
-                where: { id: invoiceId },
+                where: { id: invId },
                 include: { 
                     order: {
                         include: {

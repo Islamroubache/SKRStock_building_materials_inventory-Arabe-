@@ -423,10 +423,10 @@ export default function CustomerDetailPage() {
     const handleExportExcelSOA = (data: any[]) => {
         const exportData = data.map(tx => ({
             'التاريخ': tx.date.toLocaleDateString('ar-DZ'),
+            'المرجع / الطلبية': tx.ref,
             'رقم العملية': tx.number,
             'البيان (نوع العملية)': tx.motif,
             'طريقة الدفع': tx.method,
-            'المرجع': tx.ref,
             'المشروع': tx.project,
             'مبلغ البيع': tx.vente,
             'المبلغ المقبوض': tx.versement,
@@ -447,15 +447,15 @@ export default function CustomerDetailPage() {
         doc.text(`Releve de Compte - ${customer.name} (${dateStr})`, 14, 20);
 
         const headers = [
-            ['Date', 'N° Opération', 'Motif', 'Méthode', 'Réf', 'Projet', 'Vente (DZD)', 'Versé (DZD)', 'Solde (DZD)']
+            ['Date', 'Réf / Commande', 'N° Opération', 'Motif', 'Méthode', 'Projet', 'Vente (DZD)', 'Versé (DZD)', 'Solde (DZD)']
         ];
 
         const tableData = data.map(tx => [
             tx.date.toLocaleDateString('fr-FR'),
+            tx.ref,
             tx.number,
             tx.motif,
             tx.method,
-            tx.ref,
             tx.project,
             tx.vente.toLocaleString(),
             tx.versement.toLocaleString(),
@@ -921,9 +921,9 @@ export default function CustomerDetailPage() {
 
                             {/* Section 1: Contact */}
                             <div className="flex flex-col gap-3">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                     <Phone size={11} /> اتصال وتواصل
-                                </p>
+                                </div>
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-3 p-3 bg-blue-50/60 rounded-xl border border-blue-100/50">
                                         <Phone size={15} className="text-blue-500 shrink-0" />
@@ -950,9 +950,9 @@ export default function CustomerDetailPage() {
 
                             {/* Section 2: Legal Documents */}
                             <div className="flex flex-col gap-3">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                     <FileText size={11} /> الوثائق القانونية
-                                </p>
+                                </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
                                         { label: 'RC', value: customer.rc },
@@ -971,9 +971,9 @@ export default function CustomerDetailPage() {
 
                             {/* Section 3: Credit Analysis */}
                             <div className="flex flex-col gap-3">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                     <CreditCard size={11} /> تحليل الرصيد والائتمان
-                                </p>
+                                </div>
                                 {(customer.creditLimit || 0) > 0 ? (
                                     <div className="flex flex-col gap-3">
                                         <div className="grid grid-cols-1 gap-2">
@@ -2118,19 +2118,25 @@ export default function CustomerDetailPage() {
                                             </button>
                                             {activeDropdown === 'soa-motif' && (
                                                 <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
-                                                    {['ALL', 'SALE', 'RETURN', 'PAYMENT', 'REFUND'].map(m => (
+                                                    {[
+                                                        { id: 'ALL', label: 'كل الأنواع' },
+                                                        { id: 'SALE', label: 'مبيعات' },
+                                                        { id: 'RETURN', label: 'مرتجعات' },
+                                                        { id: 'PAYMENT', label: 'تسديد ديون' },
+                                                        { id: 'REFUND', label: 'استرداد أموال' }
+                                                    ].map(m => (
                                                         <button 
-                                                            key={m}
+                                                            key={m.id}
                                                             type="button"
                                                             onClick={(e) => { 
                                                                 e.preventDefault();
                                                                 e.stopPropagation(); 
-                                                                setSoaMotifFilter(m); 
+                                                                setSoaMotifFilter(m.id); 
                                                                 setActiveDropdown(null); 
                                                             }} 
-                                                            className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaMotifFilter === m ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                            className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaMotifFilter === m.id ? 'bg-[#8b5cf6]/10 text-[#8b5cf6]' : 'hover:bg-gray-50 text-gray-700'}`}
                                                         >
-                                                            {m === 'ALL' ? 'كل الأنواع' : m === 'SALE' ? 'مبيعات' : m === 'RETURN' ? 'مرتجعات' : m === 'PAYMENT' ? 'تسديد ديون' : 'استرداد أموال'}
+                                                            {m.label}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -2280,7 +2286,7 @@ export default function CustomerDetailPage() {
                                                 vente: originalTotal,
                                                 method: initialPayment?.paymentMethod || '---',
                                                 motif: motif,
-                                                ref: '---',
+                                                ref: o.orderNumber,
                                                 versement: versement,
                                                 type: 'SALE',
                                                 project: o.project?.name || 'عام',
@@ -2414,12 +2420,12 @@ export default function CustomerDetailPage() {
                                                     <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
                                                         <th className="p-4 text-center">N°</th>
                                                         <th className="p-4">تاريخ العملية</th>
+                                                        <th className="p-4 text-center">المرجع / الطلبية</th>
                                                         <th className="p-4">رقم العملية</th>
                                                         <th className="p-4 text-center">المشروع</th>
                                                         <th className="p-4">مبلغ البيع (دج)</th>
                                                         <th className="p-4">طريقة الدفع</th>
-                                                        <th className="p-4">البيان (Motif)</th>
-                                                        <th className="p-4 text-center">المرجع / الطلبية</th>
+                                                        <th className="p-4 text-center">البيان (Motif)</th>
                                                         <th className="p-4 text-emerald-600">المدفوعات (دج)</th>
                                                         <th className="p-4 bg-gray-100/50 text-gray-900">الرصيد المتبقي (دج)</th>
                                                     </tr>
@@ -2429,11 +2435,16 @@ export default function CustomerDetailPage() {
                                                         <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors font-bold text-sm">
                                                             <td className="p-4 text-center text-gray-400 font-sans">{filteredTxs.length - ((validCurrentPage - 1) * soaItemsPerPage + idx)}</td>
                                                             <td className="p-4 font-sans">{tx.date.toLocaleDateString('ar-DZ')}</td>
-                                                            <td className="p-4 font-sans text-xs">{tx.number}</td>
+                                                            <td className="p-4 text-center font-sans text-[11px]">
+                                                                <span className="bg-gray-50 px-2 py-1 rounded-lg border border-gray-100 text-gray-500">{tx.ref}</span>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <span className={`text-xs font-black px-2 py-1 rounded-lg font-sans ${tx.number === 'Droits' || tx.number === 'Remboursement' || tx.number === 'Retours' ? 'text-gray-400 bg-gray-50' : 'text-blue-600 bg-blue-50'}`}>{tx.number}</span>
+                                                            </td>
                                                             <td className="p-4 text-center text-[10px] font-bold text-gray-500 bg-gray-50/50">
                                                                 {tx.project}
                                                             </td>
-                                                            <td className="p-4 font-sans">
+                                                            <td className="p-4 font-sans text-left">
                                                                 {tx.vente !== 0 ? (
                                                                     <span className={tx.vente < 0 ? 'text-orange-600' : 'text-gray-900'}>
                                                                         {tx.vente.toLocaleString()}
@@ -2445,7 +2456,7 @@ export default function CustomerDetailPage() {
                                                                     <span className="bg-gray-100 px-2 py-1 rounded-lg">{tx.method}</span>
                                                                 ) : '---'}
                                                             </td>
-                                                            <td className="p-4">
+                                                            <td className="p-4 text-center">
                                                                 <span className={`text-[10px] px-2 py-1 rounded-lg ${
                                                                     tx.type === 'SALE' ? 'bg-blue-50 text-blue-700' :
                                                                     tx.type === 'RETURN' ? 'bg-orange-50 text-orange-700' :
@@ -2454,9 +2465,6 @@ export default function CustomerDetailPage() {
                                                                 }`}>
                                                                     {tx.motif}
                                                                 </span>
-                                                            </td>
-                                                            <td className="p-4 text-center font-sans text-[11px] text-gray-500">
-                                                                {tx.ref}
                                                             </td>
                                                             <td className="p-4 font-sans text-emerald-600">
                                                                 {tx.versement !== 0 ? (

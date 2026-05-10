@@ -8,20 +8,21 @@ import { formatDate } from '@/lib/utils';
 
 interface InvoicesTableProps {
     invoices: any[];
-    loading: boolean;
-    invoiceType: 'SALE' | 'PURCHASE';
-    setSelectedInvoice: (inv: any) => void;
-    setShowPaymentModal: (inv: any) => void;
-    setPaymentAmount: (amount: number) => void;
-    handleRefundExcess: (inv: any) => void;
-    setShowHistoryModal: (inv: any) => void;
-    fetchPaymentHistory: (inv: any) => void;
-    setShowReturnsModal: (inv: any) => void;
-    fetchReturnsHistory: (id: number) => void;
-    setShowReturnProcessModal: (inv: any) => void;
+    loading?: boolean;
+    invoiceType?: 'SALE' | 'PURCHASE';
+    setSelectedInvoice?: (inv: any) => void;
+    setShowPaymentModal?: (inv: any) => void;
+    setPaymentAmount?: (amount: number) => void;
+    handleRefundExcess?: (inv: any) => void;
+    setShowHistoryModal?: (inv: any) => void;
+    fetchPaymentHistory?: (inv: any) => void;
+    setShowReturnsModal?: (inv: any) => void;
+    fetchReturnsHistory?: (id: number) => void;
+    setShowReturnProcessModal?: (inv: any) => void;
     hideParty?: boolean;
     footer?: React.ReactNode;
     headerClassName?: string;
+    isSupplierView?: boolean;
 }
 
 export const StatusBadge = ({ status, remaining, total, originalTotal, dueDate }: { status: string, remaining: number, total: number, originalTotal?: number, dueDate?: string }) => {
@@ -99,7 +100,8 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
     setShowReturnProcessModal,
     hideParty = false,
     footer,
-    headerClassName = 'bg-gray-50/50 border-b border-gray-100'
+    headerClassName = 'bg-gray-50/50 border-b border-gray-100',
+    isSupplierView = false
 }) => {
     return (
         <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
@@ -189,7 +191,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                                         <div className="flex justify-start gap-2">
                                             {/* 1. View Button (Always Active) */}
                                             <button
-                                                onClick={() => setSelectedInvoice(inv)}
+                                                onClick={() => setSelectedInvoice?.(inv)}
                                                 className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
                                                 title="عرض وطباعة"
                                             >
@@ -201,7 +203,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                                                 const isActive = inv.status !== 'PAID' && inv.status !== 'CREDIT' && inv.total > 0;
                                                 return (
                                                     <button
-                                                        onClick={() => { if (isActive) { setShowPaymentModal(inv); setPaymentAmount(inv.remaining); } }}
+                                                        onClick={() => { if (isActive) { setShowPaymentModal?.(inv); setPaymentAmount?.(inv.remaining); } }}
                                                         disabled={!isActive}
                                                         className={`p-2.5 rounded-xl transition-all ${isActive 
                                                             ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white shadow-sm' 
@@ -218,7 +220,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                                                 const isActive = inv.status === 'CREDIT' || inv.remaining < 0;
                                                 return (
                                                     <button
-                                                        onClick={() => { if (isActive) handleRefundExcess(inv); }}
+                                                        onClick={() => { if (isActive) handleRefundExcess?.(inv); }}
                                                         disabled={!isActive}
                                                         className={`p-2.5 rounded-xl transition-all ${isActive 
                                                             ? 'bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white shadow-sm animate-pulse' 
@@ -232,7 +234,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
 
                                             {/* 4. History Button (Always Active) */}
                                             <button
-                                                onClick={() => { fetchPaymentHistory(inv); }}
+                                                onClick={() => { fetchPaymentHistory?.(inv); }}
                                                 className="p-2.5 bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white rounded-xl transition-all shadow-sm"
                                                 title="سجل المدفوعات"
                                             >
@@ -251,7 +253,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                                                 if (isActive) {
                                                     return (
                                                         <button 
-                                                            onClick={() => setShowReturnProcessModal(inv)}
+                                                            onClick={() => setShowReturnProcessModal?.(inv)}
                                                             className="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm"
                                                             title="استرجاع"
                                                         >
