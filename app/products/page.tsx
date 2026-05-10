@@ -62,6 +62,11 @@ function ProductsContent() {
     const [expiryFilter, setExpiryFilter] = useState('all'); // all, week, month, expired, none, custom
     const [customExpiryDays, setCustomExpiryDays] = useState(14);
     const [viewArchived, setViewArchived] = useState(false);
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Options
     const [categories, setCategories] = useState<string[]>(['مواد بناء', 'كهرباء', 'سباكة', 'دهانات', 'أخرى']);
@@ -131,7 +136,12 @@ function ProductsContent() {
     useEffect(() => {
         fetchProducts();
         fetchSettings();
+        setCurrentPage(1);
     }, [viewArchived]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, expiryFilter]);
 
     useEffect(() => {
         if (urlFilter) {
@@ -358,7 +368,7 @@ function ProductsContent() {
     }; const isSaveDisabled = !formData.name || (formData.sellPrice !== undefined && formData.purchasePrice !== undefined && formData.sellPrice < formData.purchasePrice);
 
     return (
-        <div className="font-tajawal min-h-screen bg-transparent text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-8 print:p-0 print:bg-white pb-12" dir="rtl">
             {/* Custom Print Styles */}
             <style dangerouslySetInnerHTML={{
                 __html: `
@@ -386,139 +396,90 @@ function ProductsContent() {
             </div>
 
             {/* Header */}
-            <div className="print-hide">
+            <div className="print-hide px-4 md:px-8 pt-6 pb-0 flex flex-col lg:flex-row items-center justify-between gap-4">
                 <PageHeader 
                     title="إدارة المنتجات" 
                     subtitle="إضافة وتعديل المنتجات ومراقبة المخزون" 
                     Icon={Package} 
                 />
+                
+                <div className="flex gap-2 w-full lg:w-auto justify-end shrink-0">
+                    <div className="relative group">
+                        <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                            <Download size={14} className="text-blue-600"/> تصدير
+                        </button>
+                        <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                            <button onClick={() => exportProductsToExcel(filteredProducts)} className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors">
+                                <TableIcon size={14} className="text-emerald-600"/> Excel (.xlsx)
+                            </button>
+                            <button onClick={() => exportProductsToPDF(filteredProducts)} className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors">
+                                <FileText size={14} className="text-rose-600"/> PDF (.pdf)
+                            </button>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handlePrint}
+                        className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95"
+                    >
+                        <Printer size={16} /> طباعة القائمة
+                    </button>
+                </div>
+            </div>
+
+            {/* Tabs Header */}
+            <div className="flex items-center gap-6 no-print mb-[-16px] pb-1 px-4 md:px-10 pt-0">
+                <button
+                    onClick={() => setViewArchived(false)}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${!viewArchived ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    المنتجات النشطة
+                </button>
+                <button
+                    onClick={() => setViewArchived(true)}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${viewArchived ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    الأرشيف
+                </button>
             </div>
 
             {/* Filter Bar */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center justify-between print-hide">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-6 items-center justify-between print-hide mx-4 md:mx-8">
                 {/* Search and Filters */}
-                <div className="flex flex-wrap gap-3 items-center w-full xl:w-auto flex-1">
-                    <div className="relative w-full sm:w-64 shrink-0">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <div className="flex flex-col lg:flex-row gap-3 items-center w-full flex-1">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 min-w-[300px] group">
                         <input
                             type="text"
                             placeholder="البحث بالاسم أو الكود..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-3 pr-10 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium"
+                            className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
                         />
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none">
+                            <Search size={20} strokeWidth={3} />
+                        </div>
                     </div>
 
-                    <select
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-gray-100 cursor-pointer min-w-[120px]"
-                    >
-                        <option value="">الفئة: الكل</option>
-                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
 
-
-
-                    {/* Expiry Filter */}
-                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-gray-500 pl-1">الصلاحية:</span>
-                        {[
-                            { val: 'all', label: 'الكل' },
-                            { val: 'week', label: 'أسبوع ' },
-                            { val: 'month', label: 'شهر ' },
-                            { val: 'expired', label: 'منتهية ' },
-                            { val: 'none', label: 'بدون تاريخ' },
-                            { val: 'custom', label: 'مخصص' },
-                        ].map(opt => (
-                            <button
-                                key={opt.val}
-                                onClick={() => setExpiryFilter(opt.val)}
-                                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${expiryFilter === opt.val
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:bg-gray-200'
-                                    }`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
-                        {expiryFilter === 'custom' && (
-                            <div className="flex items-center gap-1 mr-1">
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={365}
-                                    value={customExpiryDays}
-                                    onChange={e => setCustomExpiryDays(Math.max(1, parseInt(e.target.value) || 1))}
-                                    className="w-16 text-center border border-blue-300 rounded-md px-2 py-1 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                                />
-                                <span className="text-xs text-gray-500 font-medium">يوم</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {(searchTerm || categoryFilter || expiryFilter !== 'all') && (
-                        <button onClick={resetFilters} className="text-gray-500 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors" title="مسح الفلاتر">
+                    {(searchTerm || expiryFilter !== 'all') && (
+                        <button onClick={resetFilters} className="h-[52px] w-[52px] flex items-center justify-center text-gray-400 hover:text-red-500 bg-white border border-gray-200 rounded-2xl hover:bg-red-50 transition-all shadow-sm" title="مسح الفلاتر">
                             <X size={20} />
                         </button>
                     )}
-                </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end relative">
-                    <button onClick={handlePrint} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg flex items-center gap-2">
-                        <Printer size={16} /> طباعة
-                    </button>
-
-                    {/* Export Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                            className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm flex items-center gap-2"
-                        >
-                            <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        {exportMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                <button
-                                    onClick={() => { exportProductsToExcel(filteredProducts); setExportMenuOpen(false); }}
-                                    className="w-full text-right flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-b border-gray-50"
-                                >
-                                    <TableIcon size={16} className="text-emerald-600" /> Excel (.xlsx)
-                                </button>
-                                <button
-                                    onClick={() => { exportProductsToPDF(filteredProducts); setExportMenuOpen(false); }}
-                                    className="w-full text-right flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-700 transition-colors"
-                                >
-                                    <FileText size={16} className="text-rose-600" /> PDF (.pdf)
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block"></div>
-
-                    <button
-                        onClick={() => setViewArchived(!viewArchived)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-sm border ${viewArchived
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                            }`}
-                        title={viewArchived ? "العودة للمنتجات النشطة" : "عرض المنتجات المؤرشفة"}
-                    >
-                        <Archive size={16} className={viewArchived ? "text-amber-600" : "text-gray-400"} />
-                        {viewArchived ? "عرض النشطة" : "الأرشيف"}
-                    </button>
-
-                    <button onClick={() => handleOpenPanel()} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
-                        <Plus size={18} /> منتج جديد
+                    <button onClick={() => handleOpenPanel()} className="h-[52px] bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-2xl font-black text-xs transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 active:scale-95 ml-auto shrink-0">
+                        <Plus size={20} strokeWidth={3} /> منتج جديد
                     </button>
                 </div>
             </div>
 
+
+
             {/* EXPIRY ALERT BANNERS (Specific to page) */}
-            <div className="flex flex-col gap-2 print-hide">
+            <div className="flex flex-col gap-4 print-hide mx-4 md:mx-8">
                 {expiredCount > 0 && (
-                    <div onClick={() => setExpiryFilter('expired')} className="cursor-pointer bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm hover:bg-red-100 transition-colors">
+                    <div onClick={() => setExpiryFilter('expired')} className="cursor-pointer bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm hover:bg-red-100 transition-colors">
                         <div className="flex items-center gap-3">
                             <AlertCircle size={20} className="text-red-500 shrink-0" />
                             <span className="font-bold text-base">🔴 يوجد {expiredCount} منتجات منتهية الصلاحية — يجب سحبها فوراً</span>
@@ -527,7 +488,7 @@ function ProductsContent() {
                     </div>
                 )}
                 {expiringSoonCount > 0 && (
-                    <div onClick={() => setExpiryFilter('expiring')} className="cursor-pointer bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm hover:bg-amber-100 transition-colors">
+                    <div onClick={() => { setExpiryFilter('expiring'); setCurrentPage(1); }} className="cursor-pointer bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm hover:bg-amber-100 transition-colors">
                         <div className="flex items-center gap-3">
                             <AlertTriangle size={20} className="text-amber-500 shrink-0" />
                             <span className="font-bold text-base">🟡 يوجد {expiringSoonCount} منتجات تنتهي صلاحيتها قريباً
@@ -540,117 +501,154 @@ function ProductsContent() {
             </div>
 
             {/* PRODUCTS TABLE */}
-            <div className="bg-white border flex-1 border-gray-200 rounded-xl shadow-sm flex flex-col print-area">
-                <div className="hidden print:block mb-6 pt-4 border-b pb-4">
-                    <h1 className="text-2xl font-bold flex items-center justify-between text-gray-900">
-                        قائمة المنتجات
-                        <span className="text-sm text-gray-500 font-normal">تاريخ الطباعة: {formatDate(new Date())}</span>
-                    </h1>
-                </div>
-
-                <div className="overflow-x-auto flex-1 p-1">
-                    <table className="w-full text-right text-sm print-table">
-                        <thead className="bg-gray-50/80 border-b border-gray-200 text-gray-600 sticky top-0 backdrop-blur-sm z-10">
-                            <tr>
-                                <th className="px-4 py-3.5 font-bold">الكود</th>
-                                <th className="px-4 py-3.5 font-bold">الاسم</th>
-                                <th className="px-4 py-3.5 font-bold">الفئة</th>
-
-                                <th className="px-4 py-3.5 font-bold text-center">الكمية</th>
-                                <th className="px-4 py-3.5 font-bold text-center bg-blue-50/50">متوسط الشراء</th>
-                                <th className="px-4 py-3.5 font-bold text-center bg-gray-50">آخر شراء</th>
-                                <th className="px-4 py-3.5 font-bold">سعر البيع</th>
-                                <th className="px-4 py-3.5 font-bold text-center">الربح%</th>
-                                <th className="px-4 py-3.5 font-bold">الصلاحية</th>
-                                <th className="px-4 py-3.5 font-bold text-center">الحالة</th>
-                                <th className="px-4 py-3.5 font-bold text-center print-hide">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-gray-700 bg-white">
-                            {loading ? (
-                                <tr><td colSpan={11} className="text-center py-16 text-gray-400 font-bold text-lg animate-pulse">جاري التحميل...</td></tr>
-                            ) : filteredProducts.length === 0 ? (
-                                <tr>
-                                    <td colSpan={11} className="text-center py-20">
-                                        <div className="flex flex-col items-center justify-center opacity-40">
-                                            <Package size={64} className="mb-4 text-gray-400" />
-                                            <p className="text-xl font-bold text-gray-500">لا توجد منتجات مطابقة</p>
-                                        </div>
-                                    </td>
+            <div className="flex flex-col gap-6 px-4 md:px-8 mb-8">
+                <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100">
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">الكود</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">الاسم</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الكمية</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center bg-blue-50/20">متوسط الشراء</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center bg-gray-50/30">آخر شراء</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">سعر البيع</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الحالة</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center print-hide">إجراءات</th>
                                 </tr>
-                            ) : (
-                                filteredProducts.map((p) => {
-                                    const profit = getProfitBadge(p.purchasePrice, p.sellPrice);
-                                    const stockStatus = getStockStatus(p.quantity, p.minQuantity);
-                                    const expiryStat = getExpiryStatus(p.expiryDate);
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 bg-white">
+                                {loading ? (
+                                    <tr><td colSpan={8} className="text-center py-20 text-gray-400 font-bold text-lg animate-pulse">جاري التحميل...</td></tr>
+                                ) : filteredProducts.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8} className="text-center py-24">
+                                            <div className="flex flex-col items-center justify-center opacity-40">
+                                                <Package size={64} className="mb-4 text-gray-400" />
+                                                <p className="text-xl font-black text-gray-500 tracking-tight">لا توجد منتجات مطابقة</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    (() => {
+                                        const indexOfLastItem = currentPage * itemsPerPage;
+                                        const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                                        const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+                                        
+                                        return currentProducts.map((p) => {
+                                            const stockStatus = getStockStatus(p.quantity, p.minQuantity);
+                                            const expiryStat = getExpiryStatus(p.expiryDate);
 
-                                    // Row coloring based on urgency
-                                    let rowClass = "hover:bg-blue-50/30 transition-colors group ";
-                                    if (expiryStat === 'expired') rowClass += "bg-red-50/40 print:bg-red-50";
-                                    else if (expiryStat === 'expiring') rowClass += "bg-amber-50/40 print:bg-amber-50";
+                                            // Row coloring based on urgency
+                                            let rowClass = "hover:bg-blue-50/40 transition-all group ";
+                                            if (expiryStat === 'expired') rowClass += "bg-red-50/20 print:bg-red-50";
+                                            else if (expiryStat === 'expiring') rowClass += "bg-amber-50/20 print:bg-amber-50";
 
-                                    return (
-                                        <tr key={p.id} className={rowClass}>
-                                            <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.code || '—'}</td>
-                                            <td className="px-4 py-3 font-bold text-gray-900">{p.name}</td>
-                                            <td className="px-4 py-3"><span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md border">{p.category}</span></td>
+                                            return (
+                                                <tr key={p.id} className={rowClass}>
+                                                    <td className="px-8 py-6">
+                                                        <span className="font-black text-gray-400 font-sans text-xs">{p.code || '---'}</span>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <span className="font-black text-gray-900">{p.name}</span>
+                                                    </td>
 
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`font-bold ${p.quantity <= p.minQuantity ? 'text-red-600' : 'text-gray-900'} text-base`}>
-                                                    {p.quantity} <span className="text-xs font-normal text-gray-500">{p.unit}</span>
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center bg-blue-50/30 font-bold text-blue-700">{(p as any).avgPurchasePrice ? (p as any).avgPurchasePrice.toLocaleString() : p.purchasePrice.toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-center bg-gray-50/30 text-gray-600">{p.purchasePrice.toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-emerald-600 font-bold text-base">{p.sellPrice.toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`font-bold ${profit.color} bg-white px-2 py-1 rounded shadow-sm border text-xs`}>{profit.text}</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-xs w-40">{renderExpiryInfo(p.nearestExpiryDate || p.expiryDate, p)}</td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`px-2 py-1 rounded-md border font-bold text-xs ${stockStatus.color}`}>{stockStatus.text}</span>
-                                            </td>
-                                            <td className="px-4 py-3 print-hide w-[140px]">
-                                                <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleOpenPanel(p)} className="text-gray-500 hover:text-blue-600 bg-white shadow-sm border p-1 rounded-md hover:border-blue-200" title="تعديل">
-                                                        <Edit size={14} />
-                                                    </button>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className={`font-black font-sans text-lg ${p.quantity <= p.minQuantity ? 'text-red-600' : 'text-gray-900'}`}>
+                                                                {p.quantity.toLocaleString()}
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-400 font-bold">{p.unit}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center bg-blue-50/10 font-black text-blue-700 font-sans">
+                                                        {(p as any).avgPurchasePrice ? (p as any).avgPurchasePrice.toLocaleString() : p.purchasePrice.toLocaleString()} دج
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center bg-gray-50/20 font-bold text-gray-500 font-sans">
+                                                        {p.purchasePrice.toLocaleString()} دج
+                                                    </td>
+                                                    <td className="px-8 py-6 text-emerald-600 font-black text-base font-sans text-right">
+                                                        {p.sellPrice.toLocaleString()} دج
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <span className={`px-3 py-1 rounded-full border-2 font-black text-[10px] ${stockStatus.color}`}>
+                                                            {stockStatus.text}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-8 py-6 print-hide">
+                                                        <div className="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={() => handleOpenPanel(p)} className="text-gray-500 hover:text-blue-600 bg-white shadow-sm border p-1.5 rounded-xl hover:border-blue-200 transition-all active:scale-95" title="تعديل">
+                                                                <Edit size={16} />
+                                                            </button>
 
-                                                    {viewArchived ? (
-                                                        <button
-                                                            onClick={() => handleRestoreProduct(p)}
-                                                            className="text-emerald-500 hover:text-emerald-700 bg-white shadow-sm border p-1 rounded-md hover:border-emerald-200"
-                                                            title="استعادة المنتج"
-                                                        >
-                                                            <CheckCircle size={14} />
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => handleDeleteClick(p)}
-                                                            className="text-gray-500 hover:text-amber-600 bg-white shadow-sm border p-1 rounded-md hover:border-amber-200"
-                                                            title="أرشفة"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                                            {viewArchived ? (
+                                                                <button
+                                                                    onClick={() => handleRestoreProduct(p)}
+                                                                    className="text-emerald-500 hover:text-emerald-700 bg-white shadow-sm border p-1.5 rounded-xl hover:border-emerald-200 transition-all active:scale-95"
+                                                                    title="استعادة المنتج"
+                                                                >
+                                                                    <CheckCircle size={16} />
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => handleDeleteClick(p)}
+                                                                    disabled={p.quantity > 0}
+                                                                    className={`p-1.5 rounded-xl border transition-all active:scale-95 ${p.quantity > 0 
+                                                                        ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed opacity-50' 
+                                                                        : 'bg-white text-gray-500 hover:text-amber-600 hover:border-amber-200 shadow-sm'
+                                                                    }`}
+                                                                    title={p.quantity > 0 ? "لا يمكن أرشفة منتج به كمية" : "أرشفة"}
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })()
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                {!loading && filteredProducts.length > 0 && (
-                    <div className="p-4 border-t border-gray-100 bg-gray-50/50 text-sm font-bold text-gray-600 flex justify-between print-hide rounded-b-xl text-left">
-                        <span>العدد: {filteredProducts.length} منتج</span>
-                        <span className="text-blue-600 font-mono">
-                            الإجمالي: {filteredProducts.reduce((sum, p) => sum + (p.purchasePrice * p.quantity), 0).toLocaleString()} دج
-                        </span>
+
+                {/* Pagination */}
+                {!loading && filteredProducts.length > itemsPerPage && (
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                <Package size={18} className="text-[#8b5cf6]" />
+                            </div>
+                            <p className="text-xs font-black text-gray-400">
+                                إظهار <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{filteredProducts.length}</span> منتج
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                السابق
+                            </button>
+                            <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                {currentPage} / {Math.ceil(filteredProducts.length / itemsPerPage)}
+                            </span>
+                            <button 
+                                onClick={() => { setCurrentPage(p => Math.min(Math.ceil(filteredProducts.length / itemsPerPage), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                disabled={currentPage === Math.ceil(filteredProducts.length / itemsPerPage)}
+                                className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                التالي
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
+
 
             {/* ADD/EDIT RIGHT PANEL */}
             {isPanelOpen && (

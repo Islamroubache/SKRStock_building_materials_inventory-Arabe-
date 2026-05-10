@@ -30,3 +30,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: 'فشل في جلب بيانات الطلبية' }, { status: 500 });
     }
 }
+
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> | { id: string } }) {
+    try {
+        const resolvedParams = await params;
+        const id = parseInt(resolvedParams.id, 10);
+        const { status } = await request.json();
+
+        const order = await prisma.order.update({
+            where: { id },
+            data: { status }
+        });
+
+        return NextResponse.json(order);
+    } catch (e) {
+        console.error(e);
+        return NextResponse.json({ error: 'فشل في تحديث حالة الطلبية' }, { status: 500 });
+    }
+}

@@ -8,7 +8,9 @@ import {
     Calendar, User, FileText, DollarSign, PlusCircle, X,
     Download, Printer, ChevronDown, ArrowUpAZ, ArrowDownZA, FileSpreadsheet
 } from 'lucide-react';
+import { printDocument } from '@/lib/print-helper';
 import PageHeader from '@/components/PageHeader';
+import DateRangePicker from '@/components/DateRangePicker';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -90,15 +92,14 @@ export default function InventoryPage() {
 
     // Modals
     const [isDamageModalOpen, setIsDamageModalOpen] = useState(false);
+    const [showDamageConfirm, setShowDamageConfirm] = useState(false);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [isBatchDetailModalOpen, setIsBatchDetailModalOpen] = useState(false);
     const [selectedDamageRecord, setSelectedDamageRecord] = useState<DamagedProduct | null>(null);
-    const [selectedProductForHistory, setSelectedProductForHistory] = useState<Product | null>(null);
     const [selectedProductForBatches, setSelectedProductForBatches] = useState<Product | null>(null);
-    const [productHistory, setProductHistory] = useState<StockMovement[]>([]);
-    const [historyFilters, setHistoryFilters] = useState({ type: 'ALL', from: '', to: '' });
+
     const [expiryStatusFilter, setExpiryStatusFilter] = useState('ALL');
     const [alertFilter, setAlertFilter] = useState<'ALL' | 'BELOW_MIN' | 'ABOVE_MIN'>('ALL');
     const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
@@ -502,49 +503,7 @@ export default function InventoryPage() {
         }
     };
 
-    const openProductHistory = async (product: Product) => {
-        setSelectedProductForHistory(product);
-        setIsHistoryModalOpen(true);
-        setLoading(true);
-        try {
-            const query = new URLSearchParams({ productId: String(product.id) });
-            const res = await fetch(`/api/inventory?${query.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setProductHistory(data.movements || []);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const handlePrintHistory = () => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        const tableContent = document.getElementById('history-table-print')?.innerHTML;
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>سجل حركة المنتج</title>
-                    <style>
-                        body { font-family: 'Segoe UI', sans-serif; direction: rtl; padding: 20px; }
-                        table { width: 100%; border-collapse: collapse; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-                        th { background-color: #f2f2f2; }
-                    </style>
-                </head>
-                <body>
-                    <h2>سجل حركة المنتج: ${selectedProductForHistory?.name}</h2>
-                    ${tableContent}
-                    <script>window.onload = () => { window.print(); window.close(); }</script>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-    };
 
     const handlePrintBatches = () => {
         const printWindow = window.open('', '_blank');
@@ -572,52 +531,60 @@ export default function InventoryPage() {
         printWindow.document.close();
     };
 
-    const handleRecordDamage = async (e: React.FormEvent) => {
+    const handleRecordDamage = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newDamage.productId || newDamage.quantity <= 0) return;
 
         const product = products.find(p => p.id === parseInt(newDamage.productId));
         if (!product) return;
 
-        if (newDamage.quantity > product.quantity) {
-            alert('خطأ: لا يمكن تسجيل كمية تالف أكبر من الكمية المتوفرة في المخزون');
+        if (newDamage.quantity > (newDamage.damageType === 'EXPIRED' ? 
+            (product.batches || []).filter((b: any) => b.expiryDate && new Date(b.expiryDate) < new Date()).reduce((sum: number, b: any) => sum + b.remainingQty, 0) 
+            : product.quantity)) {
+            alert('خطأ: الكمية المدخلة أكبر من المتوفر');
             return;
         }
 
-        if (confirm(`⚠️ سيتم خصم ${newDamage.quantity} وحدة من المخزون\n الخسارة المسجّلة: ${(newDamage.quantity * (product.avgPurchasePrice || product.purchasePrice)).toLocaleString()} دج\n هل أنت متأكد؟`)) {
-            try {
-                const typeLabels: any = {
-                    'DAMAGED': 'تالف (فيزيائياً)',
-                    'WITHDRAWN': 'مسحوب (بقرار)',
-                    'LOST': 'مفقود / سرقة',
-                    'EXPIRED': 'منتهي الصلاحية'
-                };
-                const finalReason = newDamage.reason || typeLabels[newDamage.damageType] || 'تسجيل تلف/سحب';
+        setShowDamageConfirm(true);
+    };
 
-                const res = await fetch('/api/damaged', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...newDamage,
-                        status: 'CONFIRMED',
-                        reason: finalReason
-                    })
+    const executeRecordDamage = async () => {
+        const product = products.find(p => p.id === parseInt(newDamage.productId));
+        if (!product) return;
+
+        try {
+            const typeLabels: any = {
+                'DAMAGED': 'تالف (فيزيائياً)',
+                'WITHDRAWN': 'مسحوب (بقرار)',
+                'LOST': 'مفقود / سرقة',
+                'EXPIRED': 'منتهي الصلاحية'
+            };
+            const finalReason = newDamage.reason || typeLabels[newDamage.damageType] || 'تسجيل تلف/سحب';
+
+            const res = await fetch('/api/damaged', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...newDamage,
+                    status: 'CONFIRMED',
+                    reason: finalReason
+                })
+            });
+            if (res.ok) {
+                setIsDamageModalOpen(false);
+                setShowDamageConfirm(false);
+                setNewDamage({
+                    productId: '', batchId: '', quantity: 0, reason: '', damageType: 'DAMAGED',
+                    supplierRefund: false, supplierId: '', refundAmount: 0, notes: ''
                 });
-                if (res.ok) {
-                    setIsDamageModalOpen(false);
-                    setNewDamage({
-                        productId: '', batchId: '', quantity: 0, reason: '', damageType: 'DAMAGED',
-                        supplierRefund: false, supplierId: '', refundAmount: 0, notes: ''
-                    });
-                    fetchTabContent();
-                    fetchInitialData();
-                } else {
-                    const err = await res.json();
-                    alert(err.error);
-                }
-            } catch (e) {
-                alert('حدث خطأ أثناء الحفظ');
+                fetchTabContent();
+                fetchInitialData();
+            } else {
+                const err = await res.json();
+                alert(err.error);
             }
+        } catch (e) {
+            alert('حدث خطأ أثناء الحفظ');
         }
     };
 
@@ -983,13 +950,7 @@ export default function InventoryPage() {
                                                     </td>
                                                     <td className="px-8 py-6">
                                                         <div className="flex justify-center gap-2">
-                                                            <button 
-                                                                onClick={() => openProductHistory(p)}
-                                                                className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm" 
-                                                                title="عرض تفاصيل الحركة"
-                                                            >
-                                                                <FileText size={18} />
-                                                            </button>
+
                                                             <button 
                                                                 onClick={() => {
                                                                     setNewDamage({ 
@@ -1018,41 +979,38 @@ export default function InventoryPage() {
                         </div>
 
                         {/* Pagination for Overview */}
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
-                                    <Package size={18} className="text-[#8b5cf6]" />
-                                </div>
-                                <p className="text-xs font-black text-gray-500">
-                                    عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItems)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItems}</span> منتج
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
-                                <button 
-                                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage === 1}
-                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                                >
-                                    <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
-                                </button>
-                                
-                                <div className="flex items-center gap-1 px-4">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
-                                    <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
-                                    <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(totalItems / itemsPerPage) || 1}</span>
+                        {totalItems > itemsPerPage && (
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                        <Package size={18} className="text-[#8b5cf6]" />
+                                    </div>
+                                    <p className="text-xs font-black text-gray-400">
+                                        إظهار <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItems)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItems}</span> منتج
+                                    </p>
                                 </div>
 
-                                <button 
-                                    onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage * itemsPerPage >= totalItems}
-                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                                >
-                                    <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        السابق
+                                    </button>
+                                    <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                        {currentPage} / {Math.ceil(totalItems / itemsPerPage)}
+                                    </span>
+                                    <button 
+                                        onClick={() => { setCurrentPage(p => Math.min(Math.ceil(totalItems / itemsPerPage), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === Math.ceil(totalItems / itemsPerPage)}
+                                        className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        التالي
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 );
             })()}
@@ -1292,41 +1250,38 @@ export default function InventoryPage() {
                         </div>
 
                         {/* Pagination for Batches */}
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
-                                    <Calendar size={18} className="text-[#8b5cf6]" />
-                                </div>
-                                <p className="text-xs font-black text-gray-500">
-                                    عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItemsB)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItemsB}</span> منتج
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
-                                <button 
-                                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage === 1}
-                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                                >
-                                    <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
-                                </button>
-                                
-                                <div className="flex items-center gap-1 px-4">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
-                                    <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
-                                    <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(totalItemsB / itemsPerPage) || 1}</span>
+                        {totalItemsB > itemsPerPage && (
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                        <Calendar size={18} className="text-[#8b5cf6]" />
+                                    </div>
+                                    <p className="text-xs font-black text-gray-400">
+                                        إظهار <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItemsB)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItemsB}</span> منتج
+                                    </p>
                                 </div>
 
-                                <button 
-                                    onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage * itemsPerPage >= totalItemsB}
-                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                                >
-                                    <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        السابق
+                                    </button>
+                                    <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                        {currentPage} / {Math.ceil(totalItemsB / itemsPerPage)}
+                                    </span>
+                                    <button 
+                                        onClick={() => { setCurrentPage(p => Math.min(Math.ceil(totalItemsB / itemsPerPage), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === Math.ceil(totalItemsB / itemsPerPage)}
+                                        className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        التالي
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 );
             })()}
@@ -1406,41 +1361,38 @@ export default function InventoryPage() {
                         </div>
 
                         {/* Pagination for Damaged */}
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
-                                    <Trash2 size={18} className="text-[#8b5cf6]" />
-                                </div>
-                                <p className="text-xs font-black text-gray-500">
-                                    عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItemsD)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItemsD}</span> سجل
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
-                                <button 
-                                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage === 1}
-                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                                >
-                                    <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
-                                </button>
-                                
-                                <div className="flex items-center gap-1 px-4">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
-                                    <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
-                                    <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(totalItemsD / itemsPerPage) || 1}</span>
+                        {totalItemsD > itemsPerPage && (
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                        <Trash2 size={18} className="text-[#8b5cf6]" />
+                                    </div>
+                                    <p className="text-xs font-black text-gray-400">
+                                        إظهار <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItemsD)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItemsD}</span> سجل
+                                    </p>
                                 </div>
 
-                                <button 
-                                    onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    disabled={currentPage * itemsPerPage >= totalItemsD}
-                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                                >
-                                    <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        السابق
+                                    </button>
+                                    <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                        {currentPage} / {Math.ceil(totalItemsD / itemsPerPage)}
+                                    </span>
+                                    <button 
+                                        onClick={() => { setCurrentPage(p => Math.min(Math.ceil(totalItemsD / itemsPerPage), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        disabled={currentPage === Math.ceil(totalItemsD / itemsPerPage)}
+                                        className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        التالي
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 );
             })()}
@@ -1449,15 +1401,23 @@ export default function InventoryPage() {
             {isDamageModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-xl font-bold flex items-center gap-2"><Trash2 className="text-red-500" /> تسجيل تلف أو سحب بضاعة</h2>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${newDamage.damageType === 'EXPIRED' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                                    {newDamage.damageType === 'EXPIRED' ? '📋 تقرير آلي (سحب منتهي)' : '✍️ تقرير يدوي'}
-                                </span>
+                        <div className="p-6 border-b flex justify-between items-center bg-[#8b5cf6] text-white">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-white/20 rounded-2xl text-white">
+                                    <Trash2 size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black">تسجيل تلف أو سحب بضاعة</h2>
+                                    <p className="text-xs font-bold text-white/80 mt-0.5">
+                                        {newDamage.damageType === 'EXPIRED' ? '📋 تقرير آلي (سحب منتهي)' : '✍️ تقرير يدوي'}
+                                    </p>
+                                </div>
                             </div>
-                            <button onClick={() => setIsDamageModalOpen(false)} className="text-gray-400 hover:text-gray-900"><X /></button>
+                            <button onClick={() => setIsDamageModalOpen(false)} className="p-2 text-white/80 hover:text-white bg-white/10 border border-white/20 rounded-xl hover:bg-white/20 transition-all">
+                                <X />
+                            </button>
                         </div>
+
                         <form onSubmit={handleRecordDamage} className="p-6 flex flex-col gap-4">
                             {(() => {
                                 const selectedProduct = products.find(p => String(p.id) === newDamage.productId);
@@ -1490,28 +1450,47 @@ export default function InventoryPage() {
                                                     required 
                                                     type="number" 
                                                     readOnly={newDamage.damageType === 'EXPIRED'}
-                                                    value={newDamage.quantity} 
+                                                    value={newDamage.quantity || ''} 
+                                                    onFocus={() => setNewDamage({ ...newDamage, quantity: '' as any })}
                                                     onChange={e => setNewDamage({ ...newDamage, quantity: parseInt(e.target.value) || 0 })} 
-                                                    className={`bg-white border rounded-lg p-2.5 text-sm ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 font-bold' : ''} ${isOverLimit ? 'border-red-500 focus:ring-red-500 bg-red-50' : ''}`} 
+                                                    className={`bg-white border rounded-xl p-3 text-sm font-black focus:ring-4 focus:ring-violet-500/10 transition-all outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 text-gray-500' : 'text-gray-900 border-gray-200 focus:border-violet-300'} ${isOverLimit ? 'border-red-500 bg-red-50' : ''}`} 
                                                 />
+
                                                 {isOverLimit && (
                                                     <p className="text-[10px] text-red-600 font-bold animate-pulse">يرجى إدخال رقم أصغر من {newDamage.damageType === 'EXPIRED' ? 'الكمية المنتهية' : 'المتوفر في المخزون'}</p>
                                                 )}
                                             </div>
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-sm font-bold">النوع*</label>
-                                                <select 
-                                                    required 
-                                                    disabled={newDamage.damageType === 'EXPIRED'}
-                                                    value={newDamage.damageType} 
-                                                    onChange={e => setNewDamage({ ...newDamage, damageType: e.target.value })} 
-                                                    className={`bg-white border rounded-lg p-2.5 text-sm ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 font-bold opacity-100' : ''}`}
-                                                >
-                                                    <option value="DAMAGED">🔴 تالف (فيزيائياً)</option>
-                                                    <option value="WITHDRAWN">🟡 مسحوب (بقرار)</option>
-                                                    <option value="LOST">⚫ مفقود / سرقة</option>
-                                                    <option value="EXPIRED">🚫 منتهي الصلاحية</option>
-                                                </select>
+                                                <div className="relative group">
+                                                    <button
+                                                        type="button"
+                                                        disabled={newDamage.damageType === 'EXPIRED'}
+                                                        onClick={() => setActiveDropdown(activeDropdown === 'damageType' ? null : 'damageType')}
+                                                        className={`w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right ${newDamage.damageType === 'EXPIRED' ? 'bg-gray-100 opacity-100 cursor-not-allowed' : 'focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10'}`}
+                                                    >
+                                                        <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                                            <Filter size={14} />
+                                                        </div>
+                                                        <div className="flex-1 text-right">
+                                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">النوع</p>
+                                                            <p className="text-[10px] font-black text-gray-900 mt-1">
+                                                                {newDamage.damageType === 'DAMAGED' ? 'تالف (فيزيائياً)' : 
+                                                                 newDamage.damageType === 'WITHDRAWN' ? 'مسحوب (بقرار)' : 
+                                                                 newDamage.damageType === 'LOST' ? 'مفقود / سرقة' : 'منتهي الصلاحية'}
+                                                            </p>
+                                                        </div>
+                                                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${activeDropdown === 'damageType' ? 'rotate-180' : ''}`} />
+                                                    </button>
+                                                    {activeDropdown === 'damageType' && (
+                                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-[110] animate-in fade-in slide-in-from-top-2 duration-200">
+                                                            <button type="button" onClick={() => { setNewDamage({...newDamage, damageType: 'DAMAGED'}); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">تالف (فيزيائياً)</button>
+                                                            <button type="button" onClick={() => { setNewDamage({...newDamage, damageType: 'WITHDRAWN'}); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">مسحوب (بقرار)</button>
+                                                            <button type="button" onClick={() => { setNewDamage({...newDamage, damageType: 'LOST'}); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">مفقود / سرقة</button>
+                                                            <button type="button" onClick={() => { setNewDamage({...newDamage, damageType: 'EXPIRED'}); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 transition-colors">منتهي الصلاحية</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+
                                             </div>
                                         </div>
 
@@ -1541,6 +1520,50 @@ export default function InventoryPage() {
                     </div>
                 </div>
             )}
+            {/* Custom Damage Confirmation Modal */}
+            {showDamageConfirm && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-8 text-center">
+                            <div className="w-20 h-20 bg-red-100 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-red-600">
+                                <AlertTriangle size={40} strokeWidth={2.5} />
+                            </div>
+                            <h3 className="text-xl font-black text-gray-900 mb-2">تأكيد خصم المخزون</h3>
+                            <div className="space-y-4 text-gray-500">
+                                <p className="text-sm font-bold leading-relaxed">
+                                    سيتم خصم <span className="text-gray-900 font-black font-sans">{newDamage.quantity}</span> وحدة من المخزون.
+                                </p>
+                                {(() => {
+                                    const product = products.find(p => p.id === parseInt(newDamage.productId));
+                                    const loss = (newDamage.quantity || 0) * (product?.avgPurchasePrice || product?.purchasePrice || 0);
+                                    return (
+                                        <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
+                                            <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">الخسارة المسجّلة</p>
+                                            <p className="text-lg font-black text-red-600 font-sans">{loss.toLocaleString()} دج</p>
+                                        </div>
+                                    );
+                                })()}
+                                <p className="text-xs font-bold">هل أنت متأكد من هذه العملية؟</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 p-6 bg-gray-50/50 border-t border-gray-100">
+                            <button 
+                                onClick={executeRecordDamage}
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-red-200 active:scale-95"
+                            >
+                                تأكيد الخصم
+                            </button>
+                            <button 
+                                onClick={() => setShowDamageConfirm(false)}
+                                className="flex-1 bg-white border border-gray-200 text-gray-700 font-black py-4 rounded-2xl hover:bg-gray-50 transition-all active:scale-95"
+                            >
+                                إلغاء
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Return to Supplier Modal */}
             {isReturnModalOpen && (
@@ -1576,104 +1599,7 @@ export default function InventoryPage() {
                 </div>
             )}
 
-            {/* Product History Modal */}
-            {isHistoryModalOpen && selectedProductForHistory && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="p-6 border-b flex justify-between items-center bg-gray-50/80">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-indigo-100 rounded-2xl text-indigo-600">
-                                    <Activity size={24} />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-black text-gray-900">سجل حركة المنتج: {selectedProductForHistory.name}</h2>
-                                    <p className="text-xs font-bold text-gray-500 mt-0.5">{selectedProductForHistory.code || 'بدون كود'} | الكمية الحالية: {selectedProductForHistory.quantity} {selectedProductForHistory.unit}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button 
-                                    onClick={handlePrintHistory}
-                                    className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-gray-800 transition-all shadow-md"
-                                >
-                                    <Printer size={16} /> طباعة السجل
-                                </button>
-                                <button onClick={() => setIsHistoryModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 bg-white border rounded-xl hover:shadow-sm transition-all"><X /></button>
-                            </div>
-                        </div>
 
-                        <div className="p-6 border-b bg-white flex flex-wrap gap-4 items-center no-print">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-gray-500">من:</span>
-                                <input type="date" value={historyFilters.from} onChange={e => setHistoryFilters({...historyFilters, from: e.target.value})} className="border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-gray-500">إلى:</span>
-                                <input type="date" value={historyFilters.to} onChange={e => setHistoryFilters({...historyFilters, to: e.target.value})} className="border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20" />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-gray-500">النوع:</span>
-                                <select value={historyFilters.type} onChange={e => setHistoryFilters({...historyFilters, type: e.target.value})} className="border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20">
-                                    <option value="ALL">الكل</option>
-                                    <option value="IN">دخول 🟢</option>
-                                    <option value="OUT">خروج 🔴</option>
-                                    <option value="ADJUST">تعديل 🟡</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
-                            <div id="history-table-print" className="bg-white border rounded-2xl overflow-hidden shadow-sm">
-                                <table className="w-full text-right text-sm border-collapse">
-                                    <thead className="bg-gray-100 text-gray-600 border-b">
-                                        <tr>
-                                            <th className="px-4 py-4 font-black">التاريخ</th>
-                                            <th className="px-4 py-4 font-black">النوع</th>
-                                            <th className="px-4 py-4 font-black text-center">الكمية</th>
-                                            <th className="px-4 py-4 font-black text-center">سعر الوحدة</th>
-                                            <th className="px-4 py-4 font-black text-center">الإجمالي</th>
-                                            <th className="px-4 py-4 font-black text-center">رصيد بعد</th>
-                                            <th className="px-4 py-4 font-black text-center">متبقي من الدفعة</th>
-                                            <th className="px-4 py-4 font-black">السبب/المستند</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {loading ? (
-                                            <tr><td colSpan={7} className="text-center py-20 font-bold text-gray-400">جاري تحميل البيانات...</td></tr>
-                                        ) : productHistory.filter(m => {
-                                            const matchesType = historyFilters.type === 'ALL' || m.movementType === historyFilters.type;
-                                            const matchesFrom = !historyFilters.from || new Date(m.createdAt) >= new Date(historyFilters.from);
-                                            const matchesTo = !historyFilters.to || new Date(m.createdAt) <= new Date(historyFilters.to + 'T23:59:59');
-                                            return matchesType && matchesFrom && matchesTo;
-                                        }).length === 0 ? (
-                                            <tr><td colSpan={7} className="text-center py-20 font-bold text-gray-400">لا توجد حركات مطابقة للفلاتر</td></tr>
-                                        ) : productHistory.filter(m => {
-                                            const matchesType = historyFilters.type === 'ALL' || m.movementType === historyFilters.type;
-                                            const matchesFrom = !historyFilters.from || new Date(m.createdAt) >= new Date(historyFilters.from);
-                                            const matchesTo = !historyFilters.to || new Date(m.createdAt) <= new Date(historyFilters.to + 'T23:59:59');
-                                            return matchesType && matchesFrom && matchesTo;
-                                        }).map(m => (
-                                            <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-4 font-bold text-gray-600">{format(new Date(m.createdAt), 'yyyy/MM/dd HH:mm')}</td>
-                                                <td className="px-4 py-4 font-black">
-                                                    {m.movementType === 'IN' ? <span className="text-emerald-600">دخول 🟢</span> : m.movementType === 'OUT' ? <span className="text-red-600">خروج 🔴</span> : <span className="text-amber-600">تعديل 🟡</span>}
-                                                </td>
-                                                <td className="px-4 py-4 text-center font-black text-base">{m.quantity}</td>
-                                                <td className="px-4 py-4 text-center font-bold">{(m.unitCost || 0).toLocaleString()} دج</td>
-                                                <td className="px-4 py-4 text-center font-black">{(m.totalCost || 0).toLocaleString()} دج</td>
-                                                <td className="px-4 py-4 text-center font-black text-indigo-600 bg-indigo-50/30">{m.quantityAfter}</td>
-                                                <td className="px-4 py-4 text-center font-bold text-emerald-700">
-                                                    {(m as any).batchRemainingQty != null ? `${(m as any).batchRemainingQty}` : '-'}
-                                                </td>
-                                                <td className="px-4 py-4 text-xs font-bold text-gray-500">{m.order ? `طلب ${m.order.orderNumber}` : m.reason}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* Batch Detail Modal */}
             {isBatchDetailModalOpen && selectedProductForBatches && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">

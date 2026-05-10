@@ -65,6 +65,8 @@ export default function OrdersPage() {
     
     // Expandable row state
     const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+    const [statusConfirm, setStatusConfirm] = useState<{ id: number, status: string } | null>(null);
+
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -185,6 +187,40 @@ export default function OrdersPage() {
     const toggleOrder = (id: number) => {
         setExpandedOrder(expandedOrder === id ? null : id);
     };
+
+    const handleUpdateStatus = (orderId: number, newStatus: string) => {
+        setStatusConfirm({ id: orderId, status: newStatus });
+    };
+
+    const executeStatusUpdate = async () => {
+        if (!statusConfirm) return;
+        
+        try {
+            const res = await fetch(`/api/orders/${statusConfirm.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: statusConfirm.status })
+            });
+            
+            if (res.ok) {
+                setStatusConfirm(null);
+                fetchOrders();
+            } else {
+                const contentType = res.headers.get("content-type");
+                let errorMsg = 'حدث خطأ أثناء تحديث الحالة';
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await res.json();
+                    errorMsg = data.error || errorMsg;
+                }
+                alert(errorMsg);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('حدث خطأ في الاتصال');
+        }
+    };
+
+
 
     if (loading) return <div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>;
 
@@ -444,6 +480,7 @@ export default function OrdersPage() {
                                     <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider">المبلغ الإجمالي</th>
                                     <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider">المبلغ الباقي</th>
                                     <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider">الحالة</th>
+                                    <th className="p-4 text-[10px] font-black text-gray-400 uppercase tracking-wider text-center">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -507,6 +544,29 @@ export default function OrdersPage() {
                                                      order.status === 'CANCELLED' ? 'ملغية' : 'مسترجعة'}
                                                 </span>
                                             </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {order.status === 'PENDING' && (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => handleUpdateStatus(order.id, 'DONE')}
+                                                                className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all shadow-sm"
+                                                                title="إتمام الطلبية"
+                                                            >
+                                                                <CheckCircle size={16} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleUpdateStatus(order.id, 'CANCELLED')}
+                                                                className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm"
+                                                                title="إلغاء الطلبية"
+                                                            >
+                                                                <XCircle size={16} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+
                                         </tr>
                                     </React.Fragment>
                                 ))}
@@ -526,41 +586,68 @@ export default function OrdersPage() {
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex -space-x-2">
-                                <div className="w-8 h-8 rounded-full bg-blue-50 border-2 border-white flex items-center justify-center">
-                                    <ShoppingBag size={14} className="text-blue-500" />
+                    {/* Pagination Controls */}
+                    {filteredOrders.length > itemsPerPage && (
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mt-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                    <ShoppingBag size={18} className="text-[#8b5cf6]" />
                                 </div>
+                                <p className="text-xs font-black text-gray-400">
+                                    إظهار <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{filteredOrders.length}</span> طلبية
+                                </p>
                             </div>
-                            <p className="text-xs font-black text-gray-500">
-                                عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{filteredOrders.length}</span> طلبية
+
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === 1}
+                                    className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    السابق
+                                </button>
+                                <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                    {currentPage} / {Math.ceil(filteredOrders.length / itemsPerPage)}
+                                </span>
+                                <button 
+                                    onClick={() => { setCurrentPage(p => Math.min(Math.ceil(filteredOrders.length / itemsPerPage), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === Math.ceil(filteredOrders.length / itemsPerPage)}
+                                    className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    التالي
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+            {/* Custom Status Confirmation Modal */}
+            {statusConfirm && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-8 text-center">
+                            <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 ${statusConfirm.status === 'DONE' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                {statusConfirm.status === 'DONE' ? <CheckCircle size={40} strokeWidth={2.5} /> : <XCircle size={40} strokeWidth={2.5} />}
+                            </div>
+                            <h3 className="text-xl font-black text-gray-900 mb-2">
+                                {statusConfirm.status === 'DONE' ? 'تأكيد إتمام الطلبية' : 'تأكيد إلغاء الطلبية'}
+                            </h3>
+                            <p className="text-sm font-bold text-gray-500 leading-relaxed px-4">
+                                {statusConfirm.status === 'DONE' ? 'هل أنت متأكد من إتمام هذه الطلبية؟ سيتم تحديث الحالة إلى مكتملة.' : 'هل أنت متأكد من إلغاء هذه الطلبية؟ لا يمكن التراجع عن هذا الإجراء.'}
                             </p>
                         </div>
-
-                        <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
+                        <div className="flex gap-3 p-6 bg-gray-50/50 border-t border-gray-100">
                             <button 
-                                onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                disabled={currentPage === 1}
-                                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                onClick={executeStatusUpdate}
+                                className={`flex-1 text-white font-black py-4 rounded-2xl transition-all shadow-lg active:scale-95 ${statusConfirm.status === 'DONE' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-100'}`}
                             >
-                                <ChevronUp className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                {statusConfirm.status === 'DONE' ? 'إتمام الآن' : 'إلغاء الطلبية'}
                             </button>
-                            
-                            <div className="flex items-center gap-1 px-4">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
-                                <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
-                                <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(filteredOrders.length / itemsPerPage) || 1}</span>
-                            </div>
-
                             <button 
-                                onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                disabled={currentPage * itemsPerPage >= filteredOrders.length}
-                                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                onClick={() => setStatusConfirm(null)}
+                                className="flex-1 bg-white border border-gray-200 text-gray-700 font-black py-4 rounded-2xl hover:bg-gray-50 transition-all active:scale-95"
                             >
-                                <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                تراجع
                             </button>
                         </div>
                     </div>
@@ -569,3 +656,4 @@ export default function OrdersPage() {
         </div>
     );
 }
+

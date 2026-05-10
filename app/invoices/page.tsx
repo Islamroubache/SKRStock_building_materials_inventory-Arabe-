@@ -542,42 +542,39 @@ export default function InvoicesPage() {
                     }}
                 />
 
-                {/* Pagination */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mt-6 mb-8">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
-                            <FileText size={18} className="text-[#8b5cf6]" />
-                        </div>
-                        <p className="text-xs font-black text-gray-500">
-                            عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, filteredInvoices.length)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{filteredInvoices.length}</span> فاتورة
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
-                        <button 
-                            onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                            disabled={currentPage === 1}
-                            className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                        >
-                            <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
-                        </button>
-                        
-                        <div className="flex items-center gap-1 px-4">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
-                            <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
-                            <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(filteredInvoices.length / itemsPerPage) || 1}</span>
+                {/* Pagination Controls */}
+                {filteredInvoices.length > itemsPerPage && (
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mt-6 mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                <FileText size={18} className="text-[#8b5cf6]" />
+                            </div>
+                            <p className="text-xs font-black text-gray-400">
+                                إظهار <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, filteredInvoices.length)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{filteredInvoices.length}</span> فاتورة
+                            </p>
                         </div>
 
-                        <button 
-                            onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                            disabled={currentPage * itemsPerPage >= filteredInvoices.length}
-                            className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
-                        >
-                            <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
-                        </button>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                السابق
+                            </button>
+                            <span className="px-4 py-2 bg-[#8b5cf6]/10 text-[#8b5cf6] text-xs font-black rounded-xl border border-[#8b5cf6]/20">
+                                {currentPage} / {Math.ceil(filteredInvoices.length / itemsPerPage)}
+                            </span>
+                            <button 
+                                onClick={() => { setCurrentPage(p => Math.min(Math.ceil(filteredInvoices.length / itemsPerPage), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                disabled={currentPage === Math.ceil(filteredInvoices.length / itemsPerPage)}
+                                className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                التالي
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Invoice Detail Modal */}
