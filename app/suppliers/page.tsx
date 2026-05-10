@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download, Truck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download, Truck, RefreshCcw, Users } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -38,10 +39,11 @@ interface Supplier {
 }
 
 export default function SuppliersPage() {
+    const router = useRouter();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID'>('ALL');
+    const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID' | 'CREDIT' | 'ARCHIVED'>('ALL');
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [activities, setActivities] = useState<string[]>([]);
 
@@ -101,11 +103,14 @@ export default function SuppliersPage() {
 
     // Dialog State
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean, id: number | null }>({ isOpen: false, id: null });
+    const [archiveDialog, setArchiveDialog] = useState<{ isOpen: boolean, id: number | null }>({ isOpen: false, id: null });
+    const [restoreDialog, setRestoreDialog] = useState<{ isOpen: boolean, id: number | null }>({ isOpen: false, id: null });
 
     const fetchSuppliers = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/suppliers');
+            const onlyArchived = balanceFilter === 'ARCHIVED';
+            const res = await fetch(`/api/suppliers?onlyArchived=${onlyArchived}`);
             if (res.ok) {
                 const data = await res.json();
                 setSuppliers(data);
@@ -134,7 +139,7 @@ export default function SuppliersPage() {
     useEffect(() => {
         fetchSuppliers();
         fetchSettings();
-    }, []);
+    }, [balanceFilter]);
 
     const toggleExpand = async (supplierId: number) => {
         if (expandedRows.includes(supplierId)) {
@@ -238,13 +243,6 @@ export default function SuppliersPage() {
     };
 
     const handleArchive = async (id: number) => {
-        const supplier = suppliers.find(s => s.id === id);
-        if (supplier && supplier.balanceDue !== 0) {
-            alert('لا يمكن أرشفة مورد لديه مستحقات عالقة (ديون). يجب أن يكون الرصيد 0 دج للأرشفة.');
-            return;
-        }
-
-        if (!confirm('هل أنت متأكد من أرشفة هذا المورد؟ لن يظهر في القوائم النشطة.')) return;
         try {
             const res = await fetch(`/api/suppliers/${id}`, {
                 method: 'PUT',
@@ -253,8 +251,27 @@ export default function SuppliersPage() {
             });
             if (res.ok) {
                 fetchSuppliers();
+                setArchiveDialog({ isOpen: false, id: null });
             } else {
                 alert('فشل في أرشفة المورد');
+            }
+        } catch (e) {
+            alert('خطأ في الاتصال');
+        }
+    };
+
+    const handleRestore = async (id: number) => {
+        try {
+            const res = await fetch(`/api/suppliers/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isArchived: false })
+            });
+            if (res.ok) {
+                fetchSuppliers();
+                setRestoreDialog({ isOpen: false, id: null });
+            } else {
+                alert('فشل في استعادة المورد');
             }
         } catch (e) {
             alert('خطأ في الاتصال');
@@ -310,181 +327,271 @@ export default function SuppliersPage() {
     };
 
     const filteredSuppliers = suppliers.filter(s => {
-        const matchesSearch = s.name.includes(searchTerm) || (s.phone && s.phone.includes(searchTerm));
+        const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || (s.phone && s.phone.includes(searchTerm));
+        if (balanceFilter === 'ARCHIVED') return matchesSearch;
+
         const matchesBalance =
             balanceFilter === 'ALL' ? true :
-                balanceFilter === 'DEBT' ? s.balanceDue > 0 :
-                    s.balanceDue <= 0;
+            balanceFilter === 'DEBT' ? s.balanceDue > 0 :
+            balanceFilter === 'CREDIT' ? s.balanceDue < 0 :
+            s.balanceDue === 0;
         return matchesSearch && matchesBalance;
     });
 
     return (
-        <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white" dir="rtl">
+            <style jsx global>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    .print-area, .print-area * { visibility: visible; }
+                    .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+                    .no-print { display: none !important; }
+                }
+            `}</style>
+
             <div className="no-print">
-                <PageHeader 
-                    title="إدارة الموردين" 
-                    subtitle="متابعة المشتريات والديون والتعامل مع الموردين" 
-                    Icon={Truck} 
-                >
-                    <div className="relative flex-1 lg:w-64">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="بحث بالاسم أو الهاتف..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
-                        />
-                    </div>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={handlePrint}
-                            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-800 shadow-lg"
-                        >
-                            <Printer size={16} /> طباعة
-                        </button>
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                                className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-gray-50 shadow-sm"
-                            >
-                                <Download size={16} className="text-blue-600" /> تصدير <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                {/* List Header */}
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-8 pb-0">
+                    <PageHeader 
+                        title="إدارة الموردين" 
+                        subtitle="متابعة المشتريات والديون والتعامل مع الموردين" 
+                        Icon={Truck} 
+                    />
+                    <div className="flex gap-2 w-full lg:w-auto justify-end shrink-0">
+                        <div className="relative group">
+                            <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                                <Download size={14} className="text-blue-600"/> تصدير
                             </button>
-                            {isExportMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
-                                    <button
-                                        onClick={() => {
-                                            handleExport();
-                                            setIsExportMenuOpen(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors border-b border-gray-100"
-                                    >
-                                        <FileSpreadsheet size={16} className="text-emerald-600" /> Excel (إكسل)
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            handleExportPDF();
-                                            setIsExportMenuOpen(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                                    >
-                                        <FileText size={16} className="text-rose-600" /> PDF (بي دي أف)
-                                    </button>
-                                </div>
-                            )}
+                            <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                <button 
+                                    onClick={handleExport} 
+                                    className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors"
+                                >
+                                    <FileSpreadsheet size={14} className="text-emerald-600"/> Excel (.xlsx)
+                                </button>
+                                <button 
+                                    onClick={handleExportPDF} 
+                                    className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors"
+                                >
+                                    <FileText size={14} className="text-rose-600"/> PDF (.pdf)
+                                </button>
+                            </div>
                         </div>
+                        <button 
+                            onClick={handlePrint}
+                            className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95"
+                        >
+                            <Printer size={16} /> طباعة القائمة
+                        </button>
                         <Link
                             href="/suppliers/archive"
-                            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl font-black text-xs transition-all hover:bg-amber-100 shadow-sm"
+                            className="hidden" // Hidden because we now have a tab
                         >
-                            <Archive size={16} /> الأرشيف
+                            الأرشيف
                         </Link>
                     </div>
-                    <button
-                        onClick={() => handleOpenSheet()}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm"
-                    >
-                        <Plus size={18} /> مورد جديد
-                    </button>
-                </PageHeader>
+                </div>
             </div>
 
-            <div className="flex items-center gap-6 border-b border-gray-200 no-print">
+            {/* Tabs Header */}
+            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-8 pt-0 mt-[-8px]">
                 <button
                     onClick={() => setBalanceFilter('ALL')}
-                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'ALL' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ALL' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                 >
                     الكل
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'ALL' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'ALL' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
                         {suppliers.length}
                     </span>
                 </button>
                 <button
                     onClick={() => setBalanceFilter('DEBT')}
-                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'DEBT' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'DEBT' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                 >
-                    لهم ديون
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'DEBT' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                    لهم ديون عندنا
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'DEBT' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
                         {suppliers.filter(s => s.balanceDue > 0).length}
                     </span>
                 </button>
                 <button
                     onClick={() => setBalanceFilter('PAID')}
-                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${balanceFilter === 'PAID' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'PAID' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                 >
                     خالصين
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${balanceFilter === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {suppliers.filter(s => s.balanceDue <= 0).length}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {suppliers.filter(s => s.balanceDue === 0).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('CREDIT')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'CREDIT' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    رصيد زائد لنا
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'CREDIT' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {suppliers.filter(s => s.balanceDue < 0).length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setBalanceFilter('ARCHIVED')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ARCHIVED' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    الأرشيف
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'ARCHIVED' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {balanceFilter === 'ARCHIVED' ? suppliers.length : '...'}
                     </span>
                 </button>
             </div>
 
-            {loading ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium">جاري التحميل...</div>
-            ) : filteredSuppliers.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium border-2 border-dashed border-gray-200 rounded-xl">لا يوجد موردين مطابقون للبحث</div>
-            ) : (
-                <div className="flex flex-col gap-3">
-                    {filteredSuppliers.map(supplier => (
-                        <div key={supplier.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row items-center gap-4 cursor-pointer" onClick={() => window.location.href = `/suppliers/${supplier.id}`}>
-                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 shrink-0">
-                                <img 
-                                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(supplier.name)}&backgroundColor=transparent&textColor=4f46e5&fontWeight=900&fontSize=40`} 
-                                    alt={supplier.name}
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-
-                            <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                                <div className="min-w-0 flex flex-col gap-1">
-                                    <h3 className="font-bold text-gray-900 truncate text-base" title={supplier.name}>{supplier.name}</h3>
-                                    {supplier.activity && (
-                                        <p className="text-gray-500 text-[10px] font-bold truncate leading-tight -mt-0.5">{supplier.activity}</p>
-                                    )}
-                                    {supplier.phone && (
-                                        <p className="text-indigo-600 bg-indigo-50 self-start px-2 py-0.5 rounded text-xs font-mono font-bold flex items-center gap-1.5" dir="ltr">
-                                            <Phone size={12} className="text-indigo-500" />
-                                            {supplier.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-col justify-center">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs font-bold text-gray-500 flex items-center gap-1">
-                                            <CreditCard size={14} /> الرصيد (مستحقات):
-                                        </span>
-                                        <span className={`text-xs font-bold ${supplier.balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                            {supplier.balanceDue.toLocaleString()} دج
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col justify-center text-sm font-bold text-gray-600 gap-1">
-                                    <div className="flex justify-between w-full max-w-[150px]">
-                                        <span>منتجات موَرَّدة:</span>
-                                        <span className="text-indigo-600">{supplier._count?.products || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between w-full max-w-[150px]">
-                                        <span>طلبات شراء:</span>
-                                        <span className="text-gray-500">-</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 ml-2 border-r border-gray-100 pr-4 shrink-0">
-                                {supplier.balanceDue === 0 && (
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleArchive(supplier.id); }} 
-                                        className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors"
-                                        title="أرشفة"
-                                    >
-                                        <Archive size={18} />
-                                    </button>
-                                )}
-                            </div>
+            {/* Filters Box */}
+            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-8">
+                <div className="flex flex-col lg:flex-row gap-3 items-center">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[300px] group">
+                        <input 
+                            type="text" 
+                            placeholder="بحث بالاسم أو الهاتف..." 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                        />
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none group-focus-within:scale-110 transition-transform">
+                            <Search size={20} strokeWidth={3} />
                         </div>
-                    ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full lg:w-auto">
+                        <button
+                            onClick={() => handleOpenSheet()}
+                            className="h-[52px] flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 rounded-2xl font-black text-sm transition-all shadow-xl shadow-blue-100 hover:shadow-blue-200 hover:scale-[1.02] active:scale-95"
+                        >
+                            <Plus size={20} /> مورد جديد
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium italic">جاري التحميل...</div>
+            ) : filteredSuppliers.length === 0 ? (
+                <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-8">
+                    لا يوجد موردين مطابقون للبحث
+                </div>
+            ) : (
+                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-8 mb-8">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 border-b border-gray-100">
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">المورد / النشاط</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">رقم الهاتف</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">الرصيد المالي</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الإحصائيات</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {filteredSuppliers.map(supplier => {
+                                    const rowClass = supplier.balanceDue > 0 
+                                        ? "bg-red-50/50 hover:bg-red-100/70"
+                                        : supplier.balanceDue < 0 
+                                            ? "bg-violet-50/50 hover:bg-violet-100/70"
+                                            : "bg-emerald-50/40 hover:bg-emerald-100/60";
+
+                                    return (
+                                        <tr 
+                                            key={supplier.id} 
+                                            onClick={() => router.push(`/suppliers/${supplier.id}`)}
+                                            className={`${rowClass} transition-all group cursor-pointer`}
+                                        >
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-black text-gray-900 text-base mb-0.5">{supplier.name}</span>
+                                                        {supplier.activity && (
+                                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{supplier.activity}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                {supplier.phone ? (
+                                                    <span className="inline-flex bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-black font-sans tracking-tight border border-blue-100 shadow-sm" dir="ltr">
+                                                        {supplier.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-300 font-bold text-xs italic">---</span>
+                                                )}
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col gap-1">
+                                                    {supplier.balanceDue > 0 ? (
+                                                        <span className="inline-flex items-center justify-center bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-red-100 shadow-sm">
+                                                            {supplier.balanceDue.toLocaleString()} دج
+                                                        </span>
+                                                    ) : supplier.balanceDue < 0 ? (
+                                                        <span className="inline-flex items-center justify-center bg-violet-50 text-[#8b5cf6] px-3 py-1 rounded-lg text-xs font-black font-sans border border-violet-100 shadow-sm">
+                                                            {Math.abs(supplier.balanceDue).toLocaleString()} دج-
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-emerald-100 shadow-sm">
+                                                            0 دج
+                                                        </span>
+                                                    )}
+                                                    
+                                                    {supplier.balanceDue !== 0 && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-tighter text-center ${supplier.balanceDue > 0 ? 'text-red-400' : 'text-violet-400'}`}>
+                                                            {supplier.balanceDue > 0 ? 'ديون له' : 'رصيد زائد لنا'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xs font-black text-gray-900 font-sans">{supplier._count?.products || 0}</span>
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">منتجات</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                     {(() => {
+                                                         const isArchivedMode = balanceFilter === 'ARCHIVED';
+                                                         
+                                                         if (isArchivedMode) {
+                                                             return (
+                                                                 <button
+                                                                     onClick={() => setRestoreDialog({ isOpen: true, id: supplier.id })}
+                                                                     className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
+                                                                     title="استعادة المورد"
+                                                                 >
+                                                                     <RefreshCcw size={18} />
+                                                                 </button>
+                                                             );
+                                                         }
+
+                                                         const canArchive = supplier.balanceDue === 0;
+                                                         return (
+                                                             <button
+                                                                 onClick={() => { if (canArchive) setArchiveDialog({ isOpen: true, id: supplier.id }); }}
+                                                                 disabled={!canArchive}
+                                                                 className={`p-2.5 rounded-xl transition-all ${canArchive 
+                                                                     ? 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white shadow-sm' 
+                                                                     : 'bg-gray-50/50 text-gray-200 cursor-not-allowed opacity-60'}`}
+                                                                 title={canArchive ? "أرشفة المورد" : "لا يمكن الأرشفة: يوجد رصيد مالي"}
+                                                             >
+                                                                 <Archive size={18} />
+                                                             </button>
+                                                         );
+                                                     })()}
+                                                 </div>
+                                             </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
@@ -799,18 +906,48 @@ export default function SuppliersPage() {
                             هل أنت متأكد من الحذف؟ لا يمكن التراجع. (ملاحظة: لا يمكن حذف مورد مرتبط حالياً بمنتجات).
                         </p>
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteDialog({ isOpen: false, id: null })}
-                                className="flex-1 bg-white text-gray-700 border border-gray-300 py-2 rounded-lg font-bold text-sm"
-                            >
-                                إلغاء
-                            </button>
-                            <button
-                                onClick={confirmDelete}
-                                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-bold text-sm"
-                            >
-                                تأكيد الحذف
-                            </button>
+                            <button onClick={() => setDeleteDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button>
+                            <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold">حذف نهائي</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ARCHIVE CONFIRM DIALOG */}
+            {archiveDialog.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setArchiveDialog({ isOpen: false, id: null })} />
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-sm p-6 animate-in zoom-in-95">
+                        <div className="flex items-center gap-3 mb-4 text-amber-600">
+                            <Archive size={24} />
+                            <h2 className="text-lg font-bold text-gray-900">أرشفة المورد</h2>
+                        </div>
+                        <p className="text-gray-600 mb-6 text-sm font-bold">
+                            هل أنت متأكد من أرشفة هذا المورد؟ لن يظهر في القوائم النشطة.
+                        </p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setArchiveDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button>
+                            <button onClick={() => archiveDialog.id && handleArchive(archiveDialog.id)} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg font-bold">تأكيد الأرشفة</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* RESTORE CONFIRM DIALOG */}
+            {restoreDialog.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setRestoreDialog({ isOpen: false, id: null })} />
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-sm p-6 animate-in zoom-in-95">
+                        <div className="flex items-center gap-3 mb-4 text-blue-600">
+                            <RefreshCcw size={24} />
+                            <h2 className="text-lg font-bold text-gray-900">استعادة المورد</h2>
+                        </div>
+                        <p className="text-gray-600 mb-6 text-sm font-bold">
+                            هل تريد استعادة هذا المورد إلى القائمة النشطة؟
+                        </p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setRestoreDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button>
+                            <button onClick={() => restoreDialog.id && handleRestore(restoreDialog.id)} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">تأكيد الاستعادة</button>
                         </div>
                     </div>
                 </div>
