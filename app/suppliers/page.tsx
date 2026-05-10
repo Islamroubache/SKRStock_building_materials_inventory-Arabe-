@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download, Truck, RefreshCcw, Users } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, AlertTriangle, ChevronDown, ChevronUp, Package, Building, ExternalLink, Printer, FileSpreadsheet, FileText, Archive, CreditCard, Phone, User, Download, Truck, RefreshCcw, Users, MapPin, Check, Info } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -33,6 +33,9 @@ interface Supplier {
     ai: string | null;
     nis: string | null;
     activity?: string | null;
+    wilaya?: string | null;
+    commune?: string | null;
+    postCode?: string | null;
     _count?: {
         products: number;
     }
@@ -44,20 +47,17 @@ export default function SuppliersPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [balanceFilter, setBalanceFilter] = useState<'ALL' | 'DEBT' | 'PAID' | 'CREDIT' | 'ARCHIVED'>('ALL');
-    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [activities, setActivities] = useState<string[]>([]);
-
-    const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
     // Sheet State
     const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [focusedField, setFocusedField] = useState<string | null>(null);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
     const [formData, setFormData] = useState({ 
         name: '', phone: '', email: '', address: '', 
-        commune: 'المسيلة', 
-        wilaya: 'المسيلة',
-        rc: '', nif: '', ai: '', nis: '', activity: "Grossiste en Matériel Électrique"
+        commune: "M'sila", 
+        wilaya: "M'Sila",
+        postCode: '28000',
+        rc: '', nif: '', ai: '', nis: '', activity: ""
     });
     const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -70,36 +70,78 @@ export default function SuppliersPage() {
             const words = formData.name.trim().split(/\s+/).filter(w => w.length > 0);
             return words.length >= 2 && words.slice(0, 2).every(w => w.length >= 3);
         })(),
-        activity: (() => {
-            const predefinedActivities = [
-                "Fabricant de Câbles & Fils Électriques",
-                "Fabricant de Matériel Électrique",
-                "Fabricant d'Éclairage & LED",
-                "Fabricant d'Appareillage Électrique",
-                "Grossiste en Matériel Électrique",
-                "Importateur de Matériel Électrique",
-                "Commerce en Gros d'Électricité",
-                "Distributeur Agréé",
-                "Fabricant de Coffrets & Tableaux",
-                "Fabricant de Gaine & Tube",
-                "Fournisseur d'Équipements Industriels",
-                "Grossiste en Électricité",
-            ];
-            const isCustom = formData.activity === 'Autre' || (formData.activity && !predefinedActivities.includes(formData.activity));
-            if (!isCustom) return true;
-            const words = formData.activity.trim().split(/\s+/).filter(w => w.length > 0);
-            return words.length >= 2;
-        })(),
         phone: formData.phone === '' || /^0[567]\d{8}$/.test(formData.phone),
         email: formData.email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email),
-        rc: formData.rc === '' || formData.rc.length === 10,
-        nif: formData.nif === '' || formData.nif.length === 15,
-        ai: formData.ai === '' || formData.ai.length === 11,
-        nis: formData.nis === '' || formData.nis.length === 15,
         address: formData.address.length >= 5,
         commune: formData.commune.length > 0,
         wilaya: formData.wilaya.length > 0,
     };
+
+    // --- Strict Algerian Business Number Validations ---
+    const validateNIF = (nif: string) => {
+        if (!nif) return null;
+        const clean = nif.replace(/\s/g, '');
+        if (!/^\d+$/.test(clean)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
+        if (clean.length !== 15 && clean.length !== 20) return { valid: false, error: "يجب أن يكون 15 أو 20 رقماً بالضبط" };
+        const cat = parseInt(clean[0]);
+        if (cat > 8) return { valid: false, error: "رقم الفئة (أول رقم) يجب أن يكون بين 0 و 8" };
+        const wilCode = parseInt(clean.substring(4, 6));
+        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${clean.substring(4, 6)}) غير صحيح (01-58)` };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const validateNIS = (nis: string) => {
+        if (!nis) return null;
+        const clean = nis.replace(/\s/g, '');
+        if (!/^\d+$/.test(clean)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
+        if (clean.length !== 15 && clean.length !== 18) return { valid: false, error: "يجب أن يكون 15 أو 18 رقماً بالضبط" };
+        if (clean.substring(1, 4) === "000") return { valid: false, error: "سنة التأسيس (الخانة 2-4) لا يمكن أن تكون 000" };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const validateRC = (rc: string) => {
+        if (!rc) return null;
+        const match1 = rc.match(/^(\d{2})\/(\d{2})-(\d{7})(?:\s([AB]))?$/i);
+        if (match1) {
+            const wilCode = parseInt(match1[1]);
+            if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${match1[1]}) غير صحيح (01-58)` };
+            return { valid: true, breakdown: "صحيح" };
+        }
+        const match2 = rc.match(/^(\d{2})\s?([AB])\s?(\d{7})(?:-(\d{2}))?$/i);
+        if (match2) {
+            const wilaya = match2[4];
+            if (wilaya) {
+                const wilCode = parseInt(wilaya);
+                if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${wilaya}) غير صحيح (01-58)` };
+            }
+            return { valid: true, breakdown: "صحيح" };
+        }
+        if (/^\d{10}$/.test(rc)) return { valid: true, breakdown: "صحيح" };
+        return { valid: false, error: "الصيغة غير صحيحة. أمثلة: 16/24-0012345 B أو 10 أرقام" };
+    };
+
+    const validateAI = (ai: string) => {
+        if (!ai) return null;
+        const cleanAI = ai.replace(/\s/g, '');
+        if (!/^\d{11}$/.test(cleanAI)) return { valid: false, error: "رقم المادة يجب أن يتكون من 11 رقماً بالضبط" };
+        const wilCode = parseInt(cleanAI.substring(0, 2));
+        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${cleanAI.substring(0, 2)}) غير صحيح (01-58)` };
+        return { valid: true, breakdown: "صحيح" };
+    };
+
+    const nifInfo = validateNIF(formData.nif);
+    const nisInfo = validateNIS(formData.nis);
+    const rcInfo = validateRC(formData.rc);
+    const aiInfo = validateAI(formData.ai);
+
+    const isFormValid = 
+        validations.name && 
+        validations.phone && 
+        validations.address &&
+        (nifInfo === null || nifInfo.valid) &&
+        (nisInfo === null || nisInfo.valid) &&
+        (rcInfo === null || rcInfo.valid) &&
+        (aiInfo === null || aiInfo.valid);
 
     // Dialog State
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean, id: number | null }>({ isOpen: false, id: null });
@@ -122,61 +164,29 @@ export default function SuppliersPage() {
         }
     };
 
-    const fetchSettings = async () => {
-        try {
-            const res = await fetch('/api/settings');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.activities) {
-                    const acts = data.activities.split(',');
-                    setActivities(acts);
-                    if (!editingSupplier) setFormData(prev => ({ ...prev, activity: acts[0] }));
-                }
-            }
-        } catch (e) {}
-    };
-
     useEffect(() => {
         fetchSuppliers();
-        fetchSettings();
     }, [balanceFilter]);
-
-    const toggleExpand = async (supplierId: number) => {
-        if (expandedRows.includes(supplierId)) {
-            setExpandedRows(expandedRows.filter(id => id !== supplierId));
-        } else {
-            // If we don't have the products loaded yet, fetch full details
-            const supplier = suppliers.find(s => s.id === supplierId);
-            if (supplier && !supplier.products) {
-                try {
-                    const res = await fetch(`/api/suppliers/${supplierId}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        setSuppliers(prev => prev.map(s => s.id === supplierId ? { ...s, products: data.products } : s));
-                    }
-                } catch (e) { }
-            }
-            setExpandedRows([...expandedRows, supplierId]);
-        }
-    };
 
     const handleOpenSheet = (sup?: Supplier) => {
         if (sup) {
             setEditingSupplier(sup);
             setFormData({ 
                 name: sup.name, phone: sup.phone || '', email: sup.email || '', 
-                address: sup.address || '', commune: (sup as any).commune || '', wilaya: (sup as any).wilaya || '',
+                address: sup.address || '', commune: sup.commune || "M'sila", wilaya: sup.wilaya || "M'Sila",
+                postCode: sup.postCode || '28000',
                 rc: sup.rc || '', nif: sup.nif || '', ai: sup.ai || '', nis: sup.nis || '',
-                activity: sup.activity || "Grossiste en Matériel Électrique"
+                activity: sup.activity || ""
             });
         } else {
             setEditingSupplier(null);
             setFormData({ 
                 name: '', phone: '', email: '', 
                 address: '', 
-                commune: 'المسيلة', 
-                wilaya: 'المسيلة',
-                rc: '', nif: '', ai: '', nis: '', activity: "Grossiste en Matériel Électrique"
+                commune: "M'sila", 
+                wilaya: "M'Sila",
+                postCode: '28000',
+                rc: '', nif: '', ai: '', nis: '', activity: ""
             });
         }
         setTouched({});
@@ -215,14 +225,6 @@ export default function SuppliersPage() {
             if (index > -1 && index < focusableElements.length - 1) {
                 e.preventDefault();
                 (focusableElements[index + 1] as HTMLElement).focus();
-            }
-        } else if (e.key === 'ArrowRight') {
-            const target = e.target as HTMLInputElement;
-            const isTextAtStart = target.tagName !== 'INPUT' || (target.selectionStart === 0 && target.selectionEnd === 0);
-            
-            if (isTextAtStart && index > 0) {
-                e.preventDefault();
-                (focusableElements[index - 1] as HTMLElement).focus();
             }
         }
     };
@@ -350,7 +352,6 @@ export default function SuppliersPage() {
             `}</style>
 
             <div className="no-print">
-                {/* List Header */}
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-8 pb-0">
                     <PageHeader 
                         title="إدارة الموردين" 
@@ -363,94 +364,41 @@ export default function SuppliersPage() {
                                 <Download size={14} className="text-blue-600"/> تصدير
                             </button>
                             <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                                <button 
-                                    onClick={handleExport} 
-                                    className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors"
-                                >
+                                <button onClick={handleExport} className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors">
                                     <FileSpreadsheet size={14} className="text-emerald-600"/> Excel (.xlsx)
                                 </button>
-                                <button 
-                                    onClick={handleExportPDF} 
-                                    className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors"
-                                >
+                                <button onClick={handleExportPDF} className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors">
                                     <FileText size={14} className="text-rose-600"/> PDF (.pdf)
                                 </button>
                             </div>
                         </div>
-                        <button 
-                            onClick={handlePrint}
-                            className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95"
-                        >
+                        <button onClick={handlePrint} className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95">
                             <Printer size={16} /> طباعة القائمة
                         </button>
-                        <Link
-                            href="/suppliers/archive"
-                            className="hidden" // Hidden because we now have a tab
-                        >
-                            الأرشيف
-                        </Link>
                     </div>
                 </div>
             </div>
 
-            {/* Tabs Header */}
             <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-8 pt-0 mt-[-8px]">
-                <button
-                    onClick={() => setBalanceFilter('ALL')}
-                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ALL' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                >
-                    الكل
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'ALL' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {suppliers.length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setBalanceFilter('DEBT')}
-                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'DEBT' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                >
-                    لهم ديون عندنا
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'DEBT' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {suppliers.filter(s => s.balanceDue > 0).length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setBalanceFilter('PAID')}
-                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'PAID' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                >
-                    خالصين
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {suppliers.filter(s => s.balanceDue === 0).length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setBalanceFilter('CREDIT')}
-                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'CREDIT' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                >
-                    رصيد زائد لنا
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'CREDIT' ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {suppliers.filter(s => s.balanceDue < 0).length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setBalanceFilter('ARCHIVED')}
-                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ARCHIVED' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-                >
-                    الأرشيف
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === 'ARCHIVED' ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {balanceFilter === 'ARCHIVED' ? suppliers.length : '...'}
-                    </span>
-                </button>
+                {['ALL', 'DEBT', 'PAID', 'CREDIT', 'ARCHIVED'].map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setBalanceFilter(tab as any)}
+                        className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === tab ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                    >
+                        {tab === 'ALL' ? 'الكل' : tab === 'DEBT' ? 'لهم ديون عندنا' : tab === 'PAID' ? 'خالصين' : tab === 'CREDIT' ? 'رصيد زائد لنا' : 'الأرشيف'}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] ${balanceFilter === tab ? 'bg-violet-50 text-violet-600' : 'bg-gray-100 text-gray-500'}`}>
+                            {tab === 'ALL' ? suppliers.length : tab === 'DEBT' ? suppliers.filter(s => s.balanceDue > 0).length : tab === 'PAID' ? suppliers.filter(s => s.balanceDue === 0).length : tab === 'CREDIT' ? suppliers.filter(s => s.balanceDue < 0).length : (balanceFilter === 'ARCHIVED' ? suppliers.length : '...')}
+                        </span>
+                    </button>
+                ))}
             </div>
 
-            {/* Filters Box */}
             <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-8">
                 <div className="flex flex-col lg:flex-row gap-3 items-center">
-                    {/* Search */}
                     <div className="relative flex-1 min-w-[300px] group">
                         <input 
-                            type="text" 
-                            placeholder="بحث بالاسم أو الهاتف..." 
-                            value={searchTerm} 
+                            type="text" placeholder="بحث بالاسم أو الهاتف..." value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
                             className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
                         />
@@ -458,20 +406,17 @@ export default function SuppliersPage() {
                             <Search size={20} strokeWidth={3} />
                         </div>
                     </div>
-
-                    <div className="flex items-center gap-2 w-full lg:w-auto">
-                        <button
-                            onClick={() => handleOpenSheet()}
-                            className="h-[52px] flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 rounded-2xl font-black text-sm transition-all shadow-xl shadow-blue-100 hover:shadow-blue-200 hover:scale-[1.02] active:scale-95"
-                        >
-                            <Plus size={20} /> مورد جديد
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => handleOpenSheet()}
+                        className="h-[52px] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 rounded-2xl font-black text-sm transition-all shadow-xl shadow-blue-100 hover:shadow-blue-200 hover:scale-[1.02] active:scale-95"
+                    >
+                        <Plus size={20} /> مورد جديد
+                    </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium italic">جاري التحميل...</div>
+                <div className="flex-1 flex justify-center items-center text-gray-500 h-64">جاري التحميل...</div>
             ) : filteredSuppliers.length === 0 ? (
                 <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-8">
                     لا يوجد موردين مطابقون للبحث
@@ -485,107 +430,51 @@ export default function SuppliersPage() {
                                     <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">المورد / النشاط</th>
                                     <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">رقم الهاتف</th>
                                     <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">الرصيد المالي</th>
-                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الإحصائيات</th>
-                                    <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest">الإجراءات</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs text-center uppercase tracking-widest">إحصائيات</th>
+                                    <th className="px-8 py-6 font-black text-gray-400 text-xs text-center uppercase tracking-widest">الإجراءات</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {filteredSuppliers.map(supplier => {
-                                    const rowClass = supplier.balanceDue > 0 
-                                        ? "bg-red-50/50 hover:bg-red-100/70"
-                                        : supplier.balanceDue < 0 
-                                            ? "bg-violet-50/50 hover:bg-violet-100/70"
-                                            : "bg-emerald-50/40 hover:bg-emerald-100/60";
-
+                                    const rowClass = supplier.balanceDue > 0 ? "bg-red-50/30 hover:bg-red-50/50" : supplier.balanceDue < 0 ? "bg-violet-50/30 hover:bg-violet-50/50" : "hover:bg-gray-50/50";
                                     return (
-                                        <tr 
-                                            key={supplier.id} 
-                                            onClick={() => router.push(`/suppliers/${supplier.id}`)}
-                                            className={`${rowClass} transition-all group cursor-pointer`}
-                                        >
+                                        <tr key={supplier.id} onClick={() => router.push(`/suppliers/${supplier.id}`)} className={`${rowClass} transition-all group cursor-pointer`}>
                                             <td className="px-8 py-6">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-black text-gray-900 text-base mb-0.5">{supplier.name}</span>
-                                                        {supplier.activity && (
-                                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{supplier.activity}</span>
-                                                        )}
-                                                    </div>
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-gray-900 group-hover:text-[#8b5cf6] transition-colors">{supplier.name}</span>
+                                                    {supplier.activity && <span className="text-[10px] font-black text-blue-600 uppercase mt-0.5">{supplier.activity}</span>}
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
                                                 {supplier.phone ? (
-                                                    <span className="inline-flex bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-black font-sans tracking-tight border border-blue-100 shadow-sm" dir="ltr">
-                                                        {supplier.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
+                                                    <span className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-[11px] font-black" dir="ltr">
+                                                        <Phone size={12} /> {supplier.phone}
                                                     </span>
-                                                ) : (
-                                                    <span className="text-gray-300 font-bold text-xs italic">---</span>
-                                                )}
+                                                ) : <span className="text-gray-300 font-bold text-xs italic">---</span>}
                                             </td>
                                             <td className="px-8 py-6">
                                                 <div className="flex flex-col gap-1">
-                                                    {supplier.balanceDue > 0 ? (
-                                                        <span className="inline-flex items-center justify-center bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-red-100 shadow-sm">
-                                                            {supplier.balanceDue.toLocaleString()} دج
-                                                        </span>
-                                                    ) : supplier.balanceDue < 0 ? (
-                                                        <span className="inline-flex items-center justify-center bg-violet-50 text-[#8b5cf6] px-3 py-1 rounded-lg text-xs font-black font-sans border border-violet-100 shadow-sm">
-                                                            {Math.abs(supplier.balanceDue).toLocaleString()} دج-
-                                                        </span>
+                                                    <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-black ${supplier.balanceDue > 0 ? 'bg-red-50 text-red-600 shadow-sm shadow-red-100' : supplier.balanceDue < 0 ? 'bg-violet-50 text-[#8b5cf6] shadow-sm shadow-violet-100' : 'bg-emerald-50 text-emerald-600 shadow-sm shadow-emerald-100'}`}>
+                                                        {Math.abs(supplier.balanceDue).toLocaleString()} دج {supplier.balanceDue < 0 && '-'}
+                                                    </span>
+                                                    {supplier.balanceDue !== 0 && <span className={`text-[9px] font-black uppercase text-center ${supplier.balanceDue > 0 ? 'text-red-400' : 'text-violet-400'}`}>{supplier.balanceDue > 0 ? 'لهم ديون' : 'رصيد زائد لنا'}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl text-[10px] font-black">{supplier._count?.products || 0} منتجات</span>
+                                            </td>
+                                            <td className="px-8 py-6" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {balanceFilter === 'ARCHIVED' ? (
+                                                        <button onClick={() => setRestoreDialog({ isOpen: true, id: supplier.id })} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm active:scale-90" title="استعادة من الأرشيف"><RefreshCcw size={18} /></button>
                                                     ) : (
-                                                        <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-emerald-100 shadow-sm">
-                                                            0 دج
-                                                        </span>
-                                                    )}
-                                                    
-                                                    {supplier.balanceDue !== 0 && (
-                                                        <span className={`text-[9px] font-black uppercase tracking-tighter text-center ${supplier.balanceDue > 0 ? 'text-red-400' : 'text-violet-400'}`}>
-                                                            {supplier.balanceDue > 0 ? 'ديون له' : 'رصيد زائد لنا'}
-                                                        </span>
+                                                        <>
+                                                            <button onClick={() => handleOpenSheet(supplier)} className="p-2.5 bg-gray-50 text-gray-500 hover:bg-gray-200 rounded-xl transition-all active:scale-90" title="تعديل"><Edit size={18} /></button>
+                                                            <button onClick={() => { if (supplier.balanceDue === 0) setArchiveDialog({ isOpen: true, id: supplier.id }); }} disabled={supplier.balanceDue !== 0} className={`p-2.5 rounded-xl transition-all active:scale-90 ${supplier.balanceDue === 0 ? 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white shadow-sm' : 'bg-gray-50/50 text-gray-200 cursor-not-allowed opacity-60'}`} title={supplier.balanceDue === 0 ? "أرشفة" : "لا يمكن الأرشفة: يوجد رصيد مالي"}><Archive size={18} /></button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-xs font-black text-gray-900 font-sans">{supplier._count?.products || 0}</span>
-                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">منتجات</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                                     {(() => {
-                                                         const isArchivedMode = balanceFilter === 'ARCHIVED';
-                                                         
-                                                         if (isArchivedMode) {
-                                                             return (
-                                                                 <button
-                                                                     onClick={() => setRestoreDialog({ isOpen: true, id: supplier.id })}
-                                                                     className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
-                                                                     title="استعادة المورد"
-                                                                 >
-                                                                     <RefreshCcw size={18} />
-                                                                 </button>
-                                                             );
-                                                         }
-
-                                                         const canArchive = supplier.balanceDue === 0;
-                                                         return (
-                                                             <button
-                                                                 onClick={() => { if (canArchive) setArchiveDialog({ isOpen: true, id: supplier.id }); }}
-                                                                 disabled={!canArchive}
-                                                                 className={`p-2.5 rounded-xl transition-all ${canArchive 
-                                                                     ? 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white shadow-sm' 
-                                                                     : 'bg-gray-50/50 text-gray-200 cursor-not-allowed opacity-60'}`}
-                                                                 title={canArchive ? "أرشفة المورد" : "لا يمكن الأرشفة: يوجد رصيد مالي"}
-                                                             >
-                                                                 <Archive size={18} />
-                                                             </button>
-                                                         );
-                                                     })()}
-                                                 </div>
-                                             </td>
                                         </tr>
                                     );
                                 })}
@@ -597,300 +486,192 @@ export default function SuppliersPage() {
 
             {/* ADD/EDIT SHEET */}
             {isSheetOpen && (
-                <div className="fixed inset-0 z-50 flex justify-end">
-                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setIsSheetOpen(false)} />
-                    <div className="bg-white w-full max-w-md h-full z-10 p-6 flex flex-col shadow-2xl border-l border-gray-200 animate-in slide-in-from-right">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                            <Building className="text-indigo-600" />
-                            {editingSupplier ? 'تعديل بيانات المورد' : 'إضافة مورد جديد'}
-                        </h2>
-
-                        <div className="space-y-4 flex-1 overflow-y-auto" onKeyDown={handleKeyDown}>
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-bold text-gray-700">اسم المورد <span className="text-red-500">*</span></label>
-                                <input 
-                                    type="text" value={formData.name} 
-                                    onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })} 
-                                    onBlur={() => setFieldTouched('name')}
-                                    className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all font-black text-sm uppercase
-                                        ${touched.name && !validations.name ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300 focus:ring-indigo-500'}`} 
-                                    placeholder="اسم الشركة أو المورد..." required 
-                                />
-                                {touched.name && !validations.name && (
-                                    <p className="text-[10px] text-red-500 font-bold mt-1 text-right">يجب إدخال اسم المورد (كلمتان على الأقل، كل كلمة 3 أحرف على الأقل).</p>
-                                )}
-                            </div>
-
-                            {/* ACTIVITY FIELD */}
+                <>
+                    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[60] transition-opacity duration-300" onClick={() => setIsSheetOpen(false)} />
+                    <div className="fixed top-0 bottom-0 left-0 w-full max-w-lg bg-white shadow-2xl z-[70] flex flex-col animate-in slide-in-from-left duration-500 overflow-hidden">
+                        <div className="p-8 w-full flex items-center justify-between bg-[#8b5cf6] text-white shadow-lg shrink-0">
                             <div>
-                                <label className="text-sm font-bold text-gray-700 mb-1 block">النشاط التجاري <span className="text-red-500">*</span></label>
-                                {(() => {
-                                    const predefinedActivities = activities.length > 0 ? activities : [
-                                        "Grossiste en Matériel Électrique",
-                                        "Importateur",
-                                        "Fabricant"
-                                    ];
-                                    const currentActivity = (formData as any).activity || '';
-                                    const isCustom = currentActivity === 'Autre' || (currentActivity && !predefinedActivities.includes(currentActivity));
-                                    const selectValue = isCustom ? 'Autre' : currentActivity;
-                                    return (
-                                        <>
-                                            <select
-                                                value={selectValue}
-                                                onChange={e => {
-                                                    if (e.target.value === 'Autre') {
-                                                        setFormData({ ...formData, activity: 'Autre' } as any);
-                                                    } else {
-                                                        setFormData({ ...formData, activity: e.target.value } as any);
-                                                    }
-                                                }}
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-                                            >
-                                                {predefinedActivities.map(a => (
-                                                    <option key={a} value={a}>{a}</option>
-                                                ))}
-                                                <option value="Autre">Autre (saisie manuelle)</option>
-                                            </select>
-                                            {isCustom && (
-                                                <>
-                                                    <input
-                                                        type="text"
-                                                        value={currentActivity === 'Autre' ? '' : currentActivity}
-                                                        onChange={e => setFormData({ ...formData, activity: e.target.value || 'Autre' } as any)}
-                                                        onBlur={() => setFieldTouched('activity')}
-                                                        placeholder="أدخل النشاط التجاري يدوياً..."
-                                                        className={`w-full border rounded-lg px-3 py-2.5 outline-none focus:ring-2 transition-all mt-2
-                                                            ${touched.activity && !validations.activity ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-amber-400 focus:ring-amber-500/50 text-gray-900'}`}
-                                                        autoFocus
-                                                    />
-                                                    {touched.activity && !validations.activity && (
-                                                        <p className="text-[10px] text-red-500 font-bold mt-1 text-right">يجب إدخال كلمتين على الأقل للنشاط.</p>
-                                                    )}
-                                                </>
-                                            )}
-                                        </>
-                                    );
-                                })()}
+                                <h2 className="text-2xl font-black flex items-center gap-3">
+                                    <Plus size={28} className="bg-white/20 p-1 rounded-lg" /> {editingSupplier ? 'تعديل بيانات المورد' : 'تسجيل مورد جديد'}
+                                </h2>
+                                <p className="text-white/70 text-xs font-bold mt-1 tracking-tight uppercase">إضافة بيانات المورد الجديد إلى قاعدة البيانات</p>
                             </div>
+                            <button onClick={() => setIsSheetOpen(false)} className="bg-white/10 hover:bg-white/20 text-white rounded-2xl p-2 transition-all active:scale-90"><X size={24} /></button>
+                        </div>
 
-                            <div className="space-y-1.5 flex flex-col items-start w-full">
-                                <label className="text-sm font-bold text-gray-700">رقم الهاتف (اختياري)</label>
-                                <div className="relative w-full group overflow-hidden">
-                                    <input
-                                        type="text"
-                                        maxLength={10}
-                                        value={formData.phone}
-                                        onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '');
-                                            if (val.length === 1 && val[0] !== '0') return;
-                                            if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return;
-                                            setFormData({ ...formData, phone: val });
-                                        }}
-                                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                        dir="ltr"
-                                        onFocus={() => setFocusedField('phone')}
-                                        onBlur={() => {
-                                            setFocusedField(null);
-                                            setFieldTouched('phone');
-                                        }}
-                                    />
-                                    <div className={`flex gap-1 w-full justify-between items-center bg-white border rounded-lg px-3 py-2.5 z-10 font-mono text-lg transition-all
-                                        ${focusedField === 'phone' ? 'border-blue-500 ring-4 ring-blue-500/10' : (touched.phone && !validations.phone ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-300')}`} dir="ltr">
-                                        {[...Array(10)].map((_, i) => (
-                                            <React.Fragment key={i}>
-                                                <div
-                                                    className={`flex-1 flex justify-center items-center h-9 rounded-md transition-all duration-200
-                                                        ${formData.phone[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.phone.length && focusedField === 'phone') ? 'bg-blue-100 text-blue-600 font-bold' : 'text-transparent'}`}
-                                                >
-                                                    {formData.phone[i] || 'x'}
-                                                </div>
-                                                {(i === 1 || i === 3 || i === 5 || i === 7) && <div className="w-2" />}
-                                            </React.Fragment>
-                                        ))}
+                        <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/30" onKeyDown={handleKeyDown}>
+                            {/* Section 1: Basic Info */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-violet-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-violet-200">
+                                <div className="flex items-center gap-3"><div className="w-2 h-8 bg-violet-500 rounded-full"></div><h3 className="text-sm font-black text-violet-600 uppercase tracking-widest">المعلومات الشخصية</h3></div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">اسم المورد <span className="text-red-500">*</span></label>
+                                        <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })} onBlur={() => setFieldTouched('name')} placeholder="اسم المورد أو الشركة..." className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none transition-all ${touched.name && !validations.name ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`} required />
+                                        {touched.name && !validations.name && <p className="text-[10px] text-red-500 font-bold mr-2 animate-bounce">يجب إدخال اسم المورد (كلمتان على الأقل).</p>}
                                     </div>
-                                    {touched.phone && !validations.phone && (
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-red-500 animate-pulse pointer-events-none z-30">
-                                            <AlertTriangle size={16} />
-                                        </div>
-                                    )}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1 tracking-tighter">النشاط التجاري (اختياري)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.activity}
+                                            onChange={e => setFormData({ ...formData, activity: e.target.value.toUpperCase() })}
+                                            placeholder="أدخل النشاط التجاري هنا..."
+                                            className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">رقم الهاتف <span className="text-red-500">*</span></label>
+                                        <div className="relative group"><input type="text" maxLength={10} value={formData.phone} onChange={e => { const val = e.target.value.replace(/\D/g, ''); if (val.length === 1 && val[0] !== '0') return; if (val.length === 2 && !['5', '6', '7'].includes(val[1])) return; setFormData({ ...formData, phone: val }); }} onBlur={() => setFieldTouched('phone')} placeholder="05 / 06 / 07 ..." className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-12 py-3.5 text-gray-900 font-bold font-sans transition-all ${touched.phone && !validations.phone ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`} dir="ltr" /><div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-violet-400 transition-colors"><Phone size={18} /></div></div>
+                                        {touched.phone && !validations.phone && <p className="text-[10px] text-red-500 font-bold mr-2">رقم الهاتف غير صحيح.</p>}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">البريد الإلكتروني (اختياري)</label>
+                                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} onBlur={() => setFieldTouched('email')} placeholder="example@domain.com" className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all ${touched.email && !validations.email ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white'}`} />
+                                    </div>
                                 </div>
-                                <p className="text-[10px] text-gray-400 font-bold mt-1">يجب أن يبدأ بـ 05، 06، أو 07.</p>
                             </div>
-                            <div>
-                                <label className="text-sm font-bold text-gray-700 mb-1 block">البريد الإلكتروني</label>
-                                <input
-                                    type="email" dir="ltr"
-                                    value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
-                                />
-                            </div>
-                            <div className="space-y-3 pt-2">
-                                <div className="space-y-1">
-                                    <label className="text-sm font-bold text-gray-700 block">العنوان (الشارع / الحي / Cité) <span className="text-red-500">*</span></label>
-                                    <input 
-                                        type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })} 
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-black text-sm uppercase" 
-                                        placeholder="Cité, Street, Ave..." required 
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-bold text-gray-700 block">الولاية <span className="text-red-500">*</span></label>
-                                        <select 
-                                            value={formData.wilaya} 
+
+                            {/* Section 2: Location */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-emerald-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
+                                <div className="flex items-center gap-3"><div className="w-2 h-8 bg-emerald-500 rounded-full"></div><h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest">الموقع الجغرافي</h3></div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">الولاية <span className="text-red-500">*</span></label>
+                                        <select value={formData.wilaya} onChange={e => { 
+                                            const w = ALGERIA_LOCATIONS.find(l => l.name === e.target.value || l.arabicName === e.target.value); 
+                                            const firstCommune = w?.communes?.[0];
+                                            setFormData({ ...formData, wilaya: e.target.value, commune: firstCommune?.name || '', postCode: firstCommune?.postCode || '' }); 
+                                        }} className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none focus:border-emerald-400 focus:bg-white transition-all appearance-none cursor-pointer">
+                                            {ALGERIA_LOCATIONS.map(w => <option key={w.id} value={w.name}>{w.id} - {w.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">البلدية <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={formData.commune}
                                             onChange={e => {
-                                                const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
-                                                setFormData({ ...formData, wilaya: e.target.value, commune: (w as any)?.communes?.[0] || '' });
+                                                const selectedWilaya = ALGERIA_LOCATIONS.find(l => l.name === formData.wilaya || l.arabicName === formData.wilaya);
+                                                const selectedCommune = selectedWilaya?.communes?.find(c => c.name === e.target.value);
+                                                setFormData({ ...formData, commune: e.target.value, postCode: selectedCommune?.postCode || '' });
                                             }}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
+                                            onBlur={() => setFieldTouched('commune')}
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-4 py-3.5 text-sm font-bold focus:outline-none transition-all appearance-none cursor-pointer ${touched.commune && !validations.commune ? 'border-red-200 bg-red-50/50' : 'border-transparent focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 focus:bg-white'}`}
                                         >
-                                            {ALGERIA_LOCATIONS.map(w => (
-                                                <option key={w.id} value={w.arabicName}>{w.id} - {w.name}</option>
+                                            {(ALGERIA_LOCATIONS.find(l => l.name === formData.wilaya || l.arabicName === formData.wilaya)?.communes || []).map(c => (
+                                                <option key={c.name} value={c.name}>{c.name}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-bold text-gray-700 block">البلدية <span className="text-red-500">*</span></label>
-                                        <input 
-                                            type="text" value={formData.commune} onChange={e => setFormData({ ...formData, commune: e.target.value.toUpperCase() })} 
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white uppercase" 
-                                            placeholder="البلدية..." required 
-                                        />
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">الرمز البريدي</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                dir="ltr"
+                                                readOnly
+                                                value={formData.postCode}
+                                                placeholder="يُملأ تلقائياً"
+                                                className="w-full bg-emerald-50/60 border-2 border-emerald-100 rounded-[1.2rem] px-5 py-3.5 text-emerald-700 font-black font-mono text-center focus:outline-none cursor-default select-all"
+                                            />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-400/70 uppercase tracking-widest">CP</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">العنوان بالتفصيل</label>
+                                        <div className="relative group">
+                                            <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value.toUpperCase() })} placeholder="اختياري (الشارع، رقم الباب...)" className="w-full bg-gray-50/50 border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 focus:bg-white transition-all" />
+                                            <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-400 transition-colors" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="pt-4 border-t border-gray-100 space-y-3">
-                                <h3 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">الهوية الجبائية والقانونية</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {/* RC - 10 chars */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">سجل تجاري (RC)</label>
-                                        <div className="relative font-mono">
-                                            <input 
-                                                type="text" maxLength={10} value={formData.rc} 
-                                                onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} 
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('rc');
-                                                }}
-                                                dir="ltr"
-                                            />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
-                                                ${focusedField === 'rc' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.rc && !validations.rc ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(10)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.rc[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.rc.length && focusedField === 'rc') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.rc[i] || 'x'}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* NIF - 15 digits */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
-                                        <div className="relative font-mono">
-                                            <input 
-                                                type="text" maxLength={15} value={formData.nif} 
-                                                onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '') })} 
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                onFocus={() => setFocusedField('nif')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('nif');
-                                                }}
-                                                dir="ltr"
-                                            />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2 z-10 text-[9px] transition-all
-                                                ${focusedField === 'nif' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.nif && !validations.nif ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(15)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.nif[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.nif.length && focusedField === 'nif') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.nif[i] || 'x'}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {/* AI - 11 digits */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">رقم المادة (AI)</label>
-                                        <div className="relative font-mono">
-                                            <input 
-                                                type="text" maxLength={11} value={formData.ai} 
-                                                onChange={e => setFormData({ ...formData, ai: e.target.value.replace(/\D/g, '') })} 
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                onFocus={() => setFocusedField('ai')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('ai');
-                                                }}
-                                                dir="ltr"
-                                            />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-2 py-2 z-10 text-[10px] transition-all
-                                                ${focusedField === 'ai' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.ai && !validations.ai ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(11)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.ai[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.ai.length && focusedField === 'ai') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.ai[i] || 'x'}
-                                                    </div>
-                                                ))}
+                            {/* Section 3: Legal & Tax */}
+                            <div className="space-y-6 p-6 bg-white border-2 border-amber-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-amber-200">
+                                <div className="flex items-center gap-3"><div className="w-2 h-8 bg-amber-500 rounded-full"></div><h3 className="text-sm font-black text-amber-600 uppercase tracking-widest">المعلومات الجبائية والاتصال</h3></div>
+                                <div className="grid grid-cols-1 gap-5">
+                                    {/* RC Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">رقم السجل التجاري (RC)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.rc}
+                                            onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase() })}
+                                            placeholder="10 أرقام..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${rcInfo ? (rcInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {rcInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${rcInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {rcInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{rcInfo.valid ? rcInfo.breakdown : rcInfo.error}</p>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
-
-                                    {/* NIS - 15 digits */}
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
-                                        <div className="relative font-mono">
-                                            <input 
-                                                type="text" maxLength={15} value={formData.nis} 
-                                                onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '') })} 
-                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                onFocus={() => setFocusedField('nis')}
-                                                onBlur={() => {
-                                                    setFocusedField(null);
-                                                    setFieldTouched('nis');
-                                                }}
-                                                dir="ltr"
-                                            />
-                                            <div className={`flex gap-0.5 w-full justify-between items-center bg-white border rounded-lg px-1.5 py-2.5 z-10 text-[9px] transition-all
-                                                ${focusedField === 'nis' ? 'border-indigo-500 ring-4 ring-indigo-500/10' : (touched.nis && !validations.nis ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200')}`} dir="ltr">
-                                                {[...Array(15)].map((_, i) => (
-                                                    <div key={i} className={`flex-1 flex justify-center items-center h-5 rounded-sm transition-all duration-200
-                                                        ${formData.nis[i] ? 'text-gray-900 font-bold' : 
-                                                            (i === formData.nis.length && focusedField === 'nis') ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-transparent'}`}>
-                                                        {formData.nis[i] || 'x'}
-                                                    </div>
-                                                ))}
+                                    {/* NIF Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">رقم التعريف الجبائي (NIF)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.nif}
+                                            onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '') })}
+                                            placeholder="15 رقماً..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${nifInfo ? (nifInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {nifInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${nifInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {nifInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{nifInfo.valid ? nifInfo.breakdown : nifInfo.error}</p>
                                             </div>
-                                        </div>
+                                        )}
+                                    </div>
+                                    {/* AI Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">رقم المادة (AI)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.ai}
+                                            onChange={e => setFormData({ ...formData, ai: e.target.value.replace(/\D/g, '') })}
+                                            placeholder="11 رقماً..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${aiInfo ? (aiInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {aiInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${aiInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {aiInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{aiInfo.valid ? aiInfo.breakdown : aiInfo.error}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* NIS Field */}
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black text-gray-400 uppercase mr-1">رقم التعريف الإحصائي (NIS)</label>
+                                        <input
+                                            type="text"
+                                            value={formData.nis}
+                                            onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '') })}
+                                            placeholder="15 رقماً..."
+                                            className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
+                                                ${nisInfo ? (nisInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
+                                        />
+                                        {nisInfo && (
+                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl ${nisInfo.valid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                                {nisInfo.valid ? <Check size={12} /> : <X size={12} />}
+                                                <p className="text-[10px] font-bold">{nisInfo.valid ? nisInfo.breakdown : nisInfo.error}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-3 pt-6 border-t border-gray-200 mt-4">
-                            <button
-                                onClick={() => setIsSheetOpen(false)}
-                                className="flex-[0.5] border border-gray-300 bg-white text-gray-700 py-2.5 rounded-lg font-bold text-sm"
-                            >إلغاء</button>
-                            <button
-                                onClick={handleSave}
-                                disabled={!formData.name}
-                                className="flex-1 bg-indigo-600 text-white disabled:opacity-50 py-2.5 rounded-lg font-bold text-sm shadow-sm"
-                            >حفظ بيانات المورد</button>
+                        <div className="p-8 border-t border-gray-100 bg-white flex gap-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] shrink-0">
+                            <button onClick={() => setIsSheetOpen(false)} className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-[1.2rem] font-black text-sm hover:bg-gray-200 transition-all active:scale-95">إلغاء</button>
+                            <button onClick={handleSave} disabled={!isFormValid} className={`flex-[2] py-4 rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${ isFormValid ? 'bg-[#8b5cf6] text-white shadow-violet-200 hover:bg-[#7c3aed] hover:shadow-violet-300' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' }`}><Plus size={20} /> {editingSupplier ? 'حفظ التعديلات' : 'تسجيل المورد'}</button>
                         </div>
                     </div>
-                </div>
+                </>
             )}
 
             {/* DELETE CONFIRM DIALOG */}
@@ -898,17 +679,9 @@ export default function SuppliersPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setDeleteDialog({ isOpen: false, id: null })} />
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-sm p-6 animate-in zoom-in-95">
-                        <div className="flex items-center gap-3 mb-4 text-red-600">
-                            <AlertTriangle size={24} />
-                            <h2 className="text-lg font-bold text-gray-900">حذف المورد</h2>
-                        </div>
-                        <p className="text-gray-600 mb-6 text-sm">
-                            هل أنت متأكد من الحذف؟ لا يمكن التراجع. (ملاحظة: لا يمكن حذف مورد مرتبط حالياً بمنتجات).
-                        </p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setDeleteDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button>
-                            <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold">حذف نهائي</button>
-                        </div>
+                        <div className="flex items-center gap-3 mb-4 text-red-600"><AlertTriangle size={24} /><h2 className="text-lg font-bold text-gray-900">حذف المورد</h2></div>
+                        <p className="text-gray-600 mb-6 text-sm">هل أنت متأكد من الحذف؟ لا يمكن التراجع. (ملاحظة: لا يمكن حذف مورد مرتبط حالياً بمنتجات).</p>
+                        <div className="flex gap-3"><button onClick={() => setDeleteDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button><button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold">حذف نهائي</button></div>
                     </div>
                 </div>
             )}
@@ -918,17 +691,9 @@ export default function SuppliersPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setArchiveDialog({ isOpen: false, id: null })} />
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-sm p-6 animate-in zoom-in-95">
-                        <div className="flex items-center gap-3 mb-4 text-amber-600">
-                            <Archive size={24} />
-                            <h2 className="text-lg font-bold text-gray-900">أرشفة المورد</h2>
-                        </div>
-                        <p className="text-gray-600 mb-6 text-sm font-bold">
-                            هل أنت متأكد من أرشفة هذا المورد؟ لن يظهر في القوائم النشطة.
-                        </p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setArchiveDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button>
-                            <button onClick={() => archiveDialog.id && handleArchive(archiveDialog.id)} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg font-bold">تأكيد الأرشفة</button>
-                        </div>
+                        <div className="flex items-center gap-3 mb-4 text-amber-600"><Archive size={24} /><h2 className="text-lg font-bold text-gray-900">أرشفة المورد</h2></div>
+                        <p className="text-gray-600 mb-6 text-sm font-bold">هل أنت متأكد من أرشفة هذا المورد؟ لن يظهر في القوائم النشطة.</p>
+                        <div className="flex gap-3"><button onClick={() => setArchiveDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button><button onClick={() => archiveDialog.id && handleArchive(archiveDialog.id)} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg font-bold">تأكيد الأرشفة</button></div>
                     </div>
                 </div>
             )}
@@ -938,21 +703,12 @@ export default function SuppliersPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setRestoreDialog({ isOpen: false, id: null })} />
                     <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 w-full max-w-sm p-6 animate-in zoom-in-95">
-                        <div className="flex items-center gap-3 mb-4 text-blue-600">
-                            <RefreshCcw size={24} />
-                            <h2 className="text-lg font-bold text-gray-900">استعادة المورد</h2>
-                        </div>
-                        <p className="text-gray-600 mb-6 text-sm font-bold">
-                            هل تريد استعادة هذا المورد إلى القائمة النشطة؟
-                        </p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setRestoreDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button>
-                            <button onClick={() => restoreDialog.id && handleRestore(restoreDialog.id)} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">تأكيد الاستعادة</button>
-                        </div>
+                        <div className="flex items-center gap-3 mb-4 text-blue-600"><RefreshCcw size={24} /><h2 className="text-lg font-bold text-gray-900">استعادة المورد</h2></div>
+                        <p className="text-gray-600 mb-6 text-sm font-bold">هل تريد استعادة هذا المورد إلى القائمة النشطة؟</p>
+                        <div className="flex gap-3"><button onClick={() => setRestoreDialog({ isOpen: false, id: null })} className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold">إلغاء</button><button onClick={() => restoreDialog.id && handleRestore(restoreDialog.id)} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold">تأكيد الاستعادة</button></div>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
