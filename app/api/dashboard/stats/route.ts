@@ -248,6 +248,18 @@ export async function GET(request: Request) {
         });
         const totalLossThisMonth = damageRecords.reduce((sum, r) => sum + r.totalLoss, 0);
 
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        const yearDamageRecords = await prisma.damagedProduct.findMany({
+            where: { createdAt: { gte: yearStart } },
+            select: { totalLoss: true }
+        });
+        const totalLossThisYear = yearDamageRecords.reduce((sum, r) => sum + r.totalLoss, 0);
+
+        const inventoryProducts = await prisma.product.findMany({
+            select: { quantity: true, purchasePrice: true, avgPurchasePrice: true }
+        });
+        const totalInventoryValue = inventoryProducts.reduce((sum, p) => sum + (p.quantity * (p.avgPurchasePrice || p.purchasePrice)), 0);
+
         const overdueInvoicesQuery = await prisma.invoice.findMany({
             where: {
                 status: { in: ['UNPAID', 'PARTIAL'] },
@@ -310,6 +322,8 @@ export async function GET(request: Request) {
             expiringSoonCount,
             expiredList,
             totalLossThisMonth,
+            totalLossThisYear,
+            totalInventoryValue,
             overdueInvoices,
             overdueInvoicesCount,
             todayCustomerCollections,

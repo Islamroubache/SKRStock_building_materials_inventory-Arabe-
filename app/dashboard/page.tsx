@@ -257,6 +257,44 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Inventory Value */}
+                <div className="bg-emerald-600 p-5 rounded-[2rem] shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
+                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-white/10 rounded-full"></div>
+                    <div className="bg-white/20 p-3.5 rounded-2xl text-white relative z-10">
+                        <DollarSign size={22} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[9px] font-black text-emerald-100 uppercase tracking-widest block mb-0.5">قيمة المخزون الحالية</span>
+                        <h3 className="text-lg font-black text-white font-sans">
+                            {(stats?.totalInventoryValue || 0).toLocaleString()} <span className="text-[8px] opacity-70">دج</span>
+                        </h3>
+                        <p className="text-[8px] font-bold text-emerald-100/70 mt-0.5 uppercase tracking-tighter">المتوسط المرجح</p>
+                    </div>
+                </div>
+
+                {/* Monthly Loss */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all border-r-4 border-r-red-500">
+                    <div className="bg-red-50 p-3.5 rounded-2xl text-red-600 relative z-10">
+                        <TrendingUp size={22} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-red-500 uppercase tracking-wider block mb-0.5">خسائر {getPeriodLabel()}</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalLossThisMonth || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
+                        <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">التالف والضياع</p>
+                    </div>
+                </div>
+
+                {/* Annual Loss */}
+                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all border-r-4 border-r-red-600">
+                    <div className="bg-red-50 p-3.5 rounded-2xl text-red-700 relative z-10">
+                        <Activity size={22} />
+                    </div>
+                    <div className="flex-1 relative z-10">
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-wider block mb-0.5">الخسائر السنوية</span>
+                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalLossThisYear || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
+                    </div>
+                </div>
+
                 {/* Net Liquidity (Dark Card) */}
                 <div className="bg-gray-900 p-5 rounded-[2rem] border border-gray-800 shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
                     <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full"></div>

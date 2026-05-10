@@ -6,7 +6,7 @@ import {
     ArrowDownRight, ArrowUpRight, CopyPlus, Filter,
     TrendingUp, Trash2, CheckCircle, RotateCcw,
     Calendar, User, FileText, DollarSign, PlusCircle, X,
-    Download, Printer, ChevronDown, ArrowUpAZ, ArrowDownZA
+    Download, Printer, ChevronDown, ArrowUpAZ, ArrowDownZA, FileSpreadsheet
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
@@ -91,6 +91,7 @@ export default function InventoryPage() {
     // Modals
     const [isDamageModalOpen, setIsDamageModalOpen] = useState(false);
     const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [isBatchDetailModalOpen, setIsBatchDetailModalOpen] = useState(false);
     const [selectedDamageRecord, setSelectedDamageRecord] = useState<DamagedProduct | null>(null);
@@ -105,6 +106,10 @@ export default function InventoryPage() {
     const [isDamagedExportDropdownOpen, setIsDamagedExportDropdownOpen] = useState(false);
     const [sortBy, setSortBy] = useState<string>('name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(20);
 
     // Form states
     const [newDamage, setNewDamage] = useState({
@@ -675,252 +680,382 @@ export default function InventoryPage() {
     };
 
     return (
-        <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
             {/* Header */}
-            <div className="no-print">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden px-4 md:px-6 pt-0">
                 <PageHeader 
                     title="إدارة المخزون" 
                     subtitle="مراقبة حركة المخزون، التحويلات، والجرد الدوري" 
                     Icon={Package} 
                 />
+                <div className="flex gap-2 w-full lg:w-auto justify-end shrink-0">
+                    <div className="relative group">
+                        <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50">
+                            <Download size={14} className="text-blue-600"/> تصدير
+                        </button>
+                        <div className="absolute top-full left-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100]">
+                            <button 
+                                onClick={() => {
+                                    if (activeTab === 'overview') handleExportOverviewExcel();
+                                    else if (activeTab === 'batches') handleExportExpiryExcel();
+                                    else if (activeTab === 'damaged') handleExportDamagedExcel();
+                                }} 
+                                className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors"
+                            >
+                                <FileSpreadsheet size={14} className="text-emerald-600"/> Excel (.xlsx)
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    if (activeTab === 'overview') handlePrintOverviewTable();
+                                    else if (activeTab === 'batches') handlePrintExpiryTable();
+                                    else if (activeTab === 'damaged') handlePrintDamagedTable();
+                                }} 
+                                className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors"
+                            >
+                                <FileText size={14} className="text-rose-600"/> تقرير PDF
+                            </button>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => {
+                            if (activeTab === 'overview') handlePrintOverviewTable();
+                            else if (activeTab === 'batches') handlePrintExpiryTable();
+                            else if (activeTab === 'damaged') handlePrintDamagedTable();
+                        }}
+                        className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95"
+                    >
+                        <Printer size={16} /> طباعة القائمة
+                    </button>
+                </div>
             </div>
 
-                <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm overflow-x-auto gap-1">
-                    <button onClick={() => setActiveTab('overview')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>📦 المخزون الحالي</button>
-                    <button onClick={() => setActiveTab('batches')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'batches' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>📦 دفعات بصلاحية</button>
-                    <button onClick={() => setActiveTab('damaged')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'damaged' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'}`}>⚠️ التالف والضياع</button>
-                </div>
+            {/* Subpages Tabs - Redesigned to match Fawatir style */}
+            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-6 pt-0 mt-[-8px]">
+                <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${activeTab === 'overview' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    المخزون الحالي
+                </button>
+                <button
+                    onClick={() => setActiveTab('batches')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${activeTab === 'batches' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    دفعات بصلاحية
+                </button>
+                <button
+                    onClick={() => setActiveTab('damaged')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${activeTab === 'damaged' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    التالف والضياع
+                </button>
+            </div>
 
-            {/* Content Areas */}
-
-
-            {activeTab === 'overview' && (
-                <div className="flex flex-col gap-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Summary Card for Inventory Value */}
-                        <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl flex justify-between items-center shadow-sm">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white rounded-xl shadow-sm text-emerald-600">
-                                    <DollarSign size={24} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-emerald-700 mb-1">إجمالي قيمة المستودع الحالية</p>
-                                    <h2 className="text-2xl lg:text-3xl font-black text-emerald-900">
-                                        {products.reduce((sum, p) => sum + (p.quantity * (p.avgPurchasePrice || p.purchasePrice)), 0).toLocaleString()} دج
-                                    </h2>
-                                </div>
-                            </div>
-                            <div className="hidden md:flex flex-col items-end">
-                                <span className="text-xs font-bold text-emerald-600 bg-emerald-100/50 px-2 py-1 rounded-full border border-emerald-200">محتسب بالمتوسط المرجح</span>
-                            </div>
-                        </div>
-
-                        {/* Summary Card for Low Stock Alert */}
-                        <div className={`p-6 rounded-2xl flex justify-between items-center shadow-sm border ${products.filter(p => p.quantity <= p.minQuantity).length > 0 ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
-                            <div className="flex items-center gap-4">
-                                <div className={`p-3 bg-white rounded-xl shadow-sm ${products.filter(p => p.quantity <= p.minQuantity).length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                                    <AlertTriangle size={24} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-700 mb-1">منتجات وصلت للحد الأدنى</p>
-                                    <h2 className={`text-2xl lg:text-3xl font-black ${products.filter(p => p.quantity <= p.minQuantity).length > 0 ? 'text-amber-700' : 'text-gray-900'}`}>
-                                        {products.filter(p => p.quantity <= p.minQuantity).length} منتج
-                                    </h2>
-                                </div>
-                            </div>
+            {/* Unified Filters Box - Redesigned to match Fawatir style */}
+            <div className="bg-white border border-gray-200 rounded-[2rem] p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-6 mb-2">
+                <div className="flex flex-col lg:flex-row gap-3 items-center">
+                    {/* Search Field */}
+                    <div className="relative flex-1 min-w-[300px] group">
+                        <input 
+                            type="text" 
+                            placeholder={activeTab === 'overview' ? "بحث بالاسم، الكود..." : activeTab === 'batches' ? "بحث بالمنتج أو الدفعة..." : "بحث بالمنتج، السبب..."}
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                        />
+                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none">
+                            <Search size={20} strokeWidth={3} />
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between no-print">
-                        <div className="relative max-w-sm w-full">
-                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <input type="text" placeholder="بحث بالاسم أو الكود..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-white border border-gray-200 rounded-lg pr-10 pl-3 py-2.5 text-sm" />
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setIsOverviewExportDropdownOpen(!isOverviewExportDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all text-xs font-bold border border-blue-200"
+                    {/* Tab Specific Filters */}
+                    {activeTab === 'overview' && (
+                        <>
+                            {/* Sort By */}
+                            <div className="relative group min-w-[160px]">
+                                <button
+                                    onClick={() => setActiveDropdown(activeDropdown === 'sort' ? null : 'sort')}
+                                    className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
                                 >
-                                    <Download size={14} />
-                                    تصدير
-                                    <ChevronDown size={14} className={`transition-transform ${isOverviewExportDropdownOpen ? 'rotate-180' : ''}`} />
+                                    <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                        <ArrowUpAZ size={14} />
+                                    </div>
+                                    <div className="flex-1 text-right">
+                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">ترتيب حسب</p>
+                                        <p className="text-[10px] font-black text-gray-900 mt-1">
+                                            {sortBy === 'name' ? 'الاسم' : sortBy === 'code' ? 'الكود' : sortBy === 'quantity' ? 'الكمية' : sortBy === 'totalValue' ? 'إجمالي القيمة' : 'أخرى'}
+                                        </p>
+                                    </div>
+                                    <ChevronDown size={14} className={`text-gray-400 transition-transform ${activeDropdown === 'sort' ? 'rotate-180' : ''}`} />
                                 </button>
-                                
-                                {isOverviewExportDropdownOpen && (
-                                    <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
-                                        <button 
-                                            onClick={() => { handleExportOverviewExcel(); setIsOverviewExportDropdownOpen(false); }}
-                                            className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
-                                        >
-                                            <FileText size={14} className="text-emerald-600" />
-                                            Excel (.xlsx)
-                                        </button>
-                                        <button 
-                                            onClick={() => { handlePrintOverviewTable(); setIsOverviewExportDropdownOpen(false); }}
-                                            className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                        >
-                                            <FileText size={14} className="text-rose-600" />
-                                            تقرير PDF
-                                        </button>
+                                {activeDropdown === 'sort' && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <button onClick={() => { setSortBy('name'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الاسم</button>
+                                        <button onClick={() => { setSortBy('code'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الكود</button>
+                                        <button onClick={() => { setSortBy('quantity'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الكمية</button>
+                                        <button onClick={() => { setSortBy('totalValue'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 transition-colors">إجمالي القيمة</button>
                                     </div>
                                 )}
                             </div>
 
+                            {/* Sort Order Toggle */}
                             <button 
-                                onClick={handlePrintOverviewTable}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
+                                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                className="h-[52px] w-[52px] bg-white border border-gray-200 rounded-2xl flex items-center justify-center shadow-sm hover:shadow-md transition-all text-gray-500"
+                                title={sortOrder === 'asc' ? 'ترتيب تصاعدي' : 'ترتيب تنازلي'}
                             >
-                                <Printer size={14} /> طباعة
+                                {sortOrder === 'asc' ? <ArrowUpAZ size={20} /> : <ArrowDownZA size={20} />}
                             </button>
 
-                            <div className="w-px h-6 bg-gray-200 mx-1"></div>
-
-
-
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-gray-500">ترتيب:</span>
-                                <select 
-                                    value={sortBy} 
-                                    onChange={e => setSortBy(e.target.value)}
-                                    className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                            {/* Stock Filter */}
+                            <div className="relative group min-w-[160px]">
+                                <button
+                                    onClick={() => setActiveDropdown(activeDropdown === 'stock' ? null : 'stock')}
+                                    className="w-full h-[52px] flex items-center gap-3 bg-[#fbb815] border border-[#f59e0b] rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
                                 >
-                                    <option value="name">🔤 الاسم</option>
-                                    <option value="code">🔢 الكود</option>
-                                    <option value="quantity">📦 الكمية</option>
-                                    <option value="cost">💰 التكلفة</option>
-                                    <option value="totalValue">📈 القيمة</option>
-                                    <option value="sellPrice">🏷️ سعر البيع</option>
-                                    <option value="profit">💵 الربح</option>
-                                </select>
-                                <button 
-                                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                                    className="p-1.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500"
-                                    title={sortOrder === 'asc' ? 'ترتيب تصاعدي' : 'ترتيب تنازلي'}
-                                >
-                                    {sortOrder === 'asc' ? <ArrowUpAZ size={14} /> : <ArrowDownZA size={14} />}
+                                    <div className="bg-white/20 p-1.5 rounded-lg text-white">
+                                        <Filter size={14} />
+                                    </div>
+                                    <div className="flex-1 text-right">
+                                        <p className="text-[9px] font-black text-white/80 uppercase tracking-tighter leading-none">تصفية المخزون</p>
+                                        <p className="text-[10px] font-black text-white mt-1">
+                                            {alertFilter === 'ALL' ? 'الكل' : alertFilter === 'BELOW_MIN' ? 'أقل من الحد الأدنى' : 'كمية كافية'}
+                                        </p>
+                                    </div>
+                                    <ChevronDown size={14} className={`text-white/60 transition-transform ${activeDropdown === 'stock' ? 'rotate-180' : ''}`} />
                                 </button>
+                                {activeDropdown === 'stock' && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <button onClick={() => { setAlertFilter('ALL'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الكل</button>
+                                        <button onClick={() => { setAlertFilter('BELOW_MIN'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-amber-50 text-[10px] font-black text-amber-600 border-b border-gray-50 transition-colors">⚠️ أقل من الحد الأدنى</button>
+                                        <button onClick={() => { setAlertFilter('ABOVE_MIN'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-[10px] font-black text-emerald-600 transition-colors">✅ كمية كافية</button>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {activeTab === 'batches' && (
+                        <div className="relative group min-w-[160px]">
+                            <button
+                                onClick={() => setActiveDropdown(activeDropdown === 'expiry' ? null : 'expiry')}
+                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                            >
+                                <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                    <Calendar size={14} />
+                                </div>
+                                <div className="flex-1 text-right">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">حالة الصلاحية</p>
+                                    <p className="text-[10px] font-black text-gray-900 mt-1">
+                                        {expiryStatusFilter === 'ALL' ? 'الكل' : expiryStatusFilter === 'EXPIRED' ? 'منتهي' : expiryStatusFilter === 'EXPIRING' ? 'ينتهي قريباً' : 'صالح'}
+                                    </p>
+                                </div>
+                                <ChevronDown size={14} className={`text-gray-400 transition-transform ${activeDropdown === 'expiry' ? 'rotate-180' : ''}`} />
+                            </button>
+                            {activeDropdown === 'expiry' && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <button onClick={() => { setExpiryStatusFilter('ALL'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الكل</button>
+                                    <button onClick={() => { setExpiryStatusFilter('EXPIRED'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-red-50 text-[10px] font-black text-red-600 border-b border-gray-50 transition-colors">🔴 منتهي</button>
+                                    <button onClick={() => { setExpiryStatusFilter('EXPIRING'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-amber-50 text-[10px] font-black text-amber-600 border-b border-gray-50 transition-colors">⚠️ ينتهي قريباً</button>
+                                    <button onClick={() => { setExpiryStatusFilter('VALID'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-[10px] font-black text-emerald-600 transition-colors">✅ صالح</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'damaged' && (
+                        <div className="relative group min-w-[160px]">
+                            <button
+                                onClick={() => setActiveDropdown(activeDropdown === 'damageType' ? null : 'damageType')}
+                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                            >
+                                <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]">
+                                    <Trash2 size={14} />
+                                </div>
+                                <div className="flex-1 text-right">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">نوع الخسارة</p>
+                                    <p className="text-[10px] font-black text-gray-900 mt-1">
+                                        {typeFilter === 'ALL' ? 'الكل' : typeFilter === 'DAMAGED' ? 'تالف' : typeFilter === 'EXPIRED' ? 'منتهي' : 'أخرى'}
+                                    </p>
+                                </div>
+                                <ChevronDown size={14} className={`text-gray-400 transition-transform ${activeDropdown === 'damageType' ? 'rotate-180' : ''}`} />
+                            </button>
+                            {activeDropdown === 'damageType' && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <button onClick={() => { setTypeFilter('ALL'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-violet-50 text-[10px] font-black text-gray-700 border-b border-gray-50 transition-colors">الكل</button>
+                                    <button onClick={() => { setTypeFilter('DAMAGED'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-red-50 text-[10px] font-black text-red-600 border-b border-gray-50 transition-colors">تالف</button>
+                                    <button onClick={() => { setTypeFilter('EXPIRED'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-red-50 text-[10px] font-black text-red-600 border-b border-gray-50 transition-colors">منتهي الصلاحية</button>
+                                    <button onClick={() => { setTypeFilter('WITHDRAWN'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-amber-50 text-[10px] font-black text-amber-600 border-b border-gray-50 transition-colors">مسحوب</button>
+                                    <button onClick={() => { setTypeFilter('LOST'); setActiveDropdown(null); }} className="w-full text-right px-4 py-3 hover:bg-gray-100 text-[10px] font-black text-gray-700 transition-colors">مفقود</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Content Areas */}
+
+            {activeTab === 'overview' && (() => {
+                const filteredProducts = products
+                    .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase())))
+                    .filter(p => {
+                        if (alertFilter === 'BELOW_MIN') return p.quantity <= p.minQuantity;
+                        if (alertFilter === 'ABOVE_MIN') return p.quantity > p.minQuantity;
+                        return true;
+                    })
+                    .sort((a, b) => {
+                        let valA: any, valB: any;
+                        const costA = a.avgPurchasePrice || a.purchasePrice;
+                        const costB = b.avgPurchasePrice || b.purchasePrice;
+
+                        switch(sortBy) {
+                            case 'code': valA = a.code || ''; valB = b.code || ''; break;
+                            case 'quantity': valA = a.quantity; valB = b.quantity; break;
+                            case 'cost': valA = costA; valB = costB; break;
+                            case 'totalValue': valA = costA * a.quantity; valB = costB * b.quantity; break;
+                            case 'sellPrice': valA = a.sellPrice; valB = b.sellPrice; break;
+                            case 'profit': valA = (a.sellPrice - costA); valB = (b.sellPrice - costB); break;
+                            default: valA = a.name; valB = b.name;
+                        }
+                        
+                        if (sortOrder === 'asc') {
+                            return valA > valB ? 1 : -1;
+                        } else {
+                            return valA < valB ? 1 : -1;
+                        }
+                    });
+
+                const totalItems = filteredProducts.length;
+                const indexOfLastItem = currentPage * itemsPerPage;
+                const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+                const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+
+                return (
+                    <div className="flex flex-col gap-6 px-4 md:px-6">
+                        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right">
+                                    <thead>
+                                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">الكود</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">المنتج</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">الكمية</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">متوسط التكلفة</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">إجمالي القيمة</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">سعر البيع</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">الربح المتوقع</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">إجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {currentProducts.map(p => {
+                                            const cost = p.avgPurchasePrice || p.purchasePrice;
+                                            const profit = p.sellPrice - cost;
+                                            const margin = cost > 0 ? (profit / cost) * 100 : 0;
+                                            const isLowStock = p.quantity <= p.minQuantity;
+                                            return (
+                                                <tr key={p.id} className={`hover:bg-blue-50/30 transition-all group ${isLowStock ? 'bg-amber-50/10' : ''}`}>
+                                                    <td className="px-8 py-6">
+                                                        <span className="font-black text-gray-400 font-sans text-xs">{p.code || '---'}</span>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-black text-gray-900 leading-none mb-1">{p.name}</span>
+                                                            <span className="text-[10px] font-black text-[#8b5cf6] uppercase tracking-tighter">{p.category || 'بدون فئة'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className={`font-black font-sans text-lg ${isLowStock ? 'text-amber-600' : 'text-gray-900'}`}>{p.quantity.toLocaleString()}</span>
+                                                            <span className="text-[10px] text-gray-400 font-bold">{p.unit}</span>
+                                                            {isLowStock && <span className="text-[8px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full mt-1 font-black">تحت الحد: {p.minQuantity}</span>}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center font-black text-blue-600 font-sans">{cost.toLocaleString()} دج</td>
+                                                    <td className="px-8 py-6 text-center font-black text-gray-900 font-sans">{(cost * p.quantity).toLocaleString()} دج</td>
+                                                    <td className="px-8 py-6 text-center font-black text-emerald-600 font-sans">{p.sellPrice.toLocaleString()} دج</td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="font-black text-emerald-700 font-sans">{Math.round(margin)}%</span>
+                                                            <span className="text-[10px] text-gray-400 font-bold">({(profit * p.quantity).toLocaleString()} دج)</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex justify-center gap-2">
+                                                            <button 
+                                                                onClick={() => openProductHistory(p)}
+                                                                className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm" 
+                                                                title="عرض تفاصيل الحركة"
+                                                            >
+                                                                <FileText size={18} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    setNewDamage({ 
+                                                                        ...newDamage, 
+                                                                        productId: String(p.id), 
+                                                                        quantity: 0,
+                                                                        damageType: 'DAMAGED',
+                                                                        reason: '',
+                                                                        supplierId: String(p.supplierId || '') 
+                                                                    });
+                                                                    setIsDamageModalOpen(true);
+                                                                }}
+                                                                className="p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm" 
+                                                                title="تسجيل تلف"
+                                                            >
+                                                                <AlertTriangle size={18} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Pagination for Overview */}
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                    <Package size={18} className="text-[#8b5cf6]" />
+                                </div>
+                                <p className="text-xs font-black text-gray-500">
+                                    عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItems)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItems}</span> منتج
+                                </p>
                             </div>
 
-                            <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                            <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
+                                <button 
+                                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === 1}
+                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                >
+                                    <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                </button>
+                                
+                                <div className="flex items-center gap-1 px-4">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
+                                    <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
+                                    <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(totalItems / itemsPerPage) || 1}</span>
+                                </div>
 
-                            <span className="text-xs font-bold text-gray-500">تصفية:</span>
-                            <select value={alertFilter} onChange={e => setAlertFilter(e.target.value as any)} className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[120px]">
-                                <option value="ALL">الكل</option>
-                                <option value="BELOW_MIN">⚠️ أقل من الحد الأدنى</option>
-                                <option value="ABOVE_MIN">✅ كمية كافية</option>
-                            </select>
+                                <button 
+                                    onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage * itemsPerPage >= totalItems}
+                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                >
+                                    <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
-                        <table className="w-full text-right text-sm">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-4 py-3 font-bold">الكود</th>
-                                    <th className="px-4 py-3 font-bold">المنتج</th>
-                                    <th className="px-4 py-3 font-bold">الفئة</th>
-                                    <th className="px-4 py-3 font-bold text-center">الكمية</th>
-                                    <th className="px-4 py-3 font-bold text-center text-amber-600">الحد الأدنى</th>
-                                    <th className="px-4 py-3 font-bold text-center">متوسط التكلفة</th>
-                                    <th className="px-4 py-3 font-bold text-center">إجمالي القيمة</th>
-                                    <th className="px-4 py-3 font-bold text-center">سعر البيع</th>
-                                    <th className="px-4 py-3 font-bold text-center">الربح المتوقع</th>
-                                    <th className="px-4 py-3 font-bold text-center">إجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {products
-                                    .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase())))
-                                    .filter(p => {
-                                        if (alertFilter === 'BELOW_MIN') return p.quantity <= p.minQuantity;
-                                        if (alertFilter === 'ABOVE_MIN') return p.quantity > p.minQuantity;
-                                        return true;
-                                    })
-                                    .sort((a, b) => {
-                                        let valA: any, valB: any;
-                                        const costA = a.avgPurchasePrice || a.purchasePrice;
-                                        const costB = b.avgPurchasePrice || b.purchasePrice;
-
-                                        switch(sortBy) {
-                                            case 'code': valA = a.code || ''; valB = b.code || ''; break;
-                                            case 'quantity': valA = a.quantity; valB = b.quantity; break;
-                                            case 'cost': valA = costA; valB = costB; break;
-                                            case 'totalValue': valA = costA * a.quantity; valB = costB * b.quantity; break;
-                                            case 'sellPrice': valA = a.sellPrice; valB = b.sellPrice; break;
-                                            case 'profit': valA = (a.sellPrice - costA); valB = (b.sellPrice - costB); break;
-                                            default: valA = a.name; valB = b.name;
-                                        }
-                                        
-                                        if (sortOrder === 'asc') {
-                                            return valA > valB ? 1 : -1;
-                                        } else {
-                                            return valA < valB ? 1 : -1;
-                                        }
-                                    })
-                                    .map(p => {
-                                        const cost = p.avgPurchasePrice || p.purchasePrice;
-                                        const profit = p.sellPrice - cost;
-                                        const margin = (profit / cost) * 100;
-                                        const isLowStock = p.quantity <= p.minQuantity;
-                                        return (
-                                            <tr key={p.id} className={`border-b border-gray-100 hover:bg-gray-50 ${isLowStock ? 'bg-amber-50/20' : ''}`}>
-                                                <td className="px-4 py-4 text-gray-500">{p.code || '-'}</td>
-                                                <td className="px-4 py-4 font-bold">{p.name}</td>
-                                                <td className="px-4 py-4">{p.category}</td>
-                                                <td className="px-4 py-4 text-center">
-                                                    <span className={`font-bold text-lg ${isLowStock ? 'text-amber-600' : ''}`}>{p.quantity}</span> <span className="text-xs">{p.unit}</span>
-                                                </td>
-                                                <td className="px-4 py-4 text-center">
-                                                    <span className={`font-bold px-2 py-1 rounded-lg border ${isLowStock ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                                                        {p.minQuantity}
-                                                    </span>
-                                                </td>
-                                            <td className="px-4 py-4 text-center font-bold text-blue-600">{cost.toLocaleString()} دج</td>
-                                            <td className="px-4 py-4 text-center font-bold">{(cost * p.quantity).toLocaleString()} دج</td>
-                                            <td className="px-4 py-4 text-center font-bold text-emerald-600">{p.sellPrice.toLocaleString()} دج</td>
-                                            <td className="px-4 py-4 text-center">
-                                                <div className="font-bold text-emerald-700">{Math.round(margin)}%</div>
-                                                <div className="text-[10px] text-gray-400">({(profit * p.quantity).toLocaleString()} دج)</div>
-                                            </td>
-                                            <td className="px-4 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-
-                                                    <button 
-                                                        onClick={() => openProductHistory(p)}
-                                                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" 
-                                                        title="عرض تفاصيل الحركة"
-                                                    >
-                                                        <FileText size={18} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => {
-                                                            setNewDamage({ 
-                                                                ...newDamage, 
-                                                                productId: String(p.id), 
-                                                                quantity: 0,
-                                                                damageType: 'DAMAGED',
-                                                                reason: '',
-                                                                supplierId: String(p.supplierId || '') 
-                                                            });
-                                                            setIsDamageModalOpen(true);
-                                                        }}
-                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all" 
-                                                        title="تسجيل تلف"
-                                                    >
-                                                        <AlertTriangle size={18} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-
+                );
+            })()}
 
             {activeTab === 'batches' && (() => {
                 const filteredExpiryProducts = products.filter(p => {
@@ -945,8 +1080,13 @@ export default function InventoryPage() {
                     return true;
                 });
 
+                const indexOfLastItemB = currentPage * itemsPerPage;
+                const indexOfFirstItemB = indexOfLastItemB - itemsPerPage;
+                const currentExpiryProducts = filteredExpiryProducts.slice(indexOfFirstItemB, indexOfLastItemB);
+                const totalItemsB = filteredExpiryProducts.length;
+
                 return (
-                    <div className="space-y-6 animate-in fade-in duration-500">
+                    <div className="space-y-6 animate-in fade-in duration-500 px-4 md:px-6">
                         {/* Batch Stats Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -1001,93 +1141,32 @@ export default function InventoryPage() {
                         </div>
 
                         {/* Products with Expiry Table */}
-                        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-h-[400px]">
-                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <Activity size={18} className="text-blue-600" />
-                                    متابعة المنتجات ذات تاريخ الصلاحية
-                                </h3>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <button 
-                                            onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all text-xs font-bold border border-blue-200"
-                                        >
-                                            <Download size={14} />
-                                            تصدير
-                                            <ChevronDown size={14} className={`transition-transform ${isExportDropdownOpen ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        
-                                        {isExportDropdownOpen && (
-                                            <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
-                                                <button 
-                                                    onClick={handleExportExpiryExcel}
-                                                    className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
-                                                >
-                                                    <FileText size={14} className="text-emerald-600" />
-                                                    تصدير Excel (.xlsx)
-                                                </button>
-                                                <button 
-                                                    onClick={handlePrintExpiryTable}
-                                                    className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                                >
-                                                    <FileText size={14} className="text-rose-600" />
-                                                    تصدير PDF
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <button 
-                                        onClick={handlePrintExpiryTable}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
-                                    >
-                                        <Printer size={14} />
-                                        طباعة
-                                    </button>
-
-                                    <div className="w-px h-6 bg-gray-200 mx-1"></div>
-
-                                    <span className="text-xs font-bold text-gray-500">تصفية:</span>
-                                    <select 
-                                        value={expiryStatusFilter}
-                                        onChange={(e) => setExpiryStatusFilter(e.target.value)}
-                                        className="text-xs font-bold bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm min-w-[120px]"
-                                    >
-                                        <option value="ALL">الكل</option>
-                                        <option value="EXPIRED" className="text-red-600 font-bold">🔴 منتهي</option>
-                                        <option value="EXPIRING" className="text-amber-600 font-bold">⚠️ قريباً</option>
-                                        <option value="VALID" className="text-emerald-600 font-bold">✅ صالح</option>
-                                    </select>
-                                </div>
-                            </div>
+                        <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden min-h-[400px]">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-right text-sm">
-                                    <thead className="bg-gray-50/50 text-gray-600 border-b border-gray-100">
-                                        <tr>
-                                            <th className="px-6 py-4 font-bold">كود المنتج</th>
-                                            <th className="px-6 py-4 font-bold">المنتج</th>
-                                            <th className="px-6 py-4 font-bold text-center">الكمية الإجمالية</th>
-                                            <th className="px-6 py-4 font-bold text-center text-emerald-600">الكمية الصالحة</th>
-                                            <th className="px-6 py-4 font-bold text-center text-red-600">الكمية المنتهية</th>
-                                            <th className="px-6 py-4 font-bold text-center">عدد الدفعات</th>
-                                            <th className="px-6 py-4 font-bold text-center">أقرب تاريخ انتهاء</th>
-                                            <th className="px-6 py-4 font-bold text-center">الأيام المتبقية</th>
-                                            <th className="px-6 py-4 font-bold text-center">الحالة</th>
-                                            <th className="px-6 py-4 font-bold text-center">إجراءات</th>
+                                <table className="w-full text-right">
+                                    <thead>
+                                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">الكود</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">المنتج</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">الكمية الإجمالية</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center text-emerald-600">الكمية الصالحة</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center text-red-600">الكمية المنتهية</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">أقرب انتهاء</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">الحالة</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">إجراءات</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-gray-50">
                                         {loading ? (
-                                            <tr><td colSpan={9} className="text-center py-20 text-gray-400 font-bold">جاري التحميل...</td></tr>
-                                        ) : filteredExpiryProducts.length === 0 ? (
+                                            <tr><td colSpan={8} className="px-8 py-20 text-center text-gray-400 font-black">جاري التحميل...</td></tr>
+                                        ) : currentExpiryProducts.length === 0 ? (
                                             <tr>
-                                                <td colSpan={9} className="px-6 py-20 text-center text-gray-400 font-bold italic bg-gray-50/30">
+                                                <td colSpan={8} className="px-8 py-20 text-center text-gray-400 font-black italic bg-gray-50/30">
                                                     لا توجد منتجات تطابق هذا الفلتر حالياً.
                                                 </td>
                                             </tr>
                                         ) : (
-                                            filteredExpiryProducts.map((p: any) => {
+                                            currentExpiryProducts.map((p: any) => {
                                                 const activeBatches = p.batches || [];
                                                 const batchExpiries = activeBatches
                                                     .filter((b: any) => b.expiryDate)
@@ -1112,81 +1191,72 @@ export default function InventoryPage() {
                                                 const finalValidQty = hasUnbatchedStock ? p.quantity : validQty;
 
                                                 return (
-                                                    <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors ${isExpired ? 'bg-red-50/10' : isExpiring ? 'bg-amber-50/10' : ''}`}>
-                                                        <td className="px-6 py-4 font-mono text-gray-500">{p.code || '-'}</td>
-                                                        <td className="px-6 py-4">
+                                                    <tr key={p.id} className={`hover:bg-blue-50/30 transition-all group ${isExpired ? 'bg-red-50/10' : isExpiring ? 'bg-amber-50/10' : ''}`}>
+                                                        <td className="px-8 py-6 font-black text-gray-400 font-sans text-xs">{p.code || '---'}</td>
+                                                        <td className="px-8 py-6">
                                                             <div className="flex flex-col">
-                                                                <span className="font-bold text-gray-900">{p.name}</span>
-                                                                <span className="text-[10px] text-gray-500">{p.category}</span>
+                                                                <span className="font-black text-gray-900 leading-none mb-1">{p.name}</span>
+                                                                <span className="text-[10px] font-black text-[#8b5cf6] uppercase tracking-tighter">{p.category}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
+                                                        <td className="px-8 py-6 text-center">
                                                             <div className="flex flex-col items-center">
-                                                                <div className="flex items-center gap-1">
-                                                                    <span className="font-black text-gray-900 text-base">{p.quantity}</span>
-                                                                    <span className="text-[10px] text-gray-500">{p.unit}</span>
-                                                                </div>
+                                                                <span className="font-black text-gray-900 text-lg font-sans">{p.quantity}</span>
+                                                                <span className="text-[10px] text-gray-400 font-bold">{p.unit}</span>
                                                                 {hasUnbatchedStock && (
-                                                                    <span className="text-[9px] bg-rose-100 text-rose-600 px-1 rounded font-bold" title="الكمية موجودة ولكن لم يتم تقسيمها لدفعات بصلاحية">مخزون غير مجدول</span>
+                                                                    <span className="text-[8px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full mt-1 font-black">مخزون غير مجدول</span>
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className="font-bold text-emerald-600 text-base">{finalValidQty}</span>
+                                                        <td className="px-8 py-6 text-center">
+                                                            <span className="font-black text-emerald-600 text-lg font-sans">{finalValidQty}</span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className={`font-bold text-base ${expiredQty > 0 ? 'text-red-600' : 'text-gray-300'}`}>{expiredQty}</span>
+                                                        <td className="px-8 py-6 text-center">
+                                                            <span className={`font-black text-lg font-sans ${expiredQty > 0 ? 'text-red-600' : 'text-gray-300'}`}>{expiredQty}</span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${activeBatches.length > 0 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                                                                {activeBatches.length} دفعات
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
+                                                        <td className="px-8 py-6 text-center">
                                                             {nearestBatchExpiry ? (
-                                                                <div className="flex items-center justify-center gap-2">
-                                                                    <Calendar size={14} className={isExpired ? 'text-red-500' : isExpiring ? 'text-amber-500' : 'text-gray-400'} />
-                                                                    <span className={`font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : 'text-gray-700'}`}>
-                                                                        {format(nearestBatchExpiry, 'dd/MM/yyyy')}
-                                                                    </span>
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <div className="flex items-center justify-center gap-2">
+                                                                        <Calendar size={14} className={isExpired ? 'text-red-500' : isExpiring ? 'text-amber-500' : 'text-gray-400'} />
+                                                                        <span className={`font-black font-sans ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : 'text-gray-700'}`}>
+                                                                            {format(nearestBatchExpiry, 'dd/MM/yyyy')}
+                                                                        </span>
+                                                                    </div>
+                                                                    {(() => {
+                                                                        const diffTime = nearestBatchExpiry.getTime() - new Date().getTime();
+                                                                        const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                                                        return (
+                                                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                                                                                days < 0 ? 'bg-red-100 text-red-700 border-red-200' : 
+                                                                                days <= 30 ? 'bg-amber-100 text-amber-700 border-amber-200' : 
+                                                                                'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                                                            }`}>
+                                                                                {days < 0 ? `منتهي (${Math.abs(days)})` : `${days} يوم متبقي`}
+                                                                            </span>
+                                                                        );
+                                                                    })()}
                                                                 </div>
                                                             ) : (
-                                                                <span className="text-gray-300 italic text-xs">لا يوجد تاريخ</span>
+                                                                <span className="text-gray-300 italic text-xs font-black">لا يوجد تاريخ</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            {nearestBatchExpiry ? (() => {
-                                                                const diffTime = nearestBatchExpiry.getTime() - new Date().getTime();
-                                                                const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                                                return (
-                                                                    <span className={`font-black font-sans px-2 py-0.5 rounded-lg border ${
-                                                                        days < 0 ? 'bg-red-100 text-red-700 border-red-200' : 
-                                                                        days <= 30 ? 'bg-amber-100 text-amber-700 border-amber-200' : 
-                                                                        'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                                                    }`}>
-                                                                        {days < 0 ? `منتهي (${Math.abs(days)})` : `${days} يوم`}
-                                                                    </span>
-                                                                );
-                                                            })() : (
-                                                                <span className="text-gray-300">-</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className={`px-2 py-1 rounded-md text-[10px] font-black tracking-tight border
+                                                        <td className="px-8 py-6 text-center">
+                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest
                                                                 ${isExpired ? 'bg-red-100 text-red-700 border-red-200' :
                                                                     isExpiring ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                                                        'bg-green-100 text-green-700 border-green-200'}`}>
+                                                                        'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
                                                                 {isExpired ? 'بضاعة منتهية' : isExpiring ? 'تنتهي قريباً' : 'صالح'}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex items-center justify-center gap-2">
+                                                        <td className="px-8 py-6">
+                                                            <div className="flex justify-center gap-2">
                                                                 <button 
                                                                     onClick={() => {
                                                                         setSelectedProductForBatches(p);
                                                                         setIsBatchDetailModalOpen(true);
                                                                     }}
-                                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" 
+                                                                    className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm" 
                                                                     title="عرض تفاصيل الدفعات"
                                                                 >
                                                                         <Package size={18} />
@@ -1204,7 +1274,7 @@ export default function InventoryPage() {
                                                                             });
                                                                             setIsDamageModalOpen(true);
                                                                         }}
-                                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                                                                        className="p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm" 
                                                                         title="تسجيل تلف للمنتهي"
                                                                     >
                                                                         <Trash2 size={18} />
@@ -1220,126 +1290,160 @@ export default function InventoryPage() {
                                 </table>
                             </div>
                         </div>
+
+                        {/* Pagination for Batches */}
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                    <Calendar size={18} className="text-[#8b5cf6]" />
+                                </div>
+                                <p className="text-xs font-black text-gray-500">
+                                    عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItemsB)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItemsB}</span> منتج
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
+                                <button 
+                                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === 1}
+                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                >
+                                    <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                </button>
+                                
+                                <div className="flex items-center gap-1 px-4">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
+                                    <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
+                                    <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(totalItemsB / itemsPerPage) || 1}</span>
+                                </div>
+
+                                <button 
+                                    onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage * itemsPerPage >= totalItemsB}
+                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                >
+                                    <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 );
             })()}
 
-            {activeTab === 'damaged' && (
-                <div className="flex flex-col gap-6">
-                    {/* Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white p-5 rounded-2xl border-r-4 border-r-red-500 shadow-sm">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-2 bg-red-50 rounded-lg"><TrendingUp className="text-red-500" size={20} /></div>
-                                <span className="text-xs font-bold text-red-500">هذا الشهر</span>
-                            </div>
-                            <div className="text-xs text-gray-500 mb-1">إجمالي الخسائر</div>
-                            <div className="text-xl font-bold text-gray-900">{(damagedStats?.totalLossThisMonth || 0).toLocaleString()} دج</div>
-                        </div>
-                        <div className="bg-white p-5 rounded-2xl border-r-4 border-r-red-600 shadow-sm">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="p-2 bg-red-50 rounded-lg"><Activity className="text-red-600" size={20} /></div>
-                                <span className="text-xs font-bold text-red-600">هذا العام</span>
-                            </div>
-                            <div className="text-xs text-gray-500 mb-1">إجمالي الخسائر السنوية</div>
-                            <div className="text-xl font-bold text-gray-900">{(damagedStats?.totalLossThisYear || 0).toLocaleString()} دج</div>
-                        </div>
-                    </div>
+            {activeTab === 'damaged' && (() => {
+                const indexOfLastItemD = currentPage * itemsPerPage;
+                const indexOfFirstItemD = indexOfLastItemD - itemsPerPage;
+                const currentDamaged = damaged.slice(indexOfFirstItemD, indexOfLastItemD);
+                const totalItemsD = damaged.length;
 
-                    {/* Toolbar */}
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between no-print">
-                        <div className="flex items-center gap-3 w-full md:w-auto">
-                            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="bg-white border rounded-lg p-2 text-sm flex-1 md:w-40">
-                                <option value="ALL">كل أنواع المشاكل</option>
-                                <option value="DAMAGED">تالف</option>
-                                <option value="EXPIRED">منتهي الصلاحية</option>
-                                <option value="WITHDRAWN">مسحوب</option>
-                                <option value="LOST">مفقود</option>
-                            </select>
+                return (
+                    <div className="flex flex-col gap-6 px-4 md:px-6">
+                        {/* Damaged List */}
+                        <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right">
+                                    <thead>
+                                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">التاريخ</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">المنتج والسبب</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">الكمية</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">النوع</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">إجمالي الخسارة</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right text-center">إجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {loading ? (
+                                            <tr><td colSpan={6} className="px-8 py-20 text-center text-gray-400 font-black">جاري التحميل...</td></tr>
+                                        ) : currentDamaged.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="px-8 py-20 text-center text-gray-400 font-black italic bg-gray-50/30">
+                                                    لا توجد سجلات تالفة حالياً.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            currentDamaged.map(d => (
+                                                <tr key={d.id} className="hover:bg-blue-50/30 transition-all group">
+                                                    <td className="px-8 py-6">
+                                                        <span className="font-black text-gray-900 font-sans tracking-tight">{format(new Date(d.createdAt), 'yyyy-MM-dd')}</span>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-black text-gray-900 leading-none mb-1">{d.product.name}</span>
+                                                            <span className="text-[10px] font-black text-[#8b5cf6] uppercase tracking-tighter opacity-80">{d.reason}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="font-black text-gray-900 text-lg font-sans">{d.quantity.toLocaleString()}</span>
+                                                            <span className="text-[10px] text-gray-400 font-bold">{d.product.unit}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        {getDamageTypeBadge(d.damageType)}
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <span className="font-black text-red-600 font-sans text-lg">{d.totalLoss.toLocaleString()} دج</span>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex justify-center">
+                                                            <button 
+                                                                onClick={() => handlePrintDamageReceipt(d)}
+                                                                className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm flex items-center gap-2 text-xs font-black" 
+                                                                title="طباعة الوصل"
+                                                            >
+                                                                <Printer size={16} /> طباعة الوصل
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
+
+                        {/* Pagination for Damaged */}
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-gray-100 shadow-sm print:hidden mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center border border-violet-100">
+                                    <Trash2 size={18} className="text-[#8b5cf6]" />
+                                </div>
+                                <p className="text-xs font-black text-gray-500">
+                                    عرض <span className="text-gray-900 font-sans">{(currentPage - 1) * itemsPerPage + 1}</span> إلى <span className="text-gray-900 font-sans">{Math.min(currentPage * itemsPerPage, totalItemsD)}</span> من أصل <span className="text-[#8b5cf6] font-sans">{totalItemsD}</span> سجل
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100">
                                 <button 
-                                    onClick={() => setIsDamagedExportDropdownOpen(!isDamagedExportDropdownOpen)}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-all text-xs font-bold border border-red-200"
+                                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage === 1}
+                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
                                 >
-                                    <Download size={14} />
-                                    تصدير
-                                    <ChevronDown size={14} className={`transition-transform ${isDamagedExportDropdownOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDown className="rotate-90 group-active:scale-90 transition-transform" size={18} />
                                 </button>
                                 
-                                {isDamagedExportDropdownOpen && (
-                                    <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
-                                        <button 
-                                            onClick={() => { handleExportDamagedExcel(); setIsDamagedExportDropdownOpen(false); }}
-                                            className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
-                                        >
-                                            <FileText size={14} className="text-emerald-600" />
-                                            Excel (.xlsx)
-                                        </button>
-                                        <button 
-                                            onClick={() => { handlePrintDamagedTable(); setIsDamagedExportDropdownOpen(false); }}
-                                            className="w-full text-right px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                        >
-                                            <FileText size={14} className="text-rose-600" />
-                                            تقرير PDF
-                                        </button>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-1 px-4">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">الصفحة</span>
+                                    <span className="text-sm font-black text-[#8b5cf6] font-sans px-2">{currentPage}</span>
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">من</span>
+                                    <span className="text-sm font-black text-gray-900 font-sans px-2">{Math.ceil(totalItemsD / itemsPerPage) || 1}</span>
+                                </div>
+
+                                <button 
+                                    onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                    disabled={currentPage * itemsPerPage >= totalItemsD}
+                                    className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-xl disabled:opacity-30 transition-all border border-gray-100 shadow-sm disabled:cursor-not-allowed group"
+                                >
+                                    <ChevronDown className="-rotate-90 group-active:scale-90 transition-transform" size={18} />
+                                </button>
                             </div>
-                            <button 
-                                onClick={handlePrintDamagedTable}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all text-xs font-bold border border-gray-200"
-                            >
-                                <Printer size={14} /> طباعة
-                            </button>
                         </div>
                     </div>
-
-                    {/* Damaged List */}
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto shadow-sm">
-                        <table className="w-full text-right text-sm">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-4 py-3 font-bold">التاريخ</th>
-                                    <th className="px-4 py-3 font-bold">المنتج</th>
-                                    <th className="px-4 py-3 font-bold text-center">الكمية</th>
-                                    <th className="px-4 py-3 font-bold text-center">النوع</th>
-                                    <th className="px-4 py-3 font-bold text-center">الخسارة</th>
-                                    <th className="px-4 py-3 font-bold text-center">الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading && (<tr><td colSpan={8} className="text-center py-10">جاري التحميل...</td></tr>)}
-                                {!loading && damaged.length === 0 && (<tr><td colSpan={8} className="text-center py-10 text-gray-400">لا توجد سجلات تالفة حالياً</td></tr>)}
-                                {damaged.map(d => (
-                                    <tr key={d.id} className="border-b hover:bg-gray-50">
-                                        <td className="px-4 py-4">{format(new Date(d.createdAt), 'yyyy-MM-dd')}</td>
-                                        <td className="px-4 py-4">
-                                            <div className="font-bold">{d.product.name}</div>
-                                            <div className="text-[10px] text-gray-400">{d.reason}</div>
-                                        </td>
-                                        <td className="px-4 py-4 text-center font-bold">{d.quantity} <span className="text-xs font-normal">{d.product.unit}</span></td>
-                                        <td className="px-4 py-4 text-center">{getDamageTypeBadge(d.damageType)}</td>
-                                        <td className="px-4 py-4 text-center font-bold text-red-600">{d.totalLoss.toLocaleString()} دج</td>
-                                        <td className="px-4 py-4 text-center">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <button 
-                                                    onClick={() => handlePrintDamageReceipt(d)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-1 text-xs font-bold" 
-                                                    title="طباعة الوصل"
-                                                >
-                                                    <Printer size={16} /> وصل
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Record Damage Modal */}
             {isDamageModalOpen && (
