@@ -17,6 +17,10 @@ import { formatDate } from '@/lib/utils';
 import { ALGERIA_LOCATIONS } from '@/lib/constants/algeria-locations';
 import { printDocument } from '@/lib/print-helper';
 import { InvoicesTable, StatusBadge } from '@/components/InvoicesTable';
+import DateRangePicker from '@/components/DateRangePicker';
+import * as xlsx from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface OrderItem {
     id: number;
@@ -78,6 +82,22 @@ export default function SupplierDetailPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'ORDERS' | 'SOA' | 'ANALYTICS' | 'PRODUCTS'>('ORDERS');
     const [isSupplierDetailsOpen, setIsSupplierDetailsOpen] = useState(false);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+    // Filters & Pagination for Orders Tab
+    const [generalOrderSearch, setGeneralOrderSearch] = useState('');
+    const [generalOrderStatusFilter, setGeneralOrderStatusFilter] = useState('ALL');
+    const [generalOrderDateFrom, setGeneralOrderDateFrom] = useState('');
+    const [generalOrderDateTo, setGeneralOrderDateTo] = useState('');
+    const [generalOrderCurrentPage, setGeneralOrderCurrentPage] = useState(1);
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+    // SOA States
+    const [soaSearchQuery, setSoaSearchQuery] = useState('');
+    const [soaMotifFilter, setSoaMotifFilter] = useState('ALL');
+    const [soaMethodFilter, setSoaMethodFilter] = useState('ALL');
+    const [soaDateFrom, setSoaDateFrom] = useState('');
+    const [soaDateTo, setSoaDateTo] = useState('');
 
     // Edit Supplier Sheet
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -227,7 +247,7 @@ export default function SupplierDetailPage() {
             if (res.ok) {
                 setIsEditSheetOpen(false);
                 fetchSupplier();
-                alert('✅ تم تحديث بيانات المورد بنجاح');
+                setShowSuccessPopup(true);
             } else {
                 const err = await res.json();
                 alert(`خطأ: ${err.error}`);
@@ -484,85 +504,472 @@ export default function SupplierDetailPage() {
                 </div>
 
                 <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden min-h-[500px]">
-                    {activeTab === 'ORDERS' && (
-                        <div className="p-0">
-                            <InvoicesTable 
-                                invoices={supplier.orders.map(o => ({
-                                    ...o,
-                                    invoiceNumber: o.orderNumber,
-                                    invoiceDate: o.orderDate,
-                                    paid: (o.invoice?.supplierPayments || []).reduce((sum, p) => sum + p.amount, 0),
-                                    remaining: (o.total || 0) - (o.invoice?.supplierPayments || []).reduce((sum, p) => sum + p.amount, 0)
-                                }))}
-                                onShowPayment={(inv) => { setShowPaymentModal(inv); setPaymentAmount(Math.max(0, inv.remaining)); }}
-                                onShowHistory={(inv) => setShowHistoryModal(inv)}
-                                onShowReturns={(inv) => setShowReturnsModal(inv)}
-                                isSupplierView={true}
-                                onRefundExcess={handleRefundExcess}
-                            />
-                        </div>
-                    )}
+                    {activeTab === 'ORDERS' && (() => {
+                        const allOrders = (supplier?.orders || []).filter((o: any) => o.type === 'PURCHASE' || o.type === 'RETURN_PURCHASE');
+                        const purchaseOrders = allOrders.filter((o: any) => o.type === 'PURCHASE');
+                        
+                        const mappedInvoices = purchaseOrders.map((o: any) => {
+                            const returnsValue = (o.items || []).reduce((sum: number, item: any) => sum + ((item.returnedQuantity || 0) * item.unitPrice), 0);
+                            const netTotal = o.total || 0;
+                            const paid = (o.invoice?.supplierPayments || []).reduce((sum: number, p: any) => sum + p.amount, 0);
+                            const remaining = netTotal - paid;
+                            return {
+                                ...o,
+                                id: o.id,
+                                invoiceNumber: o.orderNumber,
+                                supplierName: supplier.name,
+                                total: netTotal,
+                                originalTotal: netTotal + returnsValue,
+                                returnsValue,
+                                remaining,
+                                paid,
+                                status: remaining <= 0 ? (remaining < 0 ? 'CREDIT' : 'PAID') : (paid > 0 ? 'PARTIAL' : 'UNPAID'),
+                                date: o.orderDate,
+                            };
+                        });
 
-                    {activeTab === 'SOA' && (
-                        <div className="p-8">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><History size={24} /></div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-gray-900">كشف الحساب التفصيلي</h3>
-                                        <p className="text-xs font-bold text-gray-400">سجل كامل للطلبيات والمدفوعات المالية</p>
+                        const filteredInvoices = mappedInvoices.filter((inv: any) => {
+                            const matchesSearch = !generalOrderSearch || 
+                                (inv.invoiceNumber || '').toLowerCase().includes(generalOrderSearch.toLowerCase());
+                                
+                            let matchesStatus = true;
+                            if (generalOrderStatusFilter !== 'ALL') {
+                                if (generalOrderStatusFilter === 'PAID') matchesStatus = inv.remaining <= 0;
+                                else if (generalOrderStatusFilter === 'PARTIAL') matchesStatus = inv.remaining > 0 && inv.paid > 0;
+                                else if (generalOrderStatusFilter === 'UNPAID') matchesStatus = inv.paid === 0;
+                                else if (generalOrderStatusFilter === 'CREDIT') matchesStatus = inv.remaining < 0;
+                            }
+
+                            let matchesDate = true;
+                            if (generalOrderDateFrom && generalOrderDateTo) {
+                                const d = new Date(inv.date);
+                                matchesDate = d >= new Date(generalOrderDateFrom) && d <= new Date(generalOrderDateTo);
+                            }
+                            
+                            return matchesSearch && matchesStatus && matchesDate;
+                        });
+
+                        const totalValue = filteredInvoices.reduce((s: number, inv: any) => s + (inv.total || 0), 0);
+                        const totalPaid = filteredInvoices.reduce((s: number, inv: any) => s + (inv.paid || 0), 0);
+                        const totalRemaining = totalValue - totalPaid;
+
+                        const itemsPerPage = 10;
+                        const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage) || 1;
+                        const startIndex = (generalOrderCurrentPage - 1) * itemsPerPage;
+                        const paginatedInvoices = filteredInvoices.slice(startIndex, startIndex + itemsPerPage);
+
+                        return (
+                            <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 rounded-[2.5rem] border-2 border-indigo-600 shadow-xl">
+                                {/* Tab Header */}
+                                <div className="flex justify-between items-center mb-2 no-print">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-indigo-600 text-white p-3 rounded-2xl shadow-lg shadow-indigo-200"><ShoppingCart size={24} /></div>
+                                        <div className="text-right">
+                                            <h3 className="text-xl font-black text-indigo-600">سجل طلبات التوريد</h3>
+                                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mt-1">إدارة جميع عمليات الشراء والمرتجعات لهذا المورد</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {/* Export Dropdown */}
+                                        <div className="relative group">
+                                            <button className="bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-2xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                                                <Download size={16} className="text-indigo-600"/> تصدير
+                                            </button>
+                                            <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+                                                <button
+                                                    onClick={() => {
+                                                        const ws = xlsx.utils.json_to_sheet(filteredInvoices.map((inv: any) => ({
+                                                            'رقم الطلبية': inv.invoiceNumber,
+                                                            'التاريخ': formatDate(inv.date),
+                                                            'المبلغ الإجمالي': inv.total,
+                                                            'المدفوع': inv.paid,
+                                                            'المتبقي': inv.remaining,
+                                                            'الحالة': inv.status,
+                                                        })));
+                                                        const wb = xlsx.utils.book_new();
+                                                        xlsx.utils.book_append_sheet(wb, ws, 'طلبات المورد');
+                                                        xlsx.writeFile(wb, `طلبات-${supplier?.name || ''}.xlsx`);
+                                                    }}
+                                                    className="w-full text-right px-5 py-4 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-3 border-b border-gray-50 transition-colors"
+                                                >
+                                                    <FileSpreadsheet size={16} className="text-emerald-600"/> Excel (.xlsx)
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const doc = new jsPDF({ orientation: 'landscape' });
+                                                        autoTable(doc, {
+                                                            head: [['رقم الطلبية', 'التاريخ', 'المبلغ الإجمالي', 'المدفوع', 'المتبقي', 'الحالة']],
+                                                            body: filteredInvoices.map((inv: any) => [
+                                                                inv.invoiceNumber,
+                                                                formatDate(inv.date),
+                                                                `${inv.total} دج`,
+                                                                `${inv.paid} دج`,
+                                                                `${inv.remaining} دج`,
+                                                                inv.status,
+                                                            ]),
+                                                            styles: { font: 'helvetica', fontSize: 9 },
+                                                            headStyles: { fillColor: [79, 70, 229] },
+                                                        });
+                                                        doc.save(`طلبات-${supplier?.name || ''}.pdf`);
+                                                    }}
+                                                    className="w-full text-right px-5 py-4 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-3 transition-colors"
+                                                >
+                                                    <FileText size={16} className="text-rose-600"/> PDF (.pdf)
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <button onClick={() => window.print()} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 hover:bg-indigo-700 hover:scale-105 transition-all active:scale-95 shadow-lg shadow-indigo-100">
+                                            <Printer size={16} /> طباعة القائمة
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button onClick={() => window.print()} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-black transition-all">
-                                        <Printer size={16} /> طباعة الكشف
-                                    </button>
+
+                                {/* Filter Bar */}
+                                <div className="px-6 py-5 no-print bg-white rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4">
+                                    <div className="flex flex-col lg:flex-row gap-3 items-center">
+                                        {/* Search (Takes all remaining weight) */}
+                                        <div className="relative flex-1 group">
+                                            <input 
+                                                type="text" 
+                                                placeholder="بحث برقم الطلبية..."
+                                                value={generalOrderSearch} 
+                                                onChange={(e) => setGeneralOrderSearch(e.target.value)} 
+                                                className="w-full h-[52px] bg-white border border-gray-200 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
+                                            />
+                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none">
+                                                <Search size={20} strokeWidth={3} />
+                                            </div>
+                                        </div>
+
+                                        {/* Status Filter (Same weight as Date Range) */}
+                                        <div className="relative group min-w-[180px]">
+                                            <button
+                                                onClick={() => setActiveDropdown(activeDropdown === 'status' ? null : 'status')}
+                                                className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right"
+                                            >
+                                                <div className="bg-indigo-50 p-1.5 rounded-lg text-indigo-600"><Activity size={14} /></div>
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter leading-none">حالة الدفع</p>
+                                                    <p className="text-[10px] font-black text-gray-900 mt-1">
+                                                        {generalOrderStatusFilter === 'ALL' ? 'الكل' : 
+                                                         generalOrderStatusFilter === 'PAID' ? 'خالص' : 
+                                                         generalOrderStatusFilter === 'PARTIAL' ? 'مدفوع جزئياً' : 
+                                                         generalOrderStatusFilter === 'UNPAID' ? 'غير مدفوع' : 'رصيد زائد'}
+                                                    </p>
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-400 transition-transform ${activeDropdown === 'status' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {activeDropdown === 'status' && (
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                                                    <button onClick={() => { setGeneralOrderStatusFilter('ALL'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-3 text-[10px] font-black border-b border-gray-50 transition-colors ${generalOrderStatusFilter === 'ALL' ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-gray-50 text-gray-700'}`}>الكل</button>
+                                                    <button onClick={() => { setGeneralOrderStatusFilter('UNPAID'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-3 text-[10px] font-black border-b border-gray-50 transition-colors ${generalOrderStatusFilter === 'UNPAID' ? 'bg-rose-50 text-rose-600' : 'hover:bg-rose-50/50 text-rose-600'}`}>غير مدفوع</button>
+                                                    <button onClick={() => { setGeneralOrderStatusFilter('PARTIAL'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-3 text-[10px] font-black border-b border-gray-50 transition-colors ${generalOrderStatusFilter === 'PARTIAL' ? 'bg-amber-50 text-amber-600' : 'hover:bg-amber-50/50 text-amber-600'}`}>مدفوع جزئياً</button>
+                                                    <button onClick={() => { setGeneralOrderStatusFilter('PAID'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-3 text-[10px] font-black border-b border-gray-50 transition-colors ${generalOrderStatusFilter === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-emerald-50/50 text-emerald-600'}`}>خالص</button>
+                                                    <button onClick={() => { setGeneralOrderStatusFilter('CREDIT'); setActiveDropdown(null); }} className={`w-full text-right px-4 py-3 text-[10px] font-black transition-colors ${generalOrderStatusFilter === 'CREDIT' ? 'bg-purple-50 text-purple-600' : 'hover:bg-purple-50/50 text-purple-600'}`}>رصيد زائد</button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Date Range Picker (Same weight as Status) */}
+                                        <div className="min-w-[180px]">
+                                            <DateRangePicker 
+                                                startDate={generalOrderDateFrom}
+                                                endDate={generalOrderDateTo}
+                                                onChange={(start, end) => { 
+                                                    setGeneralOrderDateFrom(start); 
+                                                    setGeneralOrderDateTo(end); 
+                                                    setGeneralOrderCurrentPage(1); 
+                                                }}
+                                                theme="indigo"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <div className="w-full">
+                                    <InvoicesTable 
+                                        invoices={paginatedInvoices}
+                                        onShowPayment={(inv) => { setShowPaymentModal(inv); setPaymentAmount(Math.max(0, inv.remaining)); }}
+                                        onShowHistory={(inv) => setShowHistoryModal(inv)}
+                                        onShowReturns={(inv) => setShowReturnsModal(inv)}
+                                        isSupplierView={true}
+                                        onRefundExcess={handleRefundExcess}
+                                        headerClassName="bg-indigo-600 border-b border-indigo-500"
+                                        footer={
+                                            filteredInvoices.length > 0 && (
+                                                <div className="p-4 border-t border-gray-100 flex items-center justify-between no-print bg-white">
+                                                    <span className="text-xs font-bold text-gray-400">
+                                                        إظهار {startIndex + 1} إلى {Math.min(startIndex + itemsPerPage, filteredInvoices.length)} من أصل {filteredInvoices.length} طلبية
+                                                    </span>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setGeneralOrderCurrentPage(p => Math.max(1, p - 1))} disabled={generalOrderCurrentPage === 1} className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 disabled:opacity-50 transition-all">السابق</button>
+                                                        <span className="px-4 py-2 bg-indigo-50 text-indigo-600 text-xs font-black rounded-xl border border-indigo-100">{generalOrderCurrentPage} / {totalPages}</span>
+                                                        <button onClick={() => setGeneralOrderCurrentPage(p => Math.min(totalPages, p + 1))} disabled={generalOrderCurrentPage === totalPages} className="px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs font-black rounded-xl hover:bg-gray-100 disabled:opacity-50 transition-all">التالي</button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+                                    />
+                                </div>
+
+                                {/* Summary Bar */}
+                                <div className="bg-indigo-50/50 border border-indigo-100 rounded-[2rem] p-6 grid grid-cols-3 gap-6">
+                                    <div className="text-center">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">إجمالي العمليات</p>
+                                        <p className="text-2xl font-black font-sans text-indigo-600">{purchaseOrders.length}</p>
+                                    </div>
+                                    <div className="text-center border-x border-indigo-100 px-6">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">قيمة المشتريات</p>
+                                        <p className="text-2xl font-black font-sans text-gray-900">{totalValue.toLocaleString()} دج</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">المستحقات المتبقية</p>
+                                        <p className={`text-2xl font-black font-sans ${totalRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{Math.abs(totalRemaining).toLocaleString()} دج</p>
+                                    </div>
                                 </div>
                             </div>
+                        );
+                    })()}
+
+                    {activeTab === 'SOA' && (() => {
+                        const allTxs: any[] = [];
+                        const usedPaymentIds = new Set<number>();
+
+                        // 1. Process Orders (Purchases & Returns)
+                        (supplier.orders || []).forEach((o: any) => {
+                            if (o.type === 'PURCHASE') {
+                                const returnsValue = (o.items || []).reduce((sum: number, item: any) => 
+                                    sum + ((item.returnedQuantity || 0) * (item.unitPrice || 0)), 0
+                                );
+                                const netTotal = o.total || 0;
+                                const originalTotal = netTotal + returnsValue;
+
+                                const initialPayment = (o.invoice?.supplierPayments || []).find((p: any) => {
+                                    const orderTime = new Date(o.orderDate).getTime();
+                                    const payTime = new Date(p.paymentDate).getTime();
+                                    return Math.abs(orderTime - payTime) < 120000;
+                                });
+
+                                if (initialPayment) usedPaymentIds.add(initialPayment.id);
+                                const versement = initialPayment ? initialPayment.amount : 0;
+                                
+                                let motif = '';
+                                if (Math.abs(versement - originalTotal) < 0.01) motif = 'دفع كامل (نقداً)';
+                                else if (versement > 0) motif = 'دفع جزئي';
+                                else motif = 'آجل / ديون';
+
+                                allTxs.push({
+                                    date: new Date(o.orderDate),
+                                    number: o.orderNumber,
+                                    achat: originalTotal,
+                                    method: initialPayment?.paymentMethod || '---',
+                                    motif: motif,
+                                    ref: '---',
+                                    versement: versement,
+                                    type: 'PURCHASE'
+                                });
+                            } else if (o.type === 'RETURN_PURCHASE') {
+                                allTxs.push({
+                                    date: new Date(o.orderDate),
+                                    number: 'مرتجع',
+                                    achat: -(o.total || 0),
+                                    method: '---',
+                                    motif: 'إرجاع سلع',
+                                    ref: o.orderNumber,
+                                    versement: 0,
+                                    type: 'RETURN'
+                                });
+                            }
+                        });
+
+                        // 2. Process Independent Payments
+                        (supplier.payments || []).forEach((p: any) => {
+                            if (usedPaymentIds.has(p.id)) return;
+                            allTxs.push({
+                                date: new Date(p.paymentDate),
+                                number: `PAY-${p.id}`,
+                                achat: 0,
+                                method: p.paymentMethod,
+                                motif: 'تسديد ديون',
+                                ref: p.notes || '---',
+                                versement: p.amount,
+                                type: 'PAYMENT'
+                            });
+                        });
+
+                        allTxs.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+                        const filteredSOAData = allTxs.filter(tx => {
+                            const matchesSearch = !soaSearchQuery || 
+                                (tx.number || '').toLowerCase().includes(soaSearchQuery.toLowerCase()) ||
+                                (tx.ref || '').toLowerCase().includes(soaSearchQuery.toLowerCase());
                             
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-right border-collapse">
-                                    <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100">
-                                            <th className="px-6 py-4 font-black text-gray-400 text-[10px] uppercase tracking-widest">التاريخ</th>
-                                            <th className="px-6 py-4 font-black text-gray-400 text-[10px] uppercase tracking-widest">نوع العملية</th>
-                                            <th className="px-6 py-4 font-black text-gray-400 text-[10px] uppercase tracking-widest">المرجع</th>
-                                            <th className="px-6 py-4 font-black text-gray-400 text-[10px] uppercase tracking-widest text-left">مبلغ الشراء</th>
-                                            <th className="px-6 py-4 font-black text-gray-400 text-[10px] uppercase tracking-widest text-left">المبلغ المدفوع</th>
-                                            <th className="px-6 py-4 font-black text-gray-400 text-[10px] uppercase tracking-widest text-left">الرصيد</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {(() => {
-                                            const txs: any[] = [];
-                                            (supplier.orders || []).forEach(o => {
-                                                txs.push({ date: new Date(o.orderDate), type: o.type === 'PURCHASE' ? 'شراء' : 'إرجاع', ref: o.orderNumber, debit: o.type === 'PURCHASE' ? o.total : 0, credit: o.type === 'RETURN_PURCHASE' ? o.total : 0 });
-                                            });
-                                            (supplier.payments || []).forEach(p => {
-                                                txs.push({ date: new Date(p.paymentDate), type: 'دفع', ref: 'PAY-' + p.id, debit: 0, credit: p.amount });
-                                            });
-                                            txs.sort((a, b) => a.date.getTime() - b.date.getTime());
-                                            
-                                            let balance = 0;
-                                            return txs.map((tx, idx) => {
-                                                balance += (tx.debit - tx.credit);
+                            let matchesMotif = true;
+                            if (soaMotifFilter !== 'ALL') {
+                                if (soaMotifFilter === 'PURCHASE') matchesMotif = tx.type === 'PURCHASE';
+                                else if (soaMotifFilter === 'RETURN') matchesMotif = tx.type === 'RETURN';
+                                else if (soaMotifFilter === 'PAYMENT') matchesMotif = tx.type === 'PAYMENT';
+                            }
+
+                            let matchesMethod = true;
+                            if (soaMethodFilter !== 'ALL') {
+                                matchesMethod = tx.method === soaMethodFilter;
+                            }
+
+                            let matchesDate = true;
+                            if (soaDateFrom && soaDateTo) {
+                                const d = tx.date;
+                                matchesDate = d >= new Date(soaDateFrom) && d <= new Date(soaDateTo);
+                            }
+
+                            return matchesSearch && matchesMotif && matchesMethod && matchesDate;
+                        });
+
+                        let balance = 0;
+
+                        return (
+                            <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 rounded-[2.5rem] border-2 border-indigo-600 shadow-xl">
+                                <div className="flex justify-between items-center mb-6 no-print">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-indigo-600 text-white p-3 rounded-2xl shadow-lg shadow-indigo-100"><FileText size={24} /></div>
+                                        <div className="text-right">
+                                            <h3 className="text-xl font-black text-indigo-600">كشف الحساب التفصيلي</h3>
+                                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mt-1">سجل كامل للحركات المالية والمشتريات</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <div className="relative group">
+                                            <button className="bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-2xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
+                                                <Download size={16} className="text-indigo-600"/> تصدير
+                                            </button>
+                                            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+                                                <button onClick={() => {
+                                                    const ws = xlsx.utils.json_to_sheet(filteredSOAData.map(tx => ({
+                                                        'التاريخ': formatDate(tx.date),
+                                                        'رقم العملية': tx.number,
+                                                        'البيان': tx.motif,
+                                                        'مبلغ الشراء': tx.achat,
+                                                        'المبلغ المدفوع': tx.versement,
+                                                    })));
+                                                    const wb = xlsx.utils.book_new();
+                                                    xlsx.utils.book_append_sheet(wb, ws, 'كشف الحساب');
+                                                    xlsx.writeFile(wb, `كشف-حساب-${supplier?.name}.xlsx`);
+                                                }} className="w-full text-right px-5 py-4 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-3 border-b border-gray-50 transition-colors">
+                                                    <FileSpreadsheet size={16} className="text-emerald-600"/> Excel (.xlsx)
+                                                </button>
+                                                <button onClick={() => {
+                                                    const doc = new jsPDF({ orientation: 'landscape' });
+                                                    autoTable(doc, {
+                                                        head: [['التاريخ', 'رقم العملية', 'البيان', 'مبلغ الشراء', 'المدفوع']],
+                                                        body: filteredSOAData.map(tx => [formatDate(tx.date), tx.number, tx.motif, `${tx.achat} دج`, `${tx.versement} دج`]),
+                                                        styles: { font: 'helvetica', fontSize: 9 },
+                                                        headStyles: { fillColor: [79, 70, 229] },
+                                                    });
+                                                    doc.save(`كشف-حساب-${supplier?.name}.pdf`);
+                                                }} className="w-full text-right px-5 py-4 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-3 transition-colors">
+                                                    <FileText size={16} className="text-rose-600"/> PDF (.pdf)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => window.print()} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:scale-105 transition-all active:scale-95">
+                                            <Printer size={16} /> طباعة الكشف
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Filters Row */}
+                                <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex flex-col gap-5 no-print mb-4">
+                                    <div className="flex flex-wrap items-end gap-4">
+                                        <div className="relative group flex-1 min-w-[300px]">
+                                            <input type="text" placeholder="بحث برقم العملية أو البيان..." value={soaSearchQuery} onChange={(e) => setSoaSearchQuery(e.target.value)} className="w-full h-[52px] bg-white border border-gray-200 rounded-2xl pr-14 pl-4 text-sm font-black outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all shadow-sm" />
+                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none"><Search size={20} strokeWidth={3} /></div>
+                                        </div>
+
+                                        <div className="relative group min-w-[180px]">
+                                            <button onClick={() => setActiveDropdown(activeDropdown === 'soa-motif' ? null : 'soa-motif')} className="w-full h-[52px] flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 shadow-sm hover:shadow-md transition-all text-right">
+                                                <div className="bg-indigo-50 p-1.5 rounded-lg text-indigo-600"><Activity size={14} /></div>
+                                                <div className="flex-1 text-[10px] font-black text-gray-900 mt-1">
+                                                    {soaMotifFilter === 'ALL' ? 'كل الأنواع' : soaMotifFilter === 'PURCHASE' ? 'مشتريات' : soaMotifFilter === 'RETURN' ? 'مرتجعات' : 'تسديد ديون'}
+                                                </div>
+                                                <ChevronDown size={14} className={`text-gray-300 transition-transform ${activeDropdown === 'soa-motif' ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {activeDropdown === 'soa-motif' && (
+                                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl z-[100] py-2 animate-in zoom-in-95 duration-200">
+                                                    {['ALL', 'PURCHASE', 'RETURN', 'PAYMENT'].map(m => (
+                                                        <button key={m} onClick={() => { setSoaMotifFilter(m); setActiveDropdown(null); }} className={`w-full text-right px-5 py-2.5 text-[10px] font-bold transition-colors ${soaMotifFilter === m ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-gray-50 text-gray-700'}`}>
+                                                            {m === 'ALL' ? 'كل الأنواع' : m === 'PURCHASE' ? 'مشتريات' : m === 'RETURN' ? 'مرتجعات' : 'تسديد ديون'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="min-w-[200px]">
+                                            <DateRangePicker startDate={soaDateFrom} endDate={soaDateTo} onChange={(start, end) => { setSoaDateFrom(start); setSoaDateTo(end); }} theme="indigo" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden shadow-lg">
+                                    <table className="w-full text-right border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-900 text-white">
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-center w-12">#</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest">التاريخ</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest">رقم العملية</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-center">نوع العملية / البيان</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest">طريقة الدفع</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-left">مبلغ الشراء (دج)</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-left">المبلغ المدفوع (دج)</th>
+                                                <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-left">الرصيد التراكمي</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {filteredSOAData.map((tx, idx) => {
+                                                balance += (tx.achat - tx.versement);
                                                 return (
-                                                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-6 py-4 font-bold text-gray-900 font-sans">{tx.date.toLocaleDateString('ar-DZ')}</td>
-                                                        <td className="px-6 py-4 font-black text-gray-600">{tx.type}</td>
-                                                        <td className="px-6 py-4 font-bold text-indigo-600 font-sans">{tx.ref}</td>
-                                                        <td className="px-6 py-4 font-black text-gray-900 text-left font-sans">{tx.debit > 0 ? tx.debit.toLocaleString() : '---'}</td>
-                                                        <td className="px-6 py-4 font-black text-emerald-600 text-left font-sans">{tx.credit > 0 ? tx.credit.toLocaleString() : '---'}</td>
-                                                        <td className="px-6 py-4 font-black text-gray-900 text-left font-sans">{balance.toLocaleString()}</td>
+                                                    <tr key={idx} className="hover:bg-indigo-50/30 transition-colors group">
+                                                        <td className="px-6 py-5 text-center font-bold text-gray-300 text-xs font-sans">{idx + 1}</td>
+                                                        <td className="px-6 py-5">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-black text-gray-900 font-sans">{formatDate(tx.date)}</span>
+                                                                <span className="text-[9px] font-bold text-gray-400">{new Date(tx.date).toLocaleTimeString('ar-DZ', {hour:'2-digit', minute:'2-digit'})}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-5">
+                                                            <span className="text-xs font-black text-indigo-600 font-sans bg-indigo-50 px-2.5 py-1 rounded-lg">{tx.number}</span>
+                                                        </td>
+                                                        <td className="px-6 py-5 text-center">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`text-[10px] font-black px-3 py-1 rounded-full inline-block mx-auto ${tx.type === 'PURCHASE' ? 'bg-indigo-50 text-indigo-600' : tx.type === 'RETURN' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>{tx.motif}</span>
+                                                                {tx.ref !== '---' && <span className="text-[9px] text-gray-400 font-bold">{tx.ref}</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-5">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`w-2 h-2 rounded-full ${tx.method === '---' ? 'bg-gray-200' : 'bg-amber-400'}`}></div>
+                                                                <span className="text-xs font-black text-gray-600">{tx.method === '---' ? '---' : tx.method === 'CASH' ? 'نقداً' : tx.method === 'CHEQUE' ? 'شيك' : 'تحويل بنكي'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-5 text-left font-black text-gray-900 text-sm font-sans">{tx.achat !== 0 ? tx.achat.toLocaleString() : '---'}</td>
+                                                        <td className="px-6 py-5 text-left font-black text-emerald-600 text-sm font-sans">{tx.versement !== 0 ? tx.versement.toLocaleString() : '---'}</td>
+                                                        <td className="px-6 py-5 text-left">
+                                                            <div className="flex flex-col items-end">
+                                                                <span className={`text-sm font-black font-sans ${balance > 0.01 ? 'text-rose-600' : balance < -0.01 ? 'text-purple-600' : 'text-emerald-600'}`}>{balance.toLocaleString()}</span>
+                                                                <span className="text-[8px] font-black text-gray-400 uppercase tracking-tighter">دج</span>
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 );
-                                            });
-                                        })()}
-                                    </tbody>
-                                </table>
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {activeTab === 'PRODUCTS' && (
                         <div className="p-8">
@@ -861,6 +1268,27 @@ export default function SupplierDetailPage() {
                             {isSubmitting ? 'جاري الحفظ...' : 'تأكيد عملية الدفع'}
                         </button>
                     </form>
+                </div>
+            )}
+            {/* SUCCESS POPUP */}
+            {showSuccessPopup && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowSuccessPopup(false)} />
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl z-10 w-full max-w-sm p-8 animate-in zoom-in-95 duration-300 border border-emerald-100 flex flex-col items-center text-center gap-6">
+                        <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 scale-110 animate-bounce">
+                            <CheckCircle size={48} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-gray-900 mb-2">تم التحديث بنجاح!</h3>
+                            <p className="text-gray-500 font-bold text-sm">لقد تم حفظ جميع التعديلات الجديدة في قاعدة البيانات بنجاح.</p>
+                        </div>
+                        <button 
+                            onClick={() => setShowSuccessPopup(false)}
+                            className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95"
+                        >
+                            حسناً، فهمت
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

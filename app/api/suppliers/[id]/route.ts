@@ -115,9 +115,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const resolvedParams = await params;
         const id = parseInt(resolvedParams.id, 10);
         const body = await request.json();
-        const updated = await prisma.supplier.update({ where: { id }, data: body });
+
+        // Sanitize body to only include valid Supplier fields
+        const updateData: any = {};
+        const allowedFields = ['name', 'activity', 'phone', 'email', 'address', 'rc', 'nif', 'ai', 'nis', 'commune', 'wilaya', 'postalCode', 'isArchived'];
+        
+        allowedFields.forEach(field => {
+            if (body[field] !== undefined) {
+                updateData[field] = body[field];
+            }
+        });
+
+        // Special handling for postCode/postalCode mapping if it exists in body
+        if (body.postCode !== undefined && body.postalCode === undefined) {
+            updateData.postalCode = body.postCode;
+        }
+
+        const updated = await prisma.supplier.update({ 
+            where: { id }, 
+            data: updateData 
+        });
+        
         return NextResponse.json(updated);
-    } catch (e) { return NextResponse.json({ error: 'Failed' }, { status: 500 }); }
+    } catch (e) { 
+        console.error("PUT Supplier Error:", e);
+        return NextResponse.json({ error: 'Failed' }, { status: 500 }); 
+    }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> | { id: string } }) {
