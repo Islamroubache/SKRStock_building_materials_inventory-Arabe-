@@ -13,7 +13,13 @@ export async function GET(request: Request) {
                 customer: true,
                 supplier: true,
                 project: true,
-                items: { include: { product: true } }
+                items: { 
+                    include: { 
+                        product: {
+                            include: { supplier: true }
+                        } 
+                    } 
+                }
             }
         });
 
@@ -37,8 +43,16 @@ export async function GET(request: Request) {
             } else if (groupBy === 'supplier') {
                 // For supplier, we check the products sold and their original supplier
                 order.items.forEach(item => {
-                    const k = item.product.supplierId?.toString() || 'none';
-                    if (!stats[k]) stats[k] = { name: 'المورد الافتراضي', totalRevenue: 0, totalCost: 0, profit: 0 };
+                    const supplier = (item.product as any).supplier;
+                    const k = item.product.supplierId?.toString();
+                    if (!k) return; // Skip products with no supplier (Default Supplier)
+                    
+                    if (!stats[k]) stats[k] = { 
+                        name: supplier?.name || 'مورد غير معروف', 
+                        totalRevenue: 0, 
+                        totalCost: 0, 
+                        profit: 0 
+                    };
                     const costPrice = (item.product as any).avgPurchasePrice || item.product.purchasePrice;
                     const cost = costPrice * item.quantity;
                     stats[k].totalRevenue += item.total;
