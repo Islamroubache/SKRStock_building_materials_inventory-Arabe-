@@ -7,7 +7,7 @@ import {
     Search, Plus, Trash2, CheckCircle, AlertTriangle, Printer, Download,
     CreditCard, ShoppingBag, ShoppingCart, X, ChevronDown, User, Calendar,
     PackageOpen, Layers, Dribbble, BookOpen, UserCircle2, Building2, Store,
-    FileText, FileSpreadsheet, Percent, Info, ShieldCheck, Landmark
+    FileText, FileSpreadsheet, Percent, Info, ShieldCheck, Landmark, Check
 } from 'lucide-react';
 import { numberToArabicWords } from '@/lib/number-to-arabic-words';
 import { exportInvoiceToExcel } from '@/lib/export-invoice';
@@ -219,6 +219,7 @@ function NewOrderPage() {
     const [dueDate, setDueDate] = useState<string>('');
 
     const [lines, setLines] = useState<OrderLine[]>([{ id: '1', productId: '', quantity: 1, unitPrice: 0, discount: 0 }]);
+    const [currentStep, setCurrentStep] = useState(1);
 
     // UI states
     const [loading, setLoading] = useState(false);
@@ -547,6 +548,373 @@ function NewOrderPage() {
         );
     }
 
+    // --- RENDER WIZARD (FOR PURCHASE) ---
+    if (orderType === 'PURCHASE') {
+        const steps = [
+            { id: 1, name: 'نوع المورد', icon: UserCircle2 },
+            { id: 2, name: 'بيانات المورد', icon: Building2 },
+            { id: 3, name: 'الفاتورة', icon: FileText },
+            { id: 4, name: 'المنتجات', icon: PackageOpen },
+            { id: 5, name: 'الدفع', icon: CreditCard },
+            { id: 6, name: 'المراجعة', icon: CheckCircle }
+        ];
+
+        const canGoNext = () => {
+            if (currentStep === 1) return !!supplierType;
+            if (currentStep === 2) return (supplierType === 'REGISTERED' && supplierId) || (supplierType === 'GUEST' && guestSupplierName.trim());
+            if (currentStep === 3) return externalOrderNumber && externalOrderNumber !== 'ACHAT-';
+            if (currentStep === 4) return lines.length > 0 && lines.every(l => l.productId && l.quantity > 0 && l.unitPrice > 0);
+            return true;
+        };
+
+        return (
+            <div className="font-tajawal min-h-screen bg-white text-gray-900 p-4 md:p-8 flex flex-col items-center" dir="rtl">
+                <div className="w-full max-w-6xl flex flex-col lg:flex-row-reverse gap-12 items-start">
+                    
+                    {/* LEFT SIDE: VERTICAL STEPPER (Sticky for Desktop) */}
+                    <div className="hidden lg:block w-48 sticky top-12 p-4">
+                        <div className="flex flex-col items-start gap-16 relative">
+                            {/* Vertical Connector Line Background */}
+                            <div className="absolute right-[21px] top-6 bottom-6 w-[2px] bg-gray-100 -z-0">
+                                <div className="h-full bg-emerald-500 transition-all duration-700 ease-in-out" 
+                                     style={{ height: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}></div>
+                            </div>
+
+                            {steps.map((s, i) => (
+                                <div key={s.id} className="flex items-center gap-6 relative z-10 w-full justify-end">
+                                    {/* Arrow indicator (pointing from side) */}
+                                    <div className={`transition-all duration-500 ${currentStep === s.id ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}>
+                                        <ChevronDown size={14} className="text-emerald-500" style={{ transform: 'rotate(90deg)' }} />
+                                    </div>
+
+                                    {/* Label */}
+                                    <span className={`text-sm font-black transition-colors duration-300 flex-1 text-right ${currentStep >= s.id ? 'text-gray-900' : 'text-gray-400'}`}>
+                                        {s.name}
+                                    </span>
+
+                                    {/* Circle */}
+                                    <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-500 border-2 font-black text-sm flex-shrink-0
+                                        ${currentStep >= s.id ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-white border-gray-200 text-gray-300'}
+                                    `}>
+                                        {currentStep > s.id ? <Check size={20} /> : s.id}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* RIGHT SIDE: CONTENT */}
+                    <div className="flex-1 w-full">
+                        {/* Mobile Stepper (Horizontal) */}
+                        <div className="lg:hidden w-full py-4 mb-8">
+                            <div className="flex items-center justify-between relative px-4">
+                                <div className="absolute top-[32px] left-[10%] right-[10%] h-[2px] bg-gray-200 -z-0">
+                                    <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}></div>
+                                </div>
+                                {steps.map((s) => (
+                                    <div key={s.id} className={`w-10 h-10 rounded-full flex items-center justify-center border-2 z-10 ${currentStep >= s.id ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-gray-200 text-gray-300'}`}>
+                                        {currentStep > s.id ? <Check size={16} /> : s.id}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* CONTENT AREA */}
+                        <div className="min-h-[500px]">
+                            {currentStep === 1 && (
+                                <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-black text-gray-900">من هو المورد؟</h2>
+                                    <p className="text-gray-400 font-bold mt-2 text-sm text-center">اختر نوع المورد للبدء في تسجيل الطلبية</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <button
+                                        onClick={() => { setSupplierType('REGISTERED'); setCurrentStep(2); }}
+                                        className={`p-10 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-4 group ${supplierType === 'REGISTERED' ? 'border-blue-600 bg-blue-50/50 shadow-xl shadow-blue-100' : 'border-gray-100 bg-white hover:border-gray-300'}`}
+                                    >
+                                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all ${supplierType === 'REGISTERED' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                                            <Building2 size={40} />
+                                        </div>
+                                        <div className="text-center">
+                                            <h3 className={`text-xl font-black ${supplierType === 'REGISTERED' ? 'text-blue-600' : 'text-gray-900'}`}>مورد مسجل</h3>
+                                            <p className="text-xs text-gray-400 font-bold mt-1">البحث في قاعدة البيانات</p>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setSupplierType('GUEST'); setCurrentStep(2); }}
+                                        className={`p-10 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-4 group ${supplierType === 'GUEST' ? 'border-blue-600 bg-blue-50/50 shadow-xl shadow-blue-100' : 'border-gray-100 bg-white hover:border-gray-300'}`}
+                                    >
+                                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all ${supplierType === 'GUEST' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                                            <UserCircle2 size={40} />
+                                        </div>
+                                        <div className="text-center">
+                                            <h3 className={`text-xl font-black ${supplierType === 'GUEST' ? 'text-blue-600' : 'text-gray-900'}`}>مورد غير مسجل</h3>
+                                            <p className="text-xs text-gray-400 font-bold mt-1">إدخال الاسم يدوياً</p>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 2 && (
+                            <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                {supplierType === 'REGISTERED' ? (
+                                    <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-xl animate-in zoom-in-95 duration-300">
+                                        <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">ابحث واختر المورد <Search size={16} /></h4>
+                                        <SearchableSelect
+                                            options={suppliers.map(s => ({ id: s.id, label: s.name, subLabel: `رصيد المورد: ${s.balanceDue.toLocaleString()} دج` }))}
+                                            value={supplierId}
+                                            onChange={(val) => setSupplierId(val)}
+                                            placeholder="ابحث عن المورد هنا..."
+                                        />
+                                        {selectedSupplier && (
+                                            <div className="mt-6 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex justify-between items-center">
+                                                <span className="text-xs font-black text-emerald-600">رصيد المورد الحالي:</span>
+                                                <span className="text-xl font-black font-sans text-emerald-700">{selectedSupplier.balanceDue.toLocaleString()} دج</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-xl animate-in zoom-in-95 duration-300">
+                                        <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">أدخل اسم المورد <Plus size={16} /></h4>
+                                        <input
+                                            type="text"
+                                            placeholder="اسم المورد..."
+                                            value={guestSupplierName}
+                                            onChange={e => setGuestSupplierName(e.target.value)}
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-5 text-lg font-black focus:border-blue-600 outline-none transition-all"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {currentStep === 3 && (
+                            <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-black text-gray-900">رقم الفاتورة</h2>
+                                    <p className="text-gray-400 font-bold mt-2 text-sm">أدخل رقم الفاتورة الخارجية المرفقة مع الطلبية</p>
+                                </div>
+
+                                <div className="bg-white border border-gray-100 rounded-[2.5rem] p-10 shadow-xl flex flex-col gap-6">
+                                    <div className="relative">
+                                        <span className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-black text-lg">#</span>
+                                        <input
+                                            type="text"
+                                            value={externalOrderNumber}
+                                            onChange={(e) => setExternalOrderNumber(e.target.value)}
+                                            className="w-full pr-14 pl-6 py-6 bg-gray-50 border border-gray-200 rounded-[2rem] text-2xl font-black text-blue-600 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all text-center tracking-widest uppercase"
+                                            placeholder="أدخل الرقم هنا..."
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 4 && (
+                            <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-black text-gray-900">المنتجات</h2>
+                                    <p className="text-gray-400 font-bold mt-2 text-sm text-center">أضف المنتجات والكميات المراد شراؤها</p>
+                                </div>
+
+                                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden">
+                                    <div className="p-6 flex flex-col gap-4 bg-gray-50">
+                                        {lines.map((line, index) => (
+                                            <div key={line.id} className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm group">
+                                                <div className="flex flex-col gap-6">
+                                                    <div className="flex-1">
+                                                        <SearchableSelect
+                                                            options={products.map(p => ({
+                                                                id: p.id,
+                                                                label: p.name,
+                                                                subLabel: `المخزون: ${p.quantity} ${p.unit} | التكلفة: ${p.purchasePrice} دج`
+                                                            }))}
+                                                            value={line.productId}
+                                                            onChange={(val) => updateLine(line.id, { productId: val })}
+                                                            placeholder="ابحث عن منتج..."
+                                                            onSelect={(opt) => {
+                                                                const prd = products.find(p => p.id === opt.id);
+                                                                if (prd) updateLine(line.id, { product: prd, unitPrice: prd.purchasePrice });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                                                            <label className="text-[10px] font-black text-gray-400 uppercase block mb-2">الكمية المطلوبة</label>
+                                                            <div className="flex items-center gap-3">
+                                                                 <input
+                                                                    type="number"
+                                                                    value={line.quantity || ''}
+                                                                    onChange={e => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
+                                                                    className="bg-transparent border-none outline-none font-sans font-black text-2xl text-blue-600 w-full"
+                                                                />
+                                                                <span className="text-gray-400 font-bold">{line.product?.unit || '...'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                                                            <label className="text-[10px] font-black text-gray-400 uppercase block mb-2">تكلفة الوحدة (دج)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={line.unitPrice || ''}
+                                                                onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                                                                className="bg-transparent border-none outline-none font-sans font-black text-2xl text-emerald-500 w-full"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {lines.length > 1 && (
+                                                        <button onClick={() => handleRemoveLine(line.id)} className="text-rose-500 font-bold text-xs flex items-center gap-1 hover:text-rose-600 transition-colors">
+                                                            <Trash2 size={14} /> حذف هذا السطر
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={handleAddLine}
+                                            className="w-full py-6 border-2 border-dashed border-gray-200 rounded-3xl text-gray-400 font-black hover:border-blue-500 hover:text-blue-500 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Plus size={20} /> إضافة منتج آخر
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 5 && (
+                            <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-black text-gray-900">طريقة الدفع</h2>
+                                    <p className="text-gray-400 font-bold mt-2 text-sm">حدد كيف سيتم تسوية هذه الفاتورة</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {[
+                                        { id: 'FULL', name: 'دفع كامل', icon: CheckCircle, color: 'emerald' },
+                                        { id: 'PARTIAL', name: 'دفع جزئي', icon: Store, color: 'amber' },
+                                        { id: 'NONE', name: 'على الحساب', icon: Calendar, color: 'rose' }
+                                    ].map(mode => (
+                                        <button
+                                            key={mode.id}
+                                            onClick={() => setPaymentMode(mode.id as any)}
+                                            className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMode === mode.id ? `border-${mode.color}-500 bg-${mode.color}-50 text-${mode.color}-600 shadow-lg shadow-${mode.color}-100` : 'border-gray-100 bg-white hover:border-gray-300 text-gray-400'}`}
+                                        >
+                                            <mode.icon size={24} />
+                                            <span className="font-black">{mode.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {(paymentMode === 'FULL' || paymentMode === 'PARTIAL') && (
+                                    <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-xl flex flex-col gap-6 animate-in zoom-in-95">
+                                        {paymentMode === 'PARTIAL' && (
+                                            <div>
+                                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-3 text-right">المبلغ المدفوع حالياً (دج)</label>
+                                                <input
+                                                    type="number"
+                                                    value={initialPayment || ''}
+                                                    onChange={e => setInitialPayment(parseFloat(e.target.value) || 0)}
+                                                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-2xl font-black text-emerald-600 focus:border-emerald-500 outline-none"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-4 text-right">وسيلة الدفع</label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <button onClick={() => setPaymentMethod('CASH')} className={`py-3 rounded-xl font-black text-sm transition-all ${paymentMethod === 'CASH' ? 'bg-gray-900 text-white shadow-xl' : 'bg-gray-100 text-gray-500'}`}>💵 نقداً</button>
+                                                <button onClick={() => setPaymentMethod('BANK_TRANSFER')} className={`py-3 rounded-xl font-black text-sm transition-all ${paymentMethod === 'BANK_TRANSFER' ? 'bg-gray-900 text-white shadow-xl' : 'bg-gray-100 text-gray-500'}`}>🏦 حوالة</button>
+                                                <button onClick={() => setPaymentMethod('CHEQUE')} className={`py-3 rounded-xl font-black text-sm transition-all ${paymentMethod === 'CHEQUE' ? 'bg-gray-900 text-white shadow-xl' : 'bg-gray-100 text-gray-500'}`}>📄 صك</button>
+                                            </div>
+                                        </div>
+
+                                        {(paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2">
+                                                <input type="text" placeholder="رقم الصك / العملية..." value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 outline-none" />
+                                                <input type="text" placeholder="اسم البنك..." value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:border-blue-500 outline-none" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {currentStep === 6 && (
+                            <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-black text-gray-900">مراجعة الطلبية</h2>
+                                    <p className="text-gray-400 font-bold mt-2 text-sm">تأكد من كافة البيانات قبل الحفظ النهائي</p>
+                                </div>
+
+                                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden">
+                                    <div className="p-8 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <span className="text-blue-100 font-bold text-sm uppercase tracking-widest">إجمالي الفاتورة</span>
+                                            <div className="bg-white/20 px-4 py-1 rounded-full text-xs font-black">فاتورة شراء #{externalOrderNumber}</div>
+                                        </div>
+                                        <div className="text-5xl font-black font-sans">{grandTotal.toLocaleString()} <span className="text-xl">دج</span></div>
+                                    </div>
+                                    <div className="p-8 space-y-6">
+                                        <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                                            <span className="text-gray-400 font-bold text-sm">المورد:</span>
+                                            <span className="font-black text-gray-900 text-lg">{supplierType === 'REGISTERED' ? selectedSupplier?.name : guestSupplierName}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                                            <span className="text-gray-400 font-bold text-sm">عدد المواد:</span>
+                                            <span className="font-black text-gray-900">{lines.length} منتجات</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                                            <span className="text-gray-400 font-bold text-sm">المبلغ المدفوع:</span>
+                                            <span className="font-black text-emerald-600">{initialPayment.toLocaleString()} دج</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                                            <span className="text-gray-400 font-bold text-sm">المبلغ المتبقي:</span>
+                                            <span className="font-black text-rose-500">{remaining.toLocaleString()} دج</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* FOOTER NAVIGATION */}
+                    <div className="mt-12 flex justify-between items-center gap-4">
+                        <button
+                            onClick={() => currentStep > 1 && setCurrentStep(currentStep - 1)}
+                            disabled={currentStep === 1}
+                            className={`px-8 py-4 rounded-2xl font-black transition-all ${currentStep === 1 ? 'opacity-0' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            السابق
+                        </button>
+
+                        {currentStep < 6 ? (
+                            <button
+                                onClick={() => canGoNext() && setCurrentStep(currentStep + 1)}
+                                disabled={!canGoNext()}
+                                className={`px-12 py-4 rounded-2xl font-black text-white shadow-xl transition-all ${canGoNext() ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' : 'bg-gray-300 cursor-not-allowed'}`}
+                            >
+                                التالي
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleSave}
+                                disabled={loading}
+                                className="px-16 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black shadow-xl shadow-emerald-100 transition-all"
+                            >
+                                {loading ? 'جاري الحفظ...' : 'تأكيد وحفظ الطلبية'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+    // --- RENDER SALE (PREMIUM ORIGINAL UI) ---
     return (
         <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8 flex flex-col items-center" dir="rtl">
             <div className="w-full max-w-7xl grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
@@ -561,797 +929,212 @@ function NewOrderPage() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-                                {orderType === 'SALE' ? 'إنشاء طلبية بيع' : 'إنشاء طلبية شراء'}
+                                إنشاء طلبية بيع
                             </h1>
                             <p className="text-gray-400 text-sm font-medium mt-1">
-                                {orderType === 'SALE' ? 'واجهة تسجيل مخرجات المخزون' : 'واجهة تسجيل مدخلات المخزون'}
+                                واجهة تسجيل مخرجات المخزون
                             </p>
                         </div>
                     </div>
 
-                    {/* STEP 1: ORDER STATUS (ONLY FOR SALES) */}
-                    {orderType === 'SALE' && (
-                        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">1. نوع التحصيل</h2>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="flex p-1.5 bg-gray-50 border border-gray-200 rounded-2xl w-full">
-                                    <button
-                                        onClick={() => setOrderStatus('DONE')}
-                                        className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'DONE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-                                    >
-                                        <CheckCircle size={18} /> تسليم فوري (مكتملة)
-                                    </button>
-                                    <button
-                                        onClick={() => setOrderStatus('PENDING')}
-                                        className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
-                                    >
-                                        <AlertTriangle size={18} /> معلقة
-                                    </button>
-                                </div>
-
+                    {/* STEP 1: ORDER STATUS */}
+                    <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">1. نوع التحصيل</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex p-1.5 bg-gray-50 border border-gray-200 rounded-2xl w-full">
+                                <button
+                                    onClick={() => setOrderStatus('DONE')}
+                                    className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'DONE' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
+                                >
+                                    <CheckCircle size={18} /> تسليم فوري (مكتملة)
+                                </button>
+                                <button
+                                    onClick={() => setOrderStatus('PENDING')}
+                                    className={`flex-1 py-3 rounded-xl flex justify-center items-center gap-2 text-sm font-black transition-all ${orderStatus === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-900/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`}
+                                >
+                                    <AlertTriangle size={18} /> معلقة
+                                </button>
                             </div>
                         </div>
-                    )}
-
-                    {/* ORDER NUMBER (FOR PURCHASES) */}
-                    {orderType === 'PURCHASE' && (
-                        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                <FileText size={18} /> رقم الفاتورة الخارجية
-                            </h2>
-                            <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-600">ACHAT-</span>
-                                <input
-                                    type="text"
-                                    value={externalOrderNumber.replace('ACHAT-', '')}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace('ACHAT-', '');
-                                        setExternalOrderNumber('ACHAT-' + val);
-                                    }}
-                                    className={`w-full pl-14 pr-4 py-4 bg-gray-50 border rounded-2xl text-lg font-black focus:ring-2 focus:ring-emerald-500 outline-none transition-all ${showErrors && (!externalOrderNumber || externalOrderNumber === 'ACHAT-') ? 'border-rose-500 ring-2 ring-rose-500' : 'border-gray-200'}`}
-                                    placeholder="أدخل رقم الفاتورة..."
-                                />
-                            </div>
-                        </div>
-                    )}
+                    </div>
 
                     {/* STEP 2: ACTOR INFO */}
                     <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                            2. بيانات {orderType === 'SALE' ? 'العميل' : 'المورد المعتمد'} <User size={16} />
+                            2. بيانات العميل <User size={16} />
                         </h2>
 
-                        {orderType === 'SALE' && (
-                            <>
-                                <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-xl w-fit">
-                                    <button onClick={() => setCustomerType('REGISTERED')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${customerType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 عميل مسجل</button>
-                                    <button onClick={() => setCustomerType('GUEST')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${customerType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🚶 زبون عابر</button>
-                                </div>
-
-                                {customerType === 'REGISTERED' ? (
-                                    <div className="space-y-4">
-                                        <div className={showErrors && !customerId ? "ring-2 ring-rose-500/50 rounded-2xl p-1" : ""}>
-                                            <SearchableSelect
-                                                options={filteredCustomersForList.map(c => ({
-                                                    id: c.id,
-                                                    label: c.name,
-                                                    subLabel: c.type === 'LOYAL' ? 'مقاول معتمد - له سقف ائتماني' : 'عميل عادي'
-                                                }))}
-                                                value={customerId}
-                                                onChange={(val) => setCustomerId(val)}
-                                                placeholder="ابحث واختر العميل من القائمة..."
-                                            />
-                                        </div>
-                                        {showErrors && !customerId && <p className="text-rose-500 text-xs font-bold px-2">⚠️ يرجى اختيار العميل من القائمة لمعالجة الطلبية</p>}
-
-                                        {/* Credit Card Banner */}
-                                        {selectedCustomer && selectedCustomer.type === 'LOYAL' && selectedCustomer.creditLimit && (
-                                            <div className="bg-gradient-to-br from-[#1A2333] to-[#0B101A] rounded-2xl border border-gray-300/50 p-5 shadow-inner">
-                                                <div className="flex items-center gap-3 mb-4 text-gray-900">
-                                                    <Building2 size={24} className="text-indigo-400" />
-                                                    <span className="font-black text-lg">الائتمان المالي: {selectedCustomer.name}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between font-sans text-sm font-black text-gray-400 mb-2">
-                                                    <span className="flex items-center gap-2">الائتمان المتاح <span className="text-emerald-400">{selectedCustomer.creditLimit.toLocaleString()} دج 🟢</span></span>
-                                                    <span className="flex items-center gap-2">الدين الحالي <span className="text-rose-400">{selectedCustomer.balanceDue.toLocaleString()} دج 🔴</span></span>
-                                                </div>
-                                                <div className="w-full bg-gray-100 rounded-full h-3.5 mb-2 overflow-hidden border border-gray-200 relative">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all duration-1000 ${progressPercent > 90 ? 'bg-rose-500' : progressPercent > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                                        style={{ width: `${progressPercent}%` }}></div>
-                                                    <div className="absolute inset-0 bg-white/10 w-full" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px)' }}></div>
-                                                </div>
-                                                <p className="text-xs font-bold text-gray-500 text-center">{progressPercent}% مستخدم من السقف الائتماني</p>
-                                            </div>
-                                        )}
-
-                                        {selectedCustomer && selectedCustomer.type === 'LOYAL' && customerProjects.length > 0 && (
-                                            <div className="pt-2">
-                                                <label className="text-sm font-bold text-gray-400 block mb-2">تأطير الطلبية ضمن مشروع (اختياري)</label>
-                                                <select
-                                                    className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:border-blue-500 outline-none transition-colors"
-                                                    value={projectId}
-                                                    onChange={(e) => setProjectId(e.target.value ? parseInt(e.target.value) : '')}
-                                                >
-                                                    <option value="">لا يوجد مشروع محدد</option>
-                                                    {customerProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4" onKeyDown={handleKeyDown}>
-                                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded-xl border border-gray-200 mb-2">
-                                            <span className="text-xs font-bold text-gray-700 mx-2">معلومات الزبون العابر</span>
-                                            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">
-                                                <Landmark size={14} className="text-blue-600" />
-                                                <span className="text-[10px] font-black text-blue-600 uppercase">التطبيق الضريبي الرسمي</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setGuestIsOfficial(!guestIsOfficial)}
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${guestIsOfficial ? 'bg-blue-600' : 'bg-gray-200'}`}
-                                                >
-                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${guestIsOfficial ? '-translate-x-6' : '-translate-x-1'}`} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <div className="md:col-span-2">
-                                                <div className={showErrors && !guestName.trim() ? "ring-2 ring-rose-500/50 rounded-xl" : ""}>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="* الاسم الكامل للزبون العابر..."
-                                                        value={guestName}
-                                                        onChange={e => setGuestName(e.target.value.toUpperCase())}
-                                                        className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase ${showErrors && !guestName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
-                                                    />
-                                                </div>
-                                                {showErrors && !guestName.trim() && <p className="text-rose-500 text-xs font-bold px-2 mt-1">⚠️ اسم الزبون العابر إلزامي!</p>}
-                                            </div>
-                                            <input type="tel" dir="ltr" placeholder="رقم الهاتف (اختياري)" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} onFocus={() => setFocusedField('guestPhone')} onBlur={() => setFocusedField(null)} className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500 transition-colors" />
-                                            {focusedField === 'guestPhone' && (
-                                                <div className="md:col-span-2 flex gap-1 mt-1 font-mono text-xs" dir="ltr">
-                                                    {[...Array(10)].map((_, i) => (
-                                                        <div key={i} className={`flex-1 flex justify-center border-b-2 ${guestPhone[i] ? 'text-blue-600 border-blue-600' : (i === guestPhone.length ? 'text-amber-500 border-amber-500 font-bold scale-110' : 'text-gray-300 border-gray-100')}`}>
-                                                            {guestPhone[i] || 'x'}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {!guestIsOfficial && (
-                                                <div className="md:col-span-2">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="* العنوان (Cité / الحي / الشارع)..."
-                                                        value={guestAddress}
-                                                        onChange={e => setGuestAddress(e.target.value.toUpperCase())}
-                                                        className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase font-black ${showErrors && !guestAddress.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
-                                                    />
-                                                    {showErrors && !guestAddress.trim() && <p className="text-rose-500 text-xs font-bold px-2 mt-1">⚠️ العنوان إلزامي!</p>}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {guestIsOfficial && (
-                                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 space-y-4">
-                                                <h4 className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-2 mb-2"><Info size={12} /> الهوية الجبائية للزبون (للفاتورة)</h4>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    {/* RC - 10 chars */}
-                                                    <div className="space-y-1">
-                                                        <label className="text-[9px] font-bold text-gray-500">سجل تجاري (RC)</label>
-                                                        <div className="relative font-mono">
-                                                            <input
-                                                                type="text" maxLength={10} value={guestRC}
-                                                                onChange={e => setGuestRC(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                                                                onFocus={() => setFocusedField('guestRC')}
-                                                                onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                                dir="ltr"
-                                                            />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-1.5 z-10 text-[10px]" dir="ltr">
-                                                                {[...Array(10)].map((_, i) => (
-                                                                    <div key={i} className={`flex-1 flex justify-center border-b ${guestRC[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestRC.length && focusedField === 'guestRC' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
-                                                                        {guestRC[i] || 'x'}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {/* NIF - 15 digits */}
-                                                    <div className="space-y-1">
-                                                        <label className="text-[9px] font-bold text-gray-500">رقم التعريف الجبائي (NIF)</label>
-                                                        <div className="relative font-mono">
-                                                            <input
-                                                                type="text" maxLength={15} value={guestNIF}
-                                                                onChange={e => setGuestNIF(e.target.value.replace(/\D/g, ''))}
-                                                                onFocus={() => setFocusedField('guestNIF')}
-                                                                onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                                dir="ltr"
-                                                            />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1 py-1.5 z-10 text-[9px]" dir="ltr">
-                                                                {[...Array(15)].map((_, i) => (
-                                                                    <div key={i} className={`flex-1 flex justify-center border-b ${guestNIF[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestNIF.length && focusedField === 'guestNIF' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
-                                                                        {guestNIF[i] || 'x'}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {/* AI - 11 digits */}
-                                                    <div className="space-y-1">
-                                                        <label className="text-[9px] font-bold text-gray-500">رقم المادة (AI)</label>
-                                                        <div className="relative font-mono">
-                                                            <input
-                                                                type="text" maxLength={11} value={guestAI}
-                                                                onChange={e => setGuestAI(e.target.value.replace(/\D/g, ''))}
-                                                                onFocus={() => setFocusedField('guestAI')}
-                                                                onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                                dir="ltr"
-                                                            />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-2 py-1.5 z-10 text-[10px]" dir="ltr">
-                                                                {[...Array(11)].map((_, i) => (
-                                                                    <div key={i} className={`flex-1 flex justify-center border-b ${guestAI[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestAI.length && focusedField === 'guestAI' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
-                                                                        {guestAI[i] || 'x'}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {/* NIS - 15 digits */}
-                                                    <div className="space-y-1">
-                                                        <label className="text-[9px] font-bold text-gray-500">رقم التعريف الإحصائي (NIS)</label>
-                                                        <div className="relative font-mono">
-                                                            <input
-                                                                type="text" maxLength={15} value={guestNIS}
-                                                                onChange={e => setGuestNIS(e.target.value.replace(/\D/g, ''))}
-                                                                onFocus={() => setFocusedField('guestNIS')}
-                                                                onBlur={() => setFocusedField(null)}
-                                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-text"
-                                                                dir="ltr"
-                                                            />
-                                                            <div className="flex gap-0.5 w-full justify-between items-center bg-white border border-gray-200 rounded-lg px-1 py-1.5 z-10 text-[9px]" dir="ltr">
-                                                                {[...Array(15)].map((_, i) => (
-                                                                    <div key={i} className={`flex-1 flex justify-center border-b ${guestNIS[i] ? 'text-blue-600 border-blue-600 font-bold' : (i === guestNIS.length && focusedField === 'guestNIS' ? 'text-amber-500 border-amber-500 font-black scale-110 shadow-sm' : 'text-gray-300 border-gray-100')}`}>
-                                                                        {guestNIS[i] || 'x'}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="pt-2 space-y-3">
-                                                    <div className="space-y-1">
-                                                        <label className="text-[9px] font-bold text-gray-500">العنوان الكامل (الشارع / الحي ) <span className="text-red-500">*</span></label>
-                                                        <input type="text" placeholder="Cité, Street, Ave..." value={guestAddress} onChange={e => setGuestAddress(e.target.value.toUpperCase())} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 uppercase font-black" required />
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1">
-                                                            <label className="text-[9px] font-bold text-gray-500">الولاية <span className="text-red-500">*</span></label>
-                                                            <select
-                                                                value={guestWilaya}
-                                                                onChange={e => {
-                                                                    const w = ALGERIA_LOCATIONS.find(l => l.arabicName === e.target.value);
-                                                                    setGuestWilaya(e.target.value);
-                                                                    setGuestCommune((w as any)?.communes?.[0] || '');
-                                                                }}
-                                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold"
-                                                            >
-                                                                {ALGERIA_LOCATIONS.map(w => (
-                                                                    <option key={w.id} value={w.arabicName}>{w.id} - {w.arabicName}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <label className="text-[9px] font-bold text-gray-500">البلدية <span className="text-red-500">*</span></label>
-                                                            <input
-                                                                type="text"
-                                                                placeholder="البلدية..."
-                                                                value={guestCommune}
-                                                                onChange={e => setGuestCommune(e.target.value.toUpperCase())}
-                                                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold uppercase"
-                                                                required
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {orderType === 'PURCHASE' && (
-                            <>
-                                <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-xl w-fit">
-                                    <button onClick={() => setSupplierType('REGISTERED')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${supplierType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🏢 مورد مسجل</button>
-                                    <button onClick={() => setSupplierType('GUEST')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${supplierType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 مورد غير مسجل</button>
-                                </div>
-
-                                {supplierType === 'REGISTERED' ? (
-                                    <div className="space-y-4">
-                                        <div className={showErrors && !supplierId ? "ring-2 ring-rose-500 rounded-2xl p-1" : ""}>
-                                            <SearchableSelect
-                                                options={suppliers.map(s => ({ id: s.id, label: s.name, subLabel: `رصيد المورد: ${s.balanceDue.toLocaleString()} دج` }))}
-                                                value={supplierId}
-                                                onChange={(val) => setSupplierId(val)}
-                                                placeholder="ابحث واختر المورد لطلب سلع جديدة..."
-                                            />
-                                        </div>
-                                        {showErrors && !supplierId && <p className="text-rose-500 text-xs font-bold px-2">⚠️ يرجى تحديد المورد الذي ستشتري منه لإكمال الطلبية</p>}
-                                        {selectedSupplier && (
-                                            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 flex justify-between items-center text-sm font-bold mt-2">
-                                                <span className="text-gray-400">الديون المستحقة له:</span>
-                                                <span className="text-emerald-400 font-sans font-black text-xl tracking-tight">{selectedSupplier.balanceDue.toLocaleString()} دج</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div className={showErrors && !guestSupplierName.trim() ? "ring-2 ring-rose-500 rounded-xl" : ""}>
-                                            <input
-                                                type="text"
-                                                placeholder="* اسم المورد اليدوي..."
-                                                value={guestSupplierName}
-                                                onChange={e => setGuestSupplierName(e.target.value)}
-                                                className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors ${showErrors && !guestSupplierName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
-                                            />
-                                        </div>
-                                        {showErrors && !guestSupplierName.trim() && <p className="text-rose-500 text-xs font-bold px-2">⚠️ اسم المورد إلزامي!</p>}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-
-                    {/* STEP 4: PRODUCTS PORTAL */}
-                    <div className="bg-white border border-gray-200 rounded-[2rem] shadow-xl overflow-hidden">
-                        <div className="bg-white/50 p-6 border-b border-gray-200 flex justify-between items-center">
-                            <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><PackageOpen className="text-blue-500" /> شبكة بناء الطلبية (المنتجات)</h2>
+                        <div className="flex p-1 bg-gray-50 border border-gray-200 rounded-xl w-fit">
+                            <button onClick={() => setCustomerType('REGISTERED')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${customerType === 'REGISTERED' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>👤 عميل مسجل</button>
+                            <button onClick={() => setCustomerType('GUEST')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${customerType === 'GUEST' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500 hover:text-gray-700'}`}>🚶 زبون عابر</button>
                         </div>
 
-                        <div className="p-6 flex flex-col gap-4 bg-gray-50">
-                            {lines.map((line, index) => {
-                                const selectedProduct = line.product;
-                                const isQtyWarn = orderType === 'SALE' && selectedProduct && line.quantity > (selectedProduct.validQuantity ?? selectedProduct.quantity);
-                                const isPriceWarn = orderType === 'SALE' && selectedProduct && line.unitPrice < selectedProduct.purchasePrice;
-
-                                return (
-                                    <div key={line.id} className={`bg-white border border-gray-200 rounded-2xl p-5 relative transition-all shadow-md group ${isQtyWarn ? 'ring-2 ring-rose-500/50' : ''}`}>
-                                        <div className="flex items-start justify-between gap-4 mb-4">
-                                            <div className="flex-1">
-                                                <SearchableSelect
-                                                    options={products.map(p => {
-                                                        const vQty = p.validQuantity ?? p.quantity;
-                                                        const diff = Math.max(0, p.quantity - vQty);
-                                                        return {
-                                                            id: p.id,
-                                                            label: p.name,
-                                                            subLabel: orderType === 'SALE' 
-                                                                ? `الرصيد الصالح: ${vQty} ${p.unit}${diff > 0 ? ` (⚠️ ${diff} قطعة منتهية محجوبة)` : ''}`
-                                                                : `المخزون الكلي: ${p.quantity} ${p.unit} | التكلفة: ${p.purchasePrice} دج`
-                                                        };
-                                                    })}
-                                                    value={line.productId}
-                                                    onChange={(val) => updateLine(line.id, { productId: val })}
-                                                    placeholder="[🔍] انقر للبحث عن المخزون وإدراجه..."
-                                                    onSelect={(opt) => {
-                                                        const prd = products.find(p => p.id === opt.id);
-                                                        if (prd) updateLine(line.id, { product: prd, unitPrice: orderType === 'SALE' ? prd.sellPrice : prd.purchasePrice });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="bg-white/50 px-4 py-3 rounded-xl border border-gray-200 shrink-0 min-w-28 text-center text-xs font-black text-gray-500">
-                                                {selectedProduct ? selectedProduct.unit : 'وحدة القياس'}
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                            <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50">
-                                                <span className="text-xs font-bold text-gray-500">الكمية</span>
-                                                <input
-                                                    type="number" min="1" dir="ltr"
-                                                    value={line.quantity || ''}
-                                                    onChange={e => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                                                    onKeyDown={handleInputKeyDown}
-                                                    className="navigable-input bg-transparent border-none outline-none text-gray-900 font-sans font-black text-right w-24 text-lg"
-                                                />
-                                            </div>
-                                            {/* Remise Field (For Sales) */}
-                                            {orderType === 'SALE' && selectedProduct && (
-                                                <div className={`border rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-orange-400 ${
-                                                    line.discount > 0 ? 'bg-orange-50/50 border-orange-200' : 'bg-white/50 border-gray-200'
-                                                }`}>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs font-bold text-orange-500">تخفيض / Remise</span>
-                                                        {line.discount > 0 && selectedProduct && (
-                                                            <span className="text-[9px] font-bold text-gray-400">أقصى: {selectedProduct.sellPrice - selectedProduct.purchasePrice} دج</span>
-                                                        )}
-                                                    </div>
-                                                    <input
-                                                        type="number" min="0" dir="ltr"
-                                                        value={line.discount || ''}
-                                                        onChange={e => {
-                                                            const maxDiscount = selectedProduct ? selectedProduct.sellPrice - selectedProduct.purchasePrice : 0;
-                                                            const val = Math.min(parseFloat(e.target.value) || 0, Math.max(0, maxDiscount));
-                                                            updateLine(line.id, { discount: val });
-                                                        }}
-                                                        onKeyDown={handleInputKeyDown}
-                                                        className="navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-24 text-lg text-orange-500"
-                                                        placeholder="0"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* New Sell Price Field (For Purchases) */}
-                                            {orderType === 'PURCHASE' && selectedProduct && (
-                                                <div className={`bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-blue-500/50 relative ${
-                                                    (line.newSellPrice !== undefined && line.newSellPrice < Math.max(selectedProduct.purchasePrice, line.unitPrice)) ? 'ring-2 ring-rose-500/50' : ''
-                                                }`}>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs font-bold text-gray-500">سعر البيع الافرادي</span>
-                                                        <span className="text-[10px] text-blue-500 font-bold">الحالي: {selectedProduct.sellPrice} دج</span>
-                                                    </div>
-                                                    <input
-                                                        type="number" min="0" dir="ltr"
-                                                        value={line.newSellPrice !== undefined ? line.newSellPrice : selectedProduct.sellPrice}
-                                                        onChange={e => updateLine(line.id, { newSellPrice: parseFloat(e.target.value) || 0 })}
-                                                        onKeyDown={handleInputKeyDown}
-                                                        className="navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-24 text-lg text-blue-600"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* Expiry Date Field (For Purchases if product has it) */}
-                                            {orderType === 'PURCHASE' && selectedProduct && selectedProduct.hasExpiryDate !== false && (
-                                                <div className="bg-white/50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between focus-within:border-amber-500/50 relative">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs font-bold text-amber-500">تاريخ انتهاء الصلاحية</span>
-                                                    </div>
-                                                    <input
-                                                        type="date"
-                                                        value={line.expiryDate || ''}
-                                                        onChange={e => updateLine(line.id, { expiryDate: e.target.value })}
-                                                        className="navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-32 text-sm text-gray-900"
-                                                    />
-                                                </div>
-                                            )}
-                                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 px-3 flex items-center justify-between">
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-bold text-gray-500">{orderType === 'SALE' ? 'سعر البيع الافرادي' : 'تكلفة الشراء (دج)'}</span>
-                                                    {orderType === 'PURCHASE' && selectedProduct && (
-                                                        <span className="text-[10px] text-blue-500 font-bold">سعر البيع الحالي: {selectedProduct.sellPrice} دج</span>
-                                                    )}
-                                                    {orderType === 'SALE' && line.discount > 0 && (
-                                                        <span className="text-[10px] text-orange-500 font-bold">بعد التخفيض: {(line.unitPrice - line.discount).toLocaleString()} دج</span>
-                                                    )}
-                                                </div>
-                                                {orderType === 'SALE' ? (
-                                                    <span className={`font-sans font-black text-lg ${(line.unitPrice - line.discount) < (selectedProduct?.purchasePrice || 0) ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                        {line.unitPrice.toLocaleString()}
-                                                    </span>
-                                                ) : (
-                                                    <input
-                                                        type="number" min="1" dir="ltr"
-                                                        value={line.unitPrice || ''}
-                                                        onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                                                        onKeyDown={handleInputKeyDown}
-                                                        className={`navigable-input bg-transparent border-none outline-none font-sans font-black text-right w-28 text-lg ${isPriceWarn ? 'text-rose-400' : 'text-emerald-400'}`}
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-wrap justify-between items-end border-t border-gray-200 pt-4">
-                                            <div className="flex flex-col gap-1">
-                                                {isQtyWarn && <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md mb-1 w-fit">⚠️ الكمية المطلوبة تتجاوز المخزون الصالح للبيع ({selectedProduct.validQuantity})</span>}
-                                                {orderType === 'SALE' && selectedProduct && selectedProduct.hasExpiryDate && selectedProduct.nearestExpiryDate && new Date(selectedProduct.nearestExpiryDate) < new Date() && (
-                                                    <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md mb-1 w-fit flex items-center gap-1">
-                                                        <AlertTriangle size={12} /> {selectedProduct.validQuantity === 0 ? '❌ هذا المنتج منتهي الصلاحية بالكامل ولا يمكن بيعه!' : '⚠️ تنبيه: يحتوي هذا المنتج على قطع منتهية الصلاحية تم استبعادها تلقائياً.'}
-                                                    </span>
-                                                )}
-                                                {orderType === 'SALE' && selectedProduct && (line.unitPrice - line.discount) < selectedProduct.purchasePrice && <span className="text-[11px] font-black font-sans bg-amber-500/10 text-amber-500 px-2 py-1 rounded-md w-fit">⚠️ تنبيه: السعر بعد التخفيض ({(line.unitPrice - line.discount)} دج) أقل من التكلفة ({selectedProduct.purchasePrice} دج)</span>}
-                                                {orderType === 'PURCHASE' && selectedProduct && (
-                                                    (() => {
-                                                        const effectiveSellPrice = line.newSellPrice !== undefined ? line.newSellPrice : selectedProduct.sellPrice;
-                                                        if (line.unitPrice > effectiveSellPrice) {
-                                                            return <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md w-fit">❌ خطأ: تكلفة الشراء ({line.unitPrice} دج) أكبر من سعر البيع الافرادي ({effectiveSellPrice} دج)</span>;
-                                                        }
-                                                        if (effectiveSellPrice < Math.max(selectedProduct.purchasePrice, line.unitPrice)) {
-                                                            return <span className="text-[11px] font-black font-sans bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md w-fit">❌ خطأ: سعر البيع ({effectiveSellPrice} دج) لا يمكن أن يكون أقل من التكلفة ({Math.max(selectedProduct.purchasePrice, line.unitPrice)} دج)</span>;
-                                                        }
-                                                        return null;
-                                                    })()
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-left font-sans flex flex-col">
-                                                    <span className="text-[10px] uppercase text-gray-600 font-bold tracking-widest block mb-1">المجموع الجزئي (Line Total)</span>
-                                                    <span className="text-2xl font-black text-gray-900">{(line.quantity * Math.max(0, line.unitPrice - line.discount)).toLocaleString()} <span className="text-sm text-gray-500">دج</span></span>
-                                                </div>
-                                                {lines.length > 1 && (
-                                                    <button onClick={() => handleRemoveLine(line.id)} className="w-10 h-10 flex justify-center items-center rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-gray-900 transition-colors border border-rose-500/20">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            <button
-                                onClick={handleAddLine}
-                                disabled={hasAnyLineWarning}
-                                className={`mt-2 w-full py-5 border-2 border-dashed rounded-2xl font-black flex items-center justify-center gap-2 transition-all
-                                    ${hasAnyLineWarning ? 'border-amber-300/50 text-amber-400 bg-amber-50 cursor-not-allowed' : 'border-gray-300 hover:border-blue-500/50 text-blue-400 hover:bg-blue-500/5'}`}
-                            >
-                                <Plus size={20} /> {hasAnyLineWarning ? 'يرجى إصلاح التنبيهات لحل المشكلة قبل إضافة منتج جديد' : 'إدراج منتج آخر إلى القائمة'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* STEP 5: PAYMENT */}
-                    <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl flex flex-col gap-6">
-                        <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">5. هيكلة السداد المالي</h2>
-
-                        <div className="grid grid-cols-3 gap-3">
-                            <button onClick={() => setPaymentMode('FULL')} className={`p-4 rounded-2xl border flex flex-col items-center justify-center text-center gap-2 font-black transition-all ${paymentMode === 'FULL' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-white/50 border-gray-200 text-gray-400 hover:bg-gray-200'}`}>
-                                <CreditCard size={24} /> <span>دفع كامل<br /><span className="text-[10px] opacity-70 font-medium">(الكل نقداً)</span></span>
-                            </button>
-                            <button onClick={() => setPaymentMode('PARTIAL')} className={`p-4 rounded-2xl border flex flex-col items-center justify-center text-center gap-2 font-black transition-all ${paymentMode === 'PARTIAL' ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-white/50 border-gray-200 text-gray-400 hover:bg-gray-200'}`}>
-                                <Store size={24} /> <span>دفع جزئي<br /><span className="text-[10px] opacity-70 font-medium">(عربون وتسديد لاحق)</span></span>
-                            </button>
-                            <button onClick={() => setPaymentMode('NONE')} className={`p-4 rounded-2xl border flex flex-col items-center justify-center text-center gap-2 font-black transition-all ${paymentMode === 'NONE' ? 'bg-rose-500/10 border-rose-500/50 text-rose-400' : 'bg-white/50 border-gray-200 text-gray-400 hover:bg-gray-200'}`}>
-                                <Calendar size={24} /> <span>تسليف / آجل<br /><span className="text-[10px] opacity-70 font-medium">(دين بالكامل)</span></span>
-                            </button>
-                        </div>
-
-                        {paymentMode !== 'NONE' && (
-                            <div className="bg-white/50 border border-gray-200 rounded-2xl p-5 animate-in slide-in-from-top-2">
-                                {paymentMode === 'PARTIAL' && (
-                                    <div className="mb-6">
-                                        <label className="text-xs font-bold text-gray-400 block mb-2">الدفع الأولي (المُقدم)</label>
-                                        <input
-                                            type="number" dir="ltr"
-                                            className="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 font-sans font-black text-2xl outline-none focus:border-blue-500 text-left"
-                                            value={initialPayment || ''}
-                                            onChange={e => setInitialPayment(Math.min(grandTotal, parseFloat(e.target.value) || 0))}
-                                        />
-                                        <div className="flex gap-2 mt-3 justify-end font-sans">
-                                            {[25, 50, 75].map(pct => (
-                                                <button key={pct} onClick={() => setInitialPayment(grandTotal * (pct / 100))} className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded border border-blue-500/20">
-                                                    {pct}% تسديد
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <label className="text-xs font-bold text-gray-400 block mb-3">حالة ووسيلة الدفع:</label>
-                                <div className="flex gap-2 p-1 bg-gray-50 rounded-xl mb-4 w-fit border border-gray-200">
-                                    <button onClick={() => setPaymentMethod('CASH')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'CASH' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>💵 كاش النقدي</button>
-                                    <button onClick={() => setPaymentMethod('BANK_TRANSFER')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'BANK_TRANSFER' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>🏦 الحوالة البنكية</button>
-                                    <button onClick={() => setPaymentMethod('CHEQUE')} className={`px-5 py-2 rounded-lg text-sm font-black transition-colors ${paymentMethod === 'CHEQUE' ? 'bg-gray-200 text-gray-900 shadow' : 'text-gray-500'}`}>📄 الشيك البنكي</button>
+                        {customerType === 'REGISTERED' ? (
+                            <div className="space-y-4">
+                                <div className={showErrors && !customerId ? "ring-2 ring-rose-500/50 rounded-2xl p-1" : ""}>
+                                    <SearchableSelect
+                                        options={filteredCustomersForList.map(c => ({
+                                            id: c.id,
+                                            label: c.name,
+                                            subLabel: c.type === 'LOYAL' ? 'مقاول معتمد - له سقف ائتماني' : 'عميل عادي'
+                                        }))}
+                                        value={customerId}
+                                        onChange={(val) => setCustomerId(val)}
+                                        placeholder="ابحث واختر العميل من القائمة..."
+                                    />
                                 </div>
+                                {showErrors && !customerId && <p className="text-rose-500 text-xs font-bold px-2">⚠️ يرجى اختيار العميل من القائمة لمعالجة الطلبية</p>}
 
-                                {(paymentMethod === 'CHEQUE' || paymentMethod === 'BANK_TRANSFER') && (
-                                    <div className="mt-4 space-y-3">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-[10px] font-bold text-gray-400 block mb-1">
-                                                    {paymentMethod === 'CHEQUE' ? '📄 رقم الشيك البنكي' : '🏦 رقم مرجع الحوالة'}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    placeholder={paymentMethod === 'CHEQUE' ? 'أدخل رقم الشيك...' : 'أدخل رقم العملية / المرجع...'}
-                                                    value={chequeNumber}
-                                                    onChange={e => setChequeNumber(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-bold text-gray-400 block mb-1">🏛️ البنك أو المؤسسة المالية</label>
-                                                <select value={bankName} onChange={e => setBankName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500/50">
-                                                    <option value="" disabled>اختر البنك...</option>
-                                                    <option value="Algérie Poste (بريد الجزائر)">Algérie Poste (بريد الجزائر)</option>
-                                                    <option value="BNA (البنك الوطني الجزائري)">BNA (البنك الوطني الجزائري)</option>
-                                                    <option value="CPA (القرض الشعبي الجزائري)">CPA (القرض الشعبي الجزائري)</option>
-                                                    <option value="BADR (الفلاحة والتنمية الريفية)">BADR (الفلاحة والتنمية الريفية)</option>
-                                                    <option value="BDL (بنك التنمية المحلية)">BDL (بنك التنمية المحلية)</option>
-                                                    <option value="CNEP (الصندوق الوطني للتوفير)">CNEP (الصندوق للتوفير والاحتياط)</option>
-                                                    <option value="BEA (بنك الجزائر الخارجي)">BEA (بنك الجزائر الخارجي)</option>
-                                                    <option value="Société Générale Algérie">Société Générale Algérie</option>
-                                                    <option value="BNP Paribas El Djazaïr">BNP Paribas El Djazaïr</option>
-                                                    <option value="Gulf Bank Algérie (AGB)">Gulf Bank Algérie (AGB)</option>
-                                                    <option value="Natixis Algérie">Natixis Algérie</option>
-                                                    <option value="Al Baraka (بنك البركة)">Al Baraka (بنك البركة)</option>
-                                                    <option value="Al Salam Bank (مصرف السلام)">Al Salam Bank (مصرف السلام)</option>
-                                                    <option value="Trust Bank Algeria">Trust Bank Algeria</option>
-                                                    <option value="Housing Bank Algeria">Housing Bank Algeria</option>
-                                                    <option value="Fransabank El Djazaïr">Fransabank El Djazaïr</option>
-                                                </select>
-                                            </div>
+                                {selectedCustomer && selectedCustomer.type === 'LOYAL' && selectedCustomer.creditLimit && (
+                                    <div className="bg-gradient-to-br from-[#1A2333] to-[#0B101A] rounded-2xl border border-gray-300/50 p-5 shadow-inner">
+                                        <div className="flex items-center gap-3 mb-4 text-white">
+                                            <Building2 size={24} className="text-indigo-400" />
+                                            <span className="font-black text-lg">الائتمان المالي: {selectedCustomer.name}</span>
                                         </div>
+                                        <div className="flex items-center justify-between font-sans text-sm font-black text-gray-400 mb-2">
+                                            <span className="flex items-center gap-2">الائتمان المتاح <span className="text-emerald-400">{selectedCustomer.creditLimit.toLocaleString()} دج 🟢</span></span>
+                                            <span className="flex items-center gap-2">الدين الحالي <span className="text-rose-400">{selectedCustomer.balanceDue.toLocaleString()} دج 🔴</span></span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-3.5 mb-2 overflow-hidden border border-gray-200 relative">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-1000 ${progressPercent > 90 ? 'bg-rose-500' : progressPercent > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                style={{ width: `${progressPercent}%` }}></div>
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-500 text-center">{progressPercent}% مستخدم من السقف الائتماني</p>
                                     </div>
                                 )}
                             </div>
-                        )}
-
-                        {remaining > 0 && (
-                            <div className={`border rounded-2xl p-6 transition-all ${isDueDateInvalid ? 'bg-rose-500/10 border-rose-500 ring-4 ring-rose-500/20' : 'bg-amber-500/5 border-amber-500/20 shadow-sm animate-in fade-in slide-in-from-bottom-4'}`}>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                                        <Calendar size={16} className="text-amber-500" />
-                                    </div>
-                                    <label className={`text-sm font-black block ${isDueDateInvalid ? 'text-rose-600' : 'text-gray-700'}`}>
-                                        تحديد موعد السداد (Date Limite / Echéance)
-                                    </label>
-                                </div>
-                                <p className="text-[10px] text-gray-500 mb-4 font-bold">بما أن هناك مبلغ متبقي ({remaining.toLocaleString()} دج)، يرجى تحديد تاريخ التزام الطرف الآخر بالدفع.</p>
+                        ) : (
+                            <div className="space-y-4" onKeyDown={handleKeyDown}>
                                 <input
-                                    type="date"
-                                    lang="fr-FR"
-                                    min={new Date().toISOString().split('T')[0]}
-                                    value={dueDate} onChange={e => setDueDate(e.target.value)}
-                                    className={`bg-white border-2 rounded-xl px-5 py-4 text-base font-sans w-full max-w-sm outline-none transition-all shadow-sm ${isDueDateInvalid ? 'border-rose-500 text-rose-600 focus:ring-4 focus:ring-rose-500/20' : 'border-gray-200 text-gray-900 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'}`}
+                                    type="text"
+                                    placeholder="* الاسم الكامل للزبون العابر..."
+                                    value={guestName}
+                                    onChange={e => setGuestName(e.target.value.toUpperCase())}
+                                    className={`w-full bg-white/50 border rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-colors uppercase ${showErrors && !guestName.trim() ? 'border-rose-500 bg-rose-50' : 'border-gray-200 focus:border-blue-500'}`}
                                 />
-                                {isDueDateInvalid && (
-                                    <p className="text-xs font-black text-rose-500 mt-3 flex items-center gap-1.5 bg-rose-500/10 p-2 rounded-lg">
-                                        <AlertTriangle size={16} /> تنبيه: لا يمكن اختيار تاريخ سابق لليوم!
-                                    </p>
-                                )}
+                                <input type="tel" dir="ltr" placeholder="رقم الهاتف (اختياري)" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500 transition-colors" />
                             </div>
                         )}
                     </div>
 
-                    {/* STEP 6: REMISE & NOTES */}
-                    <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl mb-24 lg:mb-0">
-                        <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">6. إجمالي التخفيض (Remise Total) <Percent size={16} /></h2>
-                        
-                        {orderType === 'SALE' && (
-                            <div className="bg-orange-50/50 border border-orange-200 rounded-xl px-4 py-4 flex justify-between items-center mb-4">
-                                <span className="font-bold text-orange-600">قيمة التخفيض الإجمالية:</span>
-                                <span className="text-2xl font-black text-orange-500 font-sans tracking-tight">
-                                    {lines.reduce((acc, line) => acc + ((line.discount || 0) * line.quantity), 0).toLocaleString()} دج
-                                </span>
+                    {/* PRODUCTS GRID */}
+                    <div className="bg-white border border-gray-200 rounded-[2rem] shadow-xl overflow-hidden">
+                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                            <h2 className="text-lg font-black text-gray-900 flex items-center gap-2"><PackageOpen className="text-blue-500" /> المنتجات المختارة</h2>
+                        </div>
+                        <div className="p-6 flex flex-col gap-4 bg-gray-50">
+                            {lines.map((line, index) => (
+                                <div key={line.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                                    <div className="flex flex-col gap-4">
+                                        <SearchableSelect
+                                            options={products.map(p => ({
+                                                id: p.id,
+                                                label: p.name,
+                                                subLabel: `المخزون: ${p.quantity} ${p.unit} | السعر: ${p.sellPrice} دج`
+                                            }))}
+                                            value={line.productId}
+                                            onChange={(val) => updateLine(line.id, { productId: val })}
+                                            placeholder="اختر منتجاً..."
+                                            onSelect={(opt) => {
+                                                const prd = products.find(p => p.id === opt.id);
+                                                if (prd) updateLine(line.id, { product: prd, unitPrice: prd.sellPrice });
+                                            }}
+                                        />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between">
+                                                <span className="text-xs font-bold text-gray-400">الكمية</span>
+                                                <input type="number" value={line.quantity || ''} onChange={e => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })} className="bg-transparent border-none outline-none font-black text-right w-20 text-lg" />
+                                            </div>
+                                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between">
+                                                <span className="text-xs font-bold text-gray-400">المجموع</span>
+                                                <span className="font-black text-emerald-600">{(line.unitPrice * line.quantity).toLocaleString()} دج</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            <button onClick={handleAddLine} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-black hover:border-blue-500 hover:text-blue-500 transition-all">+ إضافة سطر جديد</button>
+                        </div>
+                    </div>
+
+                    {/* PAYMENT SECTION */}
+                    <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-xl flex flex-col gap-6 mb-20">
+                        <h2 className="text-sm font-black text-gray-500 uppercase tracking-widest">3. تفاصيل الدفع</h2>
+                        <div className="grid grid-cols-3 gap-3">
+                            <button onClick={() => setPaymentMode('FULL')} className={`p-4 rounded-2xl border flex flex-col items-center gap-2 font-black transition-all ${paymentMode === 'FULL' ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}>
+                                <CreditCard size={20} /> كامل
+                            </button>
+                            <button onClick={() => setPaymentMode('PARTIAL')} className={`p-4 rounded-2xl border flex flex-col items-center gap-2 font-black transition-all ${paymentMode === 'PARTIAL' ? 'bg-amber-50 border-amber-500 text-amber-600 shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}>
+                                <Store size={20} /> جزئي
+                            </button>
+                            <button onClick={() => setPaymentMode('NONE')} className={`p-4 rounded-2xl border flex flex-col items-center gap-2 font-black transition-all ${paymentMode === 'NONE' ? 'bg-rose-50 border-rose-500 text-rose-600 shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}>
+                                <Calendar size={20} /> آجل
+                            </button>
+                        </div>
+
+                        {paymentMode === 'PARTIAL' && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 animate-in slide-in-from-top-2">
+                                <label className="text-xs font-black text-gray-400 block mb-2">المبلغ المدفوع حالياً (دج)</label>
+                                <input
+                                    type="number"
+                                    value={initialPayment || ''}
+                                    onChange={e => setInitialPayment(parseFloat(e.target.value) || 0)}
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg font-black text-emerald-600 outline-none focus:border-emerald-500"
+                                />
                             </div>
                         )}
-
-                        <textarea
-                            rows={2}
-                            placeholder="ملاحظات تظهر وتُطبع على الفاتورة (اختياري)..."
-                            value={notes} onChange={e => setNotes(e.target.value)}
-                            className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500/50 resize-none font-medium leading-relaxed"
-                        />
                     </div>
                 </div>
 
                 {/* ━━━ LEFT SIDE (STICKY SUMMARY) ━━━ */}
                 <div className="xl:col-span-5 w-full">
                     <div className="sticky top-8 bg-gradient-to-b from-[#111825] to-[#0a0f18] border border-gray-800 shadow-2xl rounded-[2.5rem] overflow-hidden">
-                        {/* Header */}
-                        <div className="p-6 border-b border-gray-800/50 bg-[url('/noise.png')] relative">
-                            <div className="absolute inset-0 bg-blue-600/10 mix-blend-overlay"></div>
-                            <h3 className="text-xl font-black text-white relative z-10 flex justify-between items-center">
-                                ملخص الطلبية الافتراضي
-                                <span>🧾</span>
-                            </h3>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            {/* Meta Summary */}
-                            <div className="space-y-2 text-sm font-bold text-gray-300">
-                                <p className="flex justify-between border-b border-gray-800/50 pb-2">
-                                    <span className="text-gray-500">رقم الفاتورة:</span>
-                                    <span className="text-amber-400 font-sans font-black tracking-widest uppercase">
-                                        {orderType === 'PURCHASE' ? (externalOrderNumber !== 'SHR-' ? externalOrderNumber : <span className="text-rose-500 text-xs">مفقود!</span>) : 'سيتم التوليد'}
-                                    </span>
-                                </p>
-                                <p className="flex justify-between border-b border-gray-800/50 pb-2">
-                                    <span className="text-gray-500">الطرف المعني:</span>
-                                    <span className="text-white font-black truncate max-w-[150px]">
-                                        {orderType === 'SALE'
-                                            ? (customerType === 'REGISTERED' ? selectedCustomer?.name : guestName) || <span className="text-rose-500 text-xs">مفقود!</span>
-                                            : (supplierType === 'REGISTERED' ? selectedSupplier?.name : guestSupplierName) || <span className="text-rose-500 text-xs">مفقود!</span>
-                                        }
-                                    </span>
-                                </p>
-                                {projectId && (
-                                    <p className="flex justify-between border-b border-gray-800/50 pb-2">
-                                        <span className="text-gray-500">المشروع:</span>
-                                        <span className="text-indigo-400">{customerProjects.find(p => p.id === projectId)?.name}</span>
-                                    </p>
-                                )}
-                                <p className="flex justify-between border-b border-gray-800/50 pb-2">
-                                    <span className="text-gray-500">النوع:</span>
-                                    <span className={orderType === 'PURCHASE' ? 'text-amber-400' : 'text-blue-400'}>{orderType === 'PURCHASE' ? 'فاتورة شراء' : 'فاتورة بيع'}</span>
-                                </p>
-                            </div>
-
-                            {/* Products Snapshot */}
-                            <div className="bg-[#1a2333]/50 border border-gray-800/50 rounded-2xl p-4">
-                                <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">شريط المنتجات</h4>
-                                <div className="space-y-3 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-                                    {lines.map((l, i) => l.productId ? (
-                                        <div key={i} className="flex justify-between items-center text-xs text-gray-300 font-bold">
-                                            <span className="truncate max-w-[150px]">■ {products.find(p => p.id === l.productId)?.name} <span className="text-gray-500 font-sans">×{l.quantity}</span></span>
-                                            <span className="shrink-0 font-sans text-white">{Math.round(l.quantity * l.unitPrice).toLocaleString()} دج</span>
-                                        </div>
-                                    ) : <div key={i} className="text-xs text-gray-600 italic">...سطر فارغ...</div>)}
-                                </div>
-                            </div>
-
-                            <div className="h-px w-full bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
-
-                            {/* Live Calculations */}
-                            <div className="font-sans space-y-3">
-                                <div className="flex justify-between items-center text-gray-500 font-bold border-b border-gray-800/50 pb-2">
-                                    <span className="text-xs">المجموع (HT):</span>
-                                    <span>{subtotal.toLocaleString()} دج</span>
+                        <div className="p-8 space-y-8 text-white">
+                            <h3 className="text-xl font-black flex justify-between items-center">الملخص المالي <span>📊</span></h3>
+                            
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-gray-400 font-bold border-b border-gray-800 pb-2">
+                                    <span>المجموع (HT):</span>
+                                    <span className="text-white font-sans">{subtotal.toLocaleString()} دج</span>
                                 </div>
                                 {isOfficial && (
-                                    <>
-                                        <div className="flex justify-between items-center text-blue-400 font-bold border-b border-gray-800/50 pb-2">
-                                            <span className="text-xs">TVA ({settings?.tvaRate}%):</span>
-                                            <span>{taxTotal.toLocaleString()} دج</span>
-                                        </div>
-                                        {timbreAmount > 0 && (
-                                            <div className="flex justify-between items-center text-amber-400/50 text-xs border-b border-gray-800/50 pb-2">
-                                                <span>حقوق الدمغة:</span>
-                                                <span>{timbreAmount.toLocaleString()} دج</span>
-                                            </div>
-                                        )}
-                                    </>
+                                    <div className="flex justify-between items-center text-blue-400 font-bold border-b border-gray-800 pb-2">
+                                        <span>TVA ({settings?.tvaRate}%):</span>
+                                        <span>{taxTotal.toLocaleString()} دج</span>
+                                    </div>
                                 )}
-                                <div className="flex justify-between items-end pt-2">
-                                    <span className="text-sm font-black text-gray-400">الإجمالي (TTC)</span>
-                                    <span className="text-4xl font-black text-white">{grandTotal.toLocaleString()} دج</span>
-                                </div>
-                                <div className="flex justify-between items-center bg-[#1a2333] p-2 rounded-xl border border-gray-800/50">
-                                    <span className="text-xs font-bold text-gray-500">المدفوع سلفاً</span>
-                                    <span className="text-lg font-black text-emerald-400">{initialPayment.toLocaleString()} دج 🟢</span>
-                                </div>
-                                <div className={`flex justify-between items-center p-2 rounded-xl border ${remaining > 0 ? 'bg-rose-950/20 border-rose-900/30' : 'bg-emerald-950/20 border-emerald-900/30'}`}>
-                                    <span className={`text-xs font-bold ${remaining > 0 ? 'text-rose-500/50' : 'text-emerald-500/50'}`}>المتبقي الصافي</span>
-                                    <span className={`text-lg font-black ${remaining > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{remaining.toLocaleString()} دج {remaining > 0 ? '🔴' : '🟢'}</span>
+                                <div className="flex justify-between items-end pt-4">
+                                    <span className="text-gray-400 font-black">الإجمالي النهائي:</span>
+                                    <span className="text-5xl font-black text-blue-400 font-sans">{grandTotal.toLocaleString()} <span className="text-sm">دج</span></span>
                                 </div>
                             </div>
 
-                            {/* Tafqeet preview */}
-                            <div className="bg-[#1a2333]/50 border border-gray-800/50 rounded-xl p-4 text-center">
-                                <p className="text-[10px] font-bold text-blue-500/80 mb-1">تفقيط القيمة أوتوماتيكياً للطباعة المعيارية</p>
-                                <p className="text-sm font-black text-blue-300 leading-tight">"{tafqeet(grandTotal)} دينار جزائري"</p>
+                            <div className="bg-[#1a2333]/50 border border-gray-800/50 rounded-2xl p-4 text-center">
+                                <p className="text-[10px] font-bold text-blue-500/80 mb-1">تفقيط القيمة أوتوماتيكياً</p>
+                                <p className="text-sm font-black text-blue-300">"{tafqeet(grandTotal)} دينار جزائري"</p>
                             </div>
 
-                            {/* Credit Exceeded Warning */}
                             {creditLimitExceeded && (
                                 <div className="bg-rose-500/10 border-2 border-rose-500/50 rounded-2xl p-4 animate-pulse">
-                                    <p className="flex items-center gap-2 text-rose-400 font-black mb-2"><AlertTriangle size={18} /> تحذير إيقاف النظام</p>
-                                    <p className="text-xs text-rose-300 font-bold leading-relaxed mb-3">هذا الطلب يخترق السقف الائتماني العالي للمقاول. المتاح فقط [{selectedCustomer?.creditLimit?.toLocaleString()} دج]، يرجى رفع التسديد النقدي الأولّي.</p>
+                                    <p className="flex items-center gap-2 text-rose-400 font-black mb-1"><AlertTriangle size={18} /> تحذير الائتمان!</p>
+                                    <p className="text-[10px] text-rose-300 font-bold">تجاوز هذا المبلغ السقف الائتماني المسموح به لهذا العميل.</p>
                                 </div>
                             )}
 
-                            {/* Final Save Action */}
-                            <div className="flex flex-col gap-3 pt-2">
-                                <button
-                                    onClick={handleSave}
-                                    disabled={loading}
-                                    className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-all shadow-2xl
-                                        ${creditLimitExceeded ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-900/50' : loading ? 'bg-blue-600/50 text-gray-900 cursor-wait' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/50 hover:shadow-blue-500/50 hover:-translate-y-1'}`}
-                                >
-                                    {loading ? '⏳ جاري التسجيل المحاسبي...' : creditLimitExceeded ? '🚫 الرصيد الائتماني غير كاف' : '💾 تأكيد وحفظ الطلبية الرسمية'}
-                                </button>
-                                <button onClick={() => router.back()} className="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">
-                                    ← إلغاء والرجوع للقائمة
-                                </button>
-                            </div>
+                            <button
+                                onClick={handleSave}
+                                disabled={loading}
+                                className={`w-full py-5 rounded-2xl font-black text-lg transition-all shadow-xl ${creditLimitExceeded ? 'bg-rose-600/50 cursor-not-allowed opacity-50' : loading ? 'bg-blue-600/50 cursor-wait' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/40'}`}
+                            >
+                                {loading ? 'جاري الحفظ...' : creditLimitExceeded ? 'الرصيد غير كافٍ' : 'حفظ الطلبية وطباعة الوصل'}
+                            </button>
+
+                            <button onClick={() => router.back()} className="w-full text-sm font-bold text-gray-500 hover:text-gray-400 transition-colors">
+                                ← إلغاء والرجوع
+                            </button>
                         </div>
                     </div>
                 </div>

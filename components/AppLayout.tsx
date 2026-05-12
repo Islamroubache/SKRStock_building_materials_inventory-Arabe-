@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
     Menu, Search, Bell, ChevronDown, Settings, AlertCircle, AlertTriangle,
@@ -111,7 +111,7 @@ function TopBar({ onMenuClick, notificationCount = 0 }: { onMenuClick: () => voi
     const [dropdownOpen, setDropdownOpen] = useState(false)
 
     return (
-        <header className="h-24 bg-transparent px-8 flex items-center justify-between gap-8">
+        <header className="h-24 bg-transparent px-8 flex items-center justify-between gap-8 border-b border-gray-100">
             <div className="flex items-center">
                 <button
                     onClick={onMenuClick}
@@ -190,9 +190,31 @@ function TopBar({ onMenuClick, notificationCount = 0 }: { onMenuClick: () => voi
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [notifCount, setNotifCount] = useState(0)
+
+    const isPurchaseMode = pathname === '/orders/new' && searchParams.get('type') === 'PURCHASE'
+
+    // Global Keyboard Shortcuts (F3/F4)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'F3') {
+                e.preventDefault();
+                router.push('/orders/new?mode=registered');
+            } else if (e.key === 'F4') {
+                e.preventDefault();
+                router.push('/orders/new?mode=unregistered');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [router]);
 
     useEffect(() => {
         const fetchNotifs = async () => {
@@ -232,7 +254,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Main Content */}
             <div className="flex-1 flex flex-col bg-white rounded-[1rem] md:rounded-[1.4rem] overflow-hidden shadow-2xl relative border border-white/10">
                 {/* Top Bar */}
-                <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} notificationCount={notifCount} />
+                {!isPurchaseMode && <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} notificationCount={notifCount} />}
 
                 {/* Content Area */}
                 <main className="flex-1 overflow-auto">

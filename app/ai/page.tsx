@@ -110,7 +110,7 @@ export default function AIDashboard() {
             </div>
 
             {/* TABS (Subpages Style) */}
-            <div className="flex items-center gap-6 no-print mb-6 pb-1 pt-0 mt-[-8px]">
+            <div className="flex items-center gap-6 no-print mb-6 pb-0 pt-0 mt-[-8px]">
                 <button
                     onClick={() => setActiveTab('forecast')}
                     className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${activeTab === 'forecast' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
