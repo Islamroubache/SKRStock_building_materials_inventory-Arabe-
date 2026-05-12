@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Plus, User, Building2, Phone, CreditCard, ChevronLeft, AlertTriangle, X, Info, Archive, Printer, FileSpreadsheet, FileText, ChevronDown, Download, Users, RefreshCcw, MapPin, Check } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import * as XLSX from 'xlsx';
@@ -199,6 +199,15 @@ export default function CustomersPage() {
             }
         } catch (e) {}
     };
+
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const filter = searchParams.get('filter');
+        if (filter === 'OVERDUE') {
+            setBalanceFilter('OVERDUE');
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         fetchCustomers();

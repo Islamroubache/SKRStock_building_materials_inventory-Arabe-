@@ -105,7 +105,7 @@ function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean
     )
 }
 
-function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
+function TopBar({ onMenuClick, notificationCount = 0 }: { onMenuClick: () => void, notificationCount?: number }) {
     const pathname = usePathname()
     const router = useRouter()
     const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -136,9 +136,16 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
             {/* Right Side - Actions & User */}
             <div className="flex items-center gap-6">
                 {/* Notification Button */}
-                <button className="relative h-12 w-12 rounded-2xl bg-[#8b5cf6] flex items-center justify-center shadow-lg shadow-violet-100 hover:scale-105 active:scale-95 transition-all group">
+                <button 
+                    onClick={() => router.push('/dashboard?tab=notifications')}
+                    className="relative h-12 w-12 rounded-2xl bg-[#8b5cf6] flex items-center justify-center shadow-lg shadow-violet-100 hover:scale-105 active:scale-95 transition-all group"
+                >
                     <Bell size={22} className="text-white group-hover:rotate-12 transition-transform" />
-                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#f6ad55] border-2 border-white rounded-full shadow-sm"></span>
+                    {notificationCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 bg-red-500 border-2 border-white rounded-full shadow-sm flex items-center justify-center px-1 text-[10px] font-black text-white animate-in zoom-in duration-300">
+                            {notificationCount}
+                        </span>
+                    )}
                 </button>
 
                 <div className="relative">
@@ -185,6 +192,24 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [isCollapsed, setIsCollapsed] = useState(false)
+    const [notifCount, setNotifCount] = useState(0)
+
+    useEffect(() => {
+        const fetchNotifs = async () => {
+            try {
+                const res = await fetch('/api/dashboard/stats?type=daily')
+                const data = await res.json()
+                const count = (data.expiredCount || 0) + (data.lowStockCount || 0) + (data.overdueInvoicesCount || 0)
+                setNotifCount(count)
+            } catch (err) {
+                console.error('Failed to fetch notifs:', err)
+            }
+        }
+        fetchNotifs()
+        // Refresh every 5 minutes
+        const interval = setInterval(fetchNotifs, 5 * 60 * 1000)
+        return () => clearInterval(interval)
+    }, [])
 
     return (
         <div className="flex h-screen overflow-hidden p-0.5 gap-1" style={{ backgroundColor: '#8b5cf6' }}>
@@ -207,7 +232,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Main Content */}
             <div className="flex-1 flex flex-col bg-white rounded-[1rem] md:rounded-[1.4rem] overflow-hidden shadow-2xl relative border border-white/10">
                 {/* Top Bar */}
-                <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+                <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} notificationCount={notifCount} />
 
                 {/* Content Area */}
                 <main className="flex-1 overflow-auto">

@@ -1,28 +1,76 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { printDocument } from '@/lib/print-helper';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import PageHeader from '@/components/PageHeader';
-import { LayoutGrid, Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText, RotateCcw, DollarSign, Activity } from 'lucide-react';
+import { LayoutGrid, Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText, RotateCcw, DollarSign, Activity, Truck, AlertCircle, ArrowUpRight, Bell, CheckCircle } from 'lucide-react';
+import { format, startOfToday, endOfToday } from 'date-fns';
+import DateRangePicker from '@/components/DateRangePicker';
 import * as XLSX from 'xlsx';
 
 export default function Dashboard() {
+    return (
+        <Suspense fallback={<div className="p-10 text-center font-black text-gray-400">جاري التحميل...</div>}>
+            <DashboardContent />
+        </Suspense>
+    );
+}
+
+function DashboardContent() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const [stats, setStats] = useState<any>(null);
     const [chartData, setChartData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('monthly');
-    const [from, setFrom] = useState('');
-    const [to, setTo] = useState('');
+    const [from, setFrom] = useState(format(startOfToday(), 'yyyy-MM-dd'));
+    const [to, setTo] = useState(format(endOfToday(), 'yyyy-MM-dd'));
     const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'operations' | 'finance' | 'notifications'>('operations');
+
+    // Sync state with URL
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'notifications') setActiveTab('notifications');
+        else if (tab === 'finance') setActiveTab('finance');
+        else if (tab === 'operations') setActiveTab('operations');
+
+        const fromParam = searchParams.get('from');
+        const toParam = searchParams.get('to');
+        if (fromParam) setFrom(fromParam);
+        if (toParam) setTo(toParam);
+    }, [searchParams]);
+
+    const updateUrl = (updates: Record<string, string>) => {
+        const params = new URLSearchParams(searchParams.toString());
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value) params.set(key, value);
+            else params.delete(key);
+        });
+        router.replace(`/dashboard?${params.toString()}`, { scroll: false });
+    };
+
+    const handleTabChange = (tab: 'operations' | 'finance' | 'notifications') => {
+        const today = format(startOfToday(), 'yyyy-MM-dd');
+        setActiveTab(tab);
+        setFrom(today);
+        setTo(today);
+        updateUrl({ tab, from: today, to: today });
+    };
+
+    const handleDateChange = (newFrom: string, newTo: string) => {
+        setFrom(newFrom);
+        setTo(newTo);
+        updateUrl({ from: newFrom, to: newTo });
+    };
 
     const fetchData = () => {
         setLoading(true);
-        const query = new URLSearchParams({ type: period });
-        if (period === 'custom' && from && to) {
-            query.append('from', from);
-            query.append('to', to);
-        }
+        const query = new URLSearchParams({ 
+            from: from || format(startOfToday(), 'yyyy-MM-dd'), 
+            to: to || format(endOfToday(), 'yyyy-MM-dd') 
+        });
 
         Promise.all([
             fetch(`/api/dashboard/stats?${query.toString()}`).then(res => res.json()),
@@ -42,8 +90,8 @@ export default function Dashboard() {
     }, []);
 
     useEffect(() => {
-        if (period !== 'custom') fetchData();
-    }, [period]);
+        fetchData();
+    }, [from, to]);
 
     const handlePrint = () => {
         printDocument();
@@ -87,11 +135,9 @@ export default function Dashboard() {
     const COLORS = ['#20b878', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
     const getPeriodLabel = () => {
-        if (period === 'daily') return 'اليوم';
-        if (period === 'weekly') return 'الأسبوع';
-        if (period === 'monthly') return 'الشهر';
-        if (period === 'yearly') return 'السنة';
-        return 'الفترة';
+        if (!from && !to) return 'كل الوقت';
+        if (from === to) return 'اليوم';
+        return `من ${from} إلى ${to}`;
     };
 
     return (
@@ -102,376 +148,472 @@ export default function Dashboard() {
                 Icon={LayoutGrid} 
             />
 
-            {/* STICKY FILTER BAR */}
-            <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border border-gray-100 p-3 rounded-2xl shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
-                <div className="flex bg-gray-100 p-1 rounded-xl gap-1 w-full lg:w-auto overflow-x-auto">
-                    {[
-                        { id: 'daily', label: 'اليوم' },
-                        { id: 'weekly', label: 'أسبوع' },
-                        { id: 'monthly', label: 'شهر' },
-                        { id: 'yearly', label: 'سنة' },
-                        { id: 'custom', label: 'مخصص' }
-                    ].map(p => (
-                        <button
-                            key={p.id}
-                            onClick={() => setPeriod(p.id as any)}
-                            className={`px-5 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${period === p.id ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-white/50'}`}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
-                </div>
+            {/* Subpages Tabs */}
+            <div className="flex items-center gap-6 no-print mb-2 pb-1">
+                <button
+                    onClick={() => handleTabChange('operations')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${activeTab === 'operations' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    إجمالي
+                </button>
+                <button
+                    onClick={() => handleTabChange('finance')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${activeTab === 'finance' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    الحسابات والمالية
+                </button>
+                <button
+                    onClick={() => handleTabChange('notifications')}
+                    className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${activeTab === 'notifications' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
+                >
+                    التنبيهات
+                    {(stats?.expiredCount > 0 || stats?.lowStockCount > 0 || stats?.overdueInvoicesCount > 0) && (
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    )}
+                </button>
+            </div>
 
-                {period === 'custom' && (
-                    <div className="flex gap-2 items-center animate-in slide-in-from-right duration-300">
-                        <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                        <span className="text-gray-400 font-bold text-xs">إلى</span>
-                        <input type="date" value={to} onChange={e => setTo(e.target.value)} className="bg-white border border-gray-200 rounded-lg p-1.5 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                        <button onClick={fetchData} className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 transition-all shadow-sm"><TrendingUp size={16} /></button>
+            {/* STICKY FILTER BAR (Only for Finance Tab) */}
+            {activeTab === 'finance' && (
+                <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border border-gray-100 p-3 rounded-2xl shadow-sm flex items-center justify-between mb-4 px-6">
+                    {/* Left: Date Picker */}
+                    <div className="w-1/3 flex justify-start">
+                        <DateRangePicker 
+                            startDate={from}
+                            endDate={to}
+                            onChange={handleDateChange}
+                            theme="violet"
+                        />
                     </div>
-                )}
 
-                {loading && (
-                    <div className="flex items-center gap-2 text-blue-600 animate-pulse">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                        <span className="text-[10px] font-black uppercase tracking-widest">جاري التحديث...</span>
+                    {/* Center: Period Label */}
+                    <div className="w-1/3 flex flex-col items-center">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">الفترة المحددة</span>
+                        <span className="text-sm font-black text-[#8b5cf6]">{getPeriodLabel()}</span>
                     </div>
-                )}
 
-                <div className="flex items-center gap-2 no-print">
-                    <div className="relative">
-                        <button 
-                            onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-all text-xs font-bold border border-emerald-100 shadow-sm"
-                        >
-                            <Download size={16} />
-                            تصدير
-                            <ChevronDown size={14} className={`transition-transform ${isExportDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        {isExportDropdownOpen && (
-                            <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in duration-200 overflow-hidden">
-                                <button 
-                                    onClick={handleExportExcel}
-                                    className="w-full text-right px-5 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50"
-                                >
-                                    <FileText size={16} className="text-emerald-600" />
-                                    تصدير Excel (.xlsx)
-                                </button>
-                                <button 
-                                    onClick={handlePrint}
-                                    className="w-full text-right px-5 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                                >
-                                    <FileText size={16} className="text-rose-600" />
-                                    تصدير PDF / طباعة
-                                </button>
+                    {/* Right: Loading / Placeholder to balance */}
+                    <div className="w-1/3 flex justify-end">
+                        {loading && (
+                            <div className="flex items-center gap-2 text-[#8b5cf6] animate-pulse">
+                                <div className="w-2 h-2 bg-[#8b5cf6] rounded-full animate-bounce"></div>
+                                <span className="text-[10px] font-black uppercase tracking-widest">جاري التحديث...</span>
                             </div>
                         )}
                     </div>
-
-                    <button 
-                        onClick={handlePrint}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition-all text-xs font-bold border border-gray-100 shadow-sm"
-                    >
-                        <Printer size={16} />
-                        طباعة
-                    </button>
                 </div>
-            </div>
+            )}
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
-                {/* Products */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-blue-50 p-3.5 rounded-2xl text-blue-600 relative z-10">
-                        <Package size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider block mb-0.5">المنتجات</span>
-                        <h3 className="text-2xl font-black text-gray-900 font-sans">{stats?.totalProducts || 0}</h3>
-                    </div>
-                </div>
+            {activeTab === 'operations' ? (
+                <div className="animate-in fade-in duration-500">
+                    {/* Unified Operations Metrics Bar */}
+                    <div className="bg-white/80 backdrop-blur-md border border-gray-100 p-6 rounded-[2.5rem] shadow-sm mb-8 flex flex-wrap items-center justify-between gap-6">
+                        <div className="flex items-center gap-4 px-4 py-2 bg-blue-50/40 rounded-2xl border border-blue-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-blue-600 shadow-sm"><Package size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-blue-500 uppercase block leading-none mb-1">إجمالي المنتجات</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.totalProducts || 0}</h3>
+                            </div>
+                        </div>
 
-                {/* Sales Net Today */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-green-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-green-50 p-3.5 rounded-2xl text-green-600 relative z-10">
-                        <TrendingUp size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-green-500 uppercase tracking-wider block mb-0.5">مبيعات {getPeriodLabel()}</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todayNet?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
-                    </div>
-                </div>
+                        <div className="flex items-center gap-4 px-4 py-2 bg-indigo-50/40 rounded-2xl border border-indigo-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-indigo-600 shadow-sm"><Users size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-indigo-500 uppercase block leading-none mb-1">إجمالي العملاء</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.totalCustomers || 0}</h3>
+                            </div>
+                        </div>
 
-                {/* Collections Today */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-emerald-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-emerald-50 p-3.5 rounded-2xl text-emerald-600 relative z-10">
-                        <CreditCard size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider block mb-0.5">تحصيلات {getPeriodLabel()}</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.todayCustomerCollections?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
-                    </div>
-                </div>
+                        <div className="flex items-center gap-4 px-4 py-2 bg-violet-50/40 rounded-2xl border border-violet-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-violet-600 shadow-sm"><Truck size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-violet-500 uppercase block leading-none mb-1">إجمالي الموردين</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.totalSuppliers || 0}</h3>
+                            </div>
+                        </div>
 
-                {/* Total Debt (Transferred Style) */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-rose-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-rose-50 p-3.5 rounded-2xl text-rose-600 relative z-10">
-                        <ArrowDownLeft size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-rose-600 uppercase tracking-wider block mb-0.5">إجمالي الديون</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalDebt || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
-                        <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">مبالغ لم يتم تحصيلها</p>
-                    </div>
-                </div>
+                        <div className="flex items-center gap-4 px-4 py-2 bg-gray-900 rounded-2xl border border-gray-800 shadow-xl flex-1 min-w-[180px]">
+                            <div className="bg-white/10 p-2.5 rounded-xl text-white shadow-sm"><DollarSign size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-amber-400 uppercase block leading-none mb-1">قيمة المخزون</span>
+                                <h3 className="text-lg font-black text-white font-sans">{stats?.totalInventoryValue?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
 
-                {/* Open Invoices Breakdown (Transferred Style) */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-amber-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-amber-50 p-3.5 rounded-2xl text-amber-600 relative z-10">
-                        <Clock size={22} />
+                        <div className="flex items-center gap-4 px-4 py-2 bg-rose-50/40 rounded-2xl border border-rose-100/50 flex-1 min-w-[180px]">
+                            <div className="bg-white p-2.5 rounded-xl text-rose-600 shadow-sm"><ArrowDownLeft size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-rose-500 uppercase block leading-none mb-1">إجمالي الديون</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.totalDebt?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider block mb-0.5">فواتير مفتوحة</span>
-                        <h3 className="text-2xl font-black text-gray-900 font-sans">{(stats?.unpaidInvoicesCount || 0) + (stats?.partialInvoicesCount || 0)}</h3>
-                        <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">
-                            {stats?.unpaidInvoicesCount || 0} غير مدفوعة • {stats?.partialInvoicesCount || 0} جزئية
-                        </p>
-                    </div>
-                </div>
 
-                {/* Low Stock */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-red-500/5 rounded-full group-hover:scale-110 transition-transform"></div>
-                    <div className="bg-red-50 p-3.5 rounded-2xl text-red-600 relative z-10">
-                        <AlertTriangle size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-red-500 uppercase tracking-wider block mb-0.5">مخزون منخفض</span>
-                        <h3 className="text-2xl font-black text-gray-900 font-sans">{stats?.lowStockCount || 0}</h3>
-                    </div>
-                </div>
-
-                {/* Inventory Value */}
-                <div className="bg-emerald-600 p-5 rounded-[2rem] shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-white/10 rounded-full"></div>
-                    <div className="bg-white/20 p-3.5 rounded-2xl text-white relative z-10">
-                        <DollarSign size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[9px] font-black text-emerald-100 uppercase tracking-widest block mb-0.5">قيمة المخزون الحالية</span>
-                        <h3 className="text-lg font-black text-white font-sans">
-                            {(stats?.totalInventoryValue || 0).toLocaleString()} <span className="text-[8px] opacity-70">دج</span>
-                        </h3>
-                        <p className="text-[8px] font-bold text-emerald-100/70 mt-0.5 uppercase tracking-tighter">المتوسط المرجح</p>
-                    </div>
-                </div>
-
-                {/* Monthly Loss */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all border-r-4 border-r-red-500">
-                    <div className="bg-red-50 p-3.5 rounded-2xl text-red-600 relative z-10">
-                        <TrendingUp size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-red-500 uppercase tracking-wider block mb-0.5">خسائر {getPeriodLabel()}</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalLossThisMonth || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
-                        <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">التالف والضياع</p>
-                    </div>
-                </div>
-
-                {/* Annual Loss */}
-                <div className="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all border-r-4 border-r-red-600">
-                    <div className="bg-red-50 p-3.5 rounded-2xl text-red-700 relative z-10">
-                        <Activity size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[10px] font-black text-red-600 uppercase tracking-wider block mb-0.5">الخسائر السنوية</span>
-                        <h3 className="text-xl font-black text-gray-900 font-sans">{(stats?.totalLossThisYear || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
-                    </div>
-                </div>
-
-                {/* Net Liquidity (Dark Card) */}
-                <div className="bg-gray-900 p-5 rounded-[2rem] border border-gray-800 shadow-xl flex items-center gap-4 relative overflow-hidden group hover:scale-[1.03] transition-all">
-                    <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 rounded-full"></div>
-                    <div className="bg-blue-600 p-3.5 rounded-2xl text-white relative z-10 shadow-lg shadow-blue-500/20">
-                        <TrendingUp size={22} />
-                    </div>
-                    <div className="flex-1 relative z-10">
-                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block mb-0.5">السيولة الفعلية</span>
-                        <h3 className="text-lg font-black text-white font-sans truncate">
-                            {((stats?.todayNet || 0) + (stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} <span className="text-[8px] text-gray-500">دج</span>
-                        </h3>
-                    </div>
-                </div>
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Line Chart */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">المبيعات والمشتريات — {getPeriodLabel()}</h3>
-                    <div className="h-80 w-full" dir="ltr">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                <XAxis dataKey="date" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}`} />
-                                <Tooltip
-                                    formatter={(value: any) => [`${value.toLocaleString()} دج`]}
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', textAlign: 'right', fontFamily: 'inherit' }}
-                                />
-                                <Legend iconType="circle" />
-                                <Line type="monotone" dataKey="sales" name="المبيعات" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                <Line type="monotone" dataKey="purchases" name="المشتريات" stroke="#20b878" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Area Chart for Profit */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">الأرباح التراكمية — {getPeriodLabel()}</h3>
-                    <div className="flex-1 w-full" dir="ltr">
-                        {chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="date" hide />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                                    <Tooltip 
-                                        formatter={(value: any) => [`${value.toLocaleString()} دج`, 'الربح']}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', textAlign: 'right' }} 
-                                    />
-                                    <Area type="monotone" dataKey="profit" name="الربح" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400 text-sm font-medium">لا توجد بيانات أداء بعد</div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Product Performance Table */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                        <h3 className="text-lg font-bold text-gray-900">أداء المنتجات (الأكثر ربحاً)</h3>
-                        <TrendingUp className="text-blue-600" size={20} />
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-right">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600">المنتج</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-center">الكمية</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-left">الإيراد</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-left">الربح الصافي</th>
-                                    <th className="px-6 py-3 text-sm font-semibold text-gray-600 text-center">الهامش</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {stats?.productPerformance?.length > 0 ? stats.productPerformance.map((p: any, idx: number) => {
-                                    const margin = (p.profit / p.revenue) * 100;
-                                    return (
-                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-6 py-4 text-sm font-bold text-gray-900">{p.name}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 text-center font-sans">{p.sold}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-gray-900 text-left font-sans" dir="ltr">{p.revenue.toLocaleString()} دج</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-left font-sans" dir="ltr">{p.profit.toLocaleString()} دج</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border ${margin >= 15 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                                                    %{margin.toFixed(1)}
-                                                </span>
-                                            </td>
+                    <div className="mt-8">
+                        {/* Product Performance Table stays in Operations */}
+                        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden">
+                            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-white/50">
+                                <div>
+                                    <h3 className="text-xl font-black text-gray-900">أداء المنتجات (الأكثر ربحاً)</h3>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter mt-1">تحليل حركة المنتجات وربحيتها بناءً على المبيعات</p>
+                                </div>
+                                <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
+                                    <TrendingUp size={24} />
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right">
+                                    <thead className="bg-gray-50/50 border-b border-gray-100">
+                                        <tr>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-right">المنتج</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الكمية المباعة</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-left">الإيراد</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-left">الربح الصافي</th>
+                                            <th className="px-8 py-6 font-black text-gray-400 text-xs uppercase tracking-widest text-center">الهامش الربحي</th>
                                         </tr>
-                                    );
-                                }) : (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">لا توجد بيانات أداء متاحة</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50 bg-white">
+                                        {stats?.productPerformance?.length > 0 ? stats.productPerformance.map((p: any, idx: number) => {
+                                            const margin = (p.profit / p.revenue) * 100;
+                                            return (
+                                                <tr key={idx} className="hover:bg-blue-50/40 transition-all group">
+                                                    <td className="px-8 py-6">
+                                                        <span className="font-black text-gray-900">{p.name}</span>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <span className="font-black text-gray-500 font-sans">{p.sold} قطعة</span>
+                                                    </td>
+                                                    <td className="px-8 py-6 font-black text-gray-900 text-left font-sans" dir="ltr">{p.revenue.toLocaleString()} دج</td>
+                                                    <td className="px-8 py-6 font-black text-emerald-600 text-left font-sans" dir="ltr">{p.profit.toLocaleString()} دج</td>
+                                                    <td className="px-8 py-6 text-center">
+                                                        <span className={`px-4 py-1.5 text-[11px] font-black rounded-full border-2 ${margin >= 15 ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                                                            %{margin.toFixed(1)}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-8 py-20 text-center text-sm text-gray-400 font-bold opacity-60">
+                                                    <Package size={48} className="mx-auto mb-4 opacity-20" />
+                                                    لا توجد بيانات أداء متاحة حالياً
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            ) : activeTab === 'finance' ? (
+                <div className="animate-in fade-in duration-500">
+                    {/* Unified Finance Metrics Bar */}
+                    <div className="bg-white/80 backdrop-blur-md border border-gray-100 p-6 rounded-[2.5rem] shadow-sm mb-8 flex flex-wrap items-center justify-between gap-6">
+                        <div className="flex items-center gap-4 px-4 py-2 bg-blue-50/40 rounded-2xl border border-blue-100/50 flex-1 min-w-[180px]">
+                            <div className="bg-white p-2.5 rounded-xl text-blue-600 shadow-sm"><TrendingUp size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-blue-500 uppercase block leading-none mb-1">صافي المبيعات</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.todayNet?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
 
-                <div className="bg-red-50/50 p-6 rounded-xl border border-red-100 shadow-sm h-full max-h-[400px] overflow-y-auto custom-scrollbar">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-bold text-red-800 flex items-center gap-2">
-                            <AlertTriangle size={20} />
-                            التنبيهات
-                        </h3>
+                        <div className="flex items-center gap-4 px-4 py-2 bg-emerald-50/40 rounded-2xl border border-emerald-100/50 flex-1 min-w-[180px]">
+                            <div className="bg-white p-2.5 rounded-xl text-emerald-600 shadow-sm"><CreditCard size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-emerald-500 uppercase block leading-none mb-1">تحصيلات العملاء</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.todayCustomerCollections?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 px-4 py-2 bg-sky-50/40 rounded-2xl border border-sky-100/50 flex-1 min-w-[180px]">
+                            <div className="bg-white p-2.5 rounded-xl text-sky-600 shadow-sm"><ArrowUpRight size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-sky-500 uppercase block leading-none mb-1">مدفوعات الموردين</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{stats?.todaySupplierPayments?.toLocaleString() || 0} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 px-4 py-2 bg-gray-900 rounded-2xl border border-gray-800 shadow-xl flex-1 min-w-[180px]">
+                            <div className="bg-white/10 p-2.5 rounded-xl text-white shadow-sm"><Activity size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-amber-400 uppercase block leading-none mb-1">صافي السيولة</span>
+                                <h3 className="text-lg font-black text-white font-sans">{((stats?.todayCustomerCollections || 0) - (stats?.todaySupplierPayments || 0)).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 px-4 py-2 bg-rose-50/40 rounded-2xl border border-rose-100/50 flex-1 min-w-[180px]">
+                            <div className="bg-white p-2.5 rounded-xl text-red-600 shadow-sm"><TrendingUp size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-red-500 uppercase block leading-none mb-1">إجمالي الخسائر</span>
+                                <h3 className="text-lg font-black text-gray-900 font-sans">{(stats?.todayLosses || 0).toLocaleString()} <span className="text-[10px] text-gray-400">دج</span></h3>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="space-y-3">
-                        {stats?.expiredList?.map((product: any, idx: number) => (
-                            <div key={`expired-${idx}`} className="p-3 bg-red-50 border border-red-300 rounded-lg flex items-center gap-3 shadow-sm">
-                                <div className="text-red-600 flex-shrink-0"><AlertTriangle size={18} /></div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-bold text-red-700 leading-tight">🔴 منتهي الصلاحية: {product.name}</p>
+                    {/* Charts Section in Finance */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+                        <div className="lg:col-span-3 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden relative group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-blue-100/50 transition-all duration-700"></div>
+                            
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 relative z-10">
+                                <div>
+                                    <h3 className="text-xl font-black text-gray-900">المبيعات والمشتريات</h3>
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">تحليل التدفقات المالية لـ {getPeriodLabel()}</p>
                                 </div>
-                            </div>
-                        ))}
-
-                        {stats?.lowStockProducts?.map((product: any, idx: number) => (
-                            <div key={`low-stock-${idx}`} className="p-3 bg-white border border-red-200 rounded-lg flex items-center gap-3 shadow-sm">
-                                <div className="text-red-500 flex-shrink-0"><AlertTriangle size={18} /></div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-gray-900 leading-tight">🚨 {product.name} — باقي {product.quantity} {product.unit}</p>
-                                </div>
-                            </div>
-                        ))}
-
-                        {stats?.creditAlerts?.map((alert: any, idx: number) => (
-                            <div key={`credit-${idx}`} className="p-3 bg-white border border-amber-200 rounded-lg flex items-center gap-3 shadow-sm">
-                                <div className="text-amber-500 flex-shrink-0"><AlertTriangle size={18} /></div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-semibold text-gray-900 leading-tight">⚠️ الزبون {alert.name} تجاوز الائتمان</p>
-                                </div>
-                            </div>
-                        ))}
-
-                        {stats?.overdueInvoices?.map((inv: any, idx: number) => {
-                            const dateStr = new Date(inv.dueDate).toLocaleDateString('ar-DZ');
-                            return (
-                                <div key={`overdue-${idx}`} className="p-3 bg-red-50 border border-red-300 rounded-lg flex items-center justify-between shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-red-600 flex-shrink-0"><Clock size={18} /></div>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-bold text-red-800 leading-tight">فاتورة متأخرة: <span className="font-sans">{inv.invoiceNumber}</span></p>
-                                            <p className="text-xs text-red-600 font-medium">العميل: {inv.customerName}</p>
-                                        </div>
+                                <div className="flex items-center gap-6 mt-4 md:mt-0">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-blue-500 rounded-full shadow-sm shadow-blue-200"></div>
+                                        <span className="text-xs font-black text-gray-600">المبيعات</span>
                                     </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-black text-gray-900 font-sans" dir="ltr">{inv.remaining.toLocaleString()} دج</p>
-                                        <p className="text-[10px] font-bold text-red-500 mt-1">استحقت يوم: {dateStr}</p>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-emerald-500 rounded-full shadow-sm shadow-emerald-200"></div>
+                                        <span className="text-xs font-black text-gray-600">المشتريات</span>
                                     </div>
                                 </div>
-                            );
-                        })}
+                            </div>
+
+                            <div className="h-96 w-full" dir="ltr">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData}>
+                                        <defs>
+                                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                            </linearGradient>
+                                            <linearGradient id="colorPurchases" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis 
+                                            dataKey="date" 
+                                            stroke="#94a3b8" 
+                                            fontSize={11} 
+                                            tickLine={false} 
+                                            axisLine={false} 
+                                            dy={10}
+                                        />
+                                        <YAxis 
+                                            stroke="#94a3b8" 
+                                            fontSize={11} 
+                                            tickLine={false} 
+                                            axisLine={false} 
+                                            dx={-10}
+                                            tickFormatter={(value) => `${value.toLocaleString()}`}
+                                        />
+                                        <Tooltip 
+                                            content={({ active, payload, label }) => {
+                                                if (active && payload && payload.length) {
+                                                    return (
+                                                        <div className="bg-white/90 backdrop-blur-md border border-gray-100 p-4 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+                                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-50 pb-2">{label}</p>
+                                                            {payload.map((item: any, idx: number) => (
+                                                                <div key={idx} className="flex items-center justify-between gap-8 mb-2 last:mb-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
+                                                                        <span className="text-xs font-bold text-gray-600">{item.name}</span>
+                                                                    </div>
+                                                                    <span className="text-xs font-black text-gray-900 font-sans">{item.value.toLocaleString()} دج</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="sales" 
+                                            name="المبيعات" 
+                                            stroke="#3b82f6" 
+                                            strokeWidth={4} 
+                                            fillOpacity={1} 
+                                            fill="url(#colorSales)" 
+                                            animationDuration={1500}
+                                        />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="purchases" 
+                                            name="المشتريات" 
+                                            stroke="#10b981" 
+                                            strokeWidth={4} 
+                                            fillOpacity={1} 
+                                            fill="url(#colorPurchases)" 
+                                            animationDuration={2000}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                /* ===== NOTIFICATIONS VIEW ===== */
+                <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 duration-500">
+                    {/* Unified Notifications Metrics Bar */}
+                    <div className="bg-white/80 backdrop-blur-md border border-gray-100 p-6 rounded-[2.5rem] shadow-sm mb-2 flex flex-wrap items-center justify-between gap-6">
+                        <div className="flex items-center gap-4 px-4 py-2 bg-rose-50/40 rounded-2xl border border-rose-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-red-600 shadow-sm"><AlertCircle size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-red-500 uppercase block leading-none mb-1">منتجات منتهية</span>
+                                <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.expiredCount || 0}</h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 px-4 py-2 bg-amber-50/40 rounded-2xl border border-amber-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-amber-600 shadow-sm"><AlertTriangle size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-amber-600 uppercase block leading-none mb-1">مخزون منخفض</span>
+                                <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.lowStockCount || 0}</h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 px-4 py-2 bg-orange-50/40 rounded-2xl border border-orange-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-orange-600 shadow-sm"><Clock size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-orange-500 uppercase block leading-none mb-1">تنتهي قريباً</span>
+                                <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.expiringSoonCount || 0}</h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 px-4 py-2 bg-indigo-50/40 rounded-2xl border border-indigo-100/50 flex-1 min-w-[160px]">
+                            <div className="bg-white p-2.5 rounded-xl text-indigo-600 shadow-sm"><FileText size={20} /></div>
+                            <div>
+                                <span className="text-[10px] font-black text-indigo-500 uppercase block leading-none mb-1">فواتير متأخرة</span>
+                                <h3 className="text-xl font-black text-gray-900 font-sans">{stats?.overdueInvoicesCount || 0}</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden min-h-[500px]">
+                        {/* Notification Tables */}
+                        <div className="space-y-12">
+                            {/* Table 1: Expired Products */}
+                            <div>
+                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                                    المنتجات المنتهية (Expired)
+                                </h4>
+                                <div className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
+                                    <table className="w-full text-right">
+                                        <thead className="bg-red-50/50">
+                                            <tr>
+                                                <th className="px-6 py-4 font-black text-red-700 text-[11px] uppercase tracking-wider">المنتج</th>
+                                                <th className="px-6 py-4 font-black text-red-700 text-[11px] uppercase tracking-wider">الكود</th>
+                                                <th className="px-6 py-4 font-black text-red-700 text-[11px] uppercase tracking-wider">الكمية</th>
+                                                <th className="px-6 py-4 font-black text-red-700 text-[11px] uppercase tracking-wider">تاريخ الانتهاء</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {stats?.expiredList?.length > 0 ? stats.expiredList.map((product: any, idx: number) => (
+                                                <tr 
+                                                    key={`expired-${idx}`} 
+                                                    onClick={() => router.push('/inventory?tab=batches&filter=EXPIRED')}
+                                                    className="hover:bg-red-50/30 transition-all cursor-pointer"
+                                                >
+                                                    <td className="px-6 py-4 font-black text-gray-800">{product.name}</td>
+                                                    <td className="px-6 py-4 font-black text-gray-500 font-sans">{product.code || '-'}</td>
+                                                    <td className="px-6 py-4 font-black text-red-600 font-sans">{product.quantity}</td>
+                                                    <td className="px-6 py-4 font-black text-gray-400 font-sans">{new Date(product.expiryDate).toLocaleDateString('ar-DZ')}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-10 text-center text-gray-300 text-xs font-bold">لا توجد منتجات منتهية حالياً</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Table 2: Low Stock */}
+                            <div>
+                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+                                    المخزون المنخفض (Low Stock)
+                                </h4>
+                                <div className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
+                                    <table className="w-full text-right">
+                                        <thead className="bg-amber-50/50">
+                                            <tr>
+                                                <th className="px-6 py-4 font-black text-amber-700 text-[11px] uppercase tracking-wider">المنتج</th>
+                                                <th className="px-6 py-4 font-black text-amber-700 text-[11px] uppercase tracking-wider text-left">الكمية المتبقية</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {stats?.lowStockProducts?.length > 0 ? stats.lowStockProducts.map((product: any, idx: number) => (
+                                                <tr 
+                                                    key={`low-${idx}`} 
+                                                    onClick={() => router.push('/inventory?tab=overview&filter=BELOW_MIN')}
+                                                    className="hover:bg-amber-50/30 transition-all cursor-pointer"
+                                                >
+                                                    <td className="px-6 py-4 font-black text-gray-800">{product.name}</td>
+                                                    <td className="px-6 py-4 font-black text-amber-600 text-left font-sans">{product.quantity} {product.unit || 'قطعة'}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan={2} className="px-6 py-10 text-center text-gray-300 text-xs font-bold">المخزون كافٍ حالياً</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Table 3: Overdue Invoices */}
+                            <div>
+                                <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                                    الفواتير المتأخرة (Overdue)
+                                </h4>
+                                <div className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
+                                    <table className="w-full text-right">
+                                        <thead className="bg-indigo-50/50">
+                                            <tr>
+                                                <th className="px-6 py-4 font-black text-indigo-700 text-[11px] uppercase tracking-wider">الفاتورة</th>
+                                                <th className="px-6 py-4 font-black text-indigo-700 text-[11px] uppercase tracking-wider">العميل</th>
+                                                <th className="px-6 py-4 font-black text-indigo-700 text-[11px] uppercase tracking-wider text-left">المبلغ</th>
+                                                <th className="px-6 py-4 font-black text-indigo-700 text-[11px] uppercase tracking-wider text-left">تاريخ الاستحقاق</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {stats?.overdueInvoices?.length > 0 ? stats.overdueInvoices.map((inv: any, idx: number) => (
+                                                <tr 
+                                                    key={`overdue-${idx}`} 
+                                                    onClick={() => router.push('/customers?filter=OVERDUE')}
+                                                    className="hover:bg-indigo-50/30 transition-all cursor-pointer"
+                                                >
+                                                    <td className="px-6 py-4 font-black text-gray-800 font-sans">{inv.invoiceNumber}</td>
+                                                    <td className="px-6 py-4 font-black text-gray-600">{inv.customerName}</td>
+                                                    <td className="px-6 py-4 font-black text-indigo-600 text-left font-sans">{inv.remaining.toLocaleString()} دج</td>
+                                                    <td className="px-6 py-4 font-black text-red-500 text-left font-sans">{new Date(inv.dueDate).toLocaleDateString('ar-DZ')}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-10 text-center text-gray-300 text-xs font-bold">لا توجد فواتير متأخرة حالياً</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
 
                         {(!stats?.lowStockProducts?.length && !stats?.creditAlerts?.length && !stats?.expiredList?.length && !stats?.overdueInvoices?.length) && (
-                            <div className="h-40 flex flex-col items-center justify-center text-center text-gray-500">
-                                <Package size={32} className="text-gray-300 mb-2" />
-                                <p className="text-sm font-medium">كل شيء على ما يرام.</p>
-                                <p className="text-xs mt-1">لا توجد تنبيهات حالياً.</p>
+                            <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
+                                <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mb-4">
+                                    <CheckCircle size={40} />
+                                </div>
+                                <h4 className="text-xl font-black text-gray-900 mb-1">لا توجد تنبيهات!</h4>
+                                <p className="text-sm font-bold">كل شيء يعمل بشكل مثالي في مخزنك.</p>
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import {
     Package, Search, AlertTriangle, Activity,
@@ -130,6 +131,23 @@ export default function InventoryPage() {
         refundAmount: 0,
         notes: ''
     });
+
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        const filter = searchParams.get('filter');
+
+        if (tab === 'overview' || tab === 'damaged' || tab === 'batches') {
+            setActiveTab(tab);
+        }
+
+        if (filter === 'BELOW_MIN') {
+            setAlertFilter('BELOW_MIN');
+        } else if (filter === 'EXPIRED') {
+            setExpiryStatusFilter('EXPIRED');
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         fetchInitialData();
