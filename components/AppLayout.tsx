@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { 
+import {
     Menu, Search, Bell, ChevronDown, Settings, AlertCircle, AlertTriangle,
     ShoppingCart, FileText, Users, Truck, Package, Box, BarChart3, Bot
 } from 'lucide-react'
@@ -21,7 +21,7 @@ function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean
     }, [])
 
     const navItems = [
-        { icon: ShoppingCart, label: 'الطلبات', href: '/orders' },
+        { icon: ShoppingCart, label: 'الطلبات  ', href: '/orders' },
         { icon: FileText, label: 'الفواتير', href: '/invoices' },
         { icon: Users, label: 'العملاء', href: '/customers' },
         { icon: Truck, label: 'الموردون', href: '/suppliers' },
@@ -36,19 +36,20 @@ function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean
     return (
         <aside
             className={`
-        fixed md:relative ${collapsed ? 'w-20' : 'w-64'} h-full 
+        fixed md:relative ${collapsed ? 'w-16' : 'w-52'} h-full 
         flex flex-col z-40 transition-[width] duration-500 cubic-bezier text-white
+        rounded-[1rem] overflow-hidden
         ${open ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
       `}
             style={{ backgroundColor: '#8b5cf6', transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
-            <div 
-                className={`flex justify-center items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-500 ease-in-out ${collapsed ? 'p-2 py-6' : 'p-6'}`}
+            <div
+                className={`flex justify-center items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-500 ease-in-out ${collapsed ? 'p-2 py-6' : 'p-4'}`}
                 style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
                 onClick={onToggleCollapse}
             >
-                <Logo 
-                    className={`transition-all duration-500 ease-in-out ${collapsed ? 'w-10 h-10' : 'w-52 h-24'}`} 
+                <Logo
+                    className={`transition-all duration-500 ease-in-out ${collapsed ? 'w-10 h-10' : 'w-40 h-20'}`}
                     variant={collapsed ? "mini" : "full"}
                 />
             </div>
@@ -63,14 +64,14 @@ function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean
                             onClick={() => onClose()}
                             className={`
                 relative flex items-center py-3.5 rounded-2xl transition-all duration-500
-                ${collapsed ? 'px-0 justify-center' : 'px-5'}
+                ${collapsed ? 'px-0 justify-center' : 'px-4'}
                 ${isActive(item.href)
-                                     ? `shadow-lg font-bold ${collapsed ? '' : 'translate-x-1'}`
-                                     : 'text-white/80 hover:bg-white/10 hover:text-white'
-                                 }
+                                    ? `shadow-lg font-bold ${collapsed ? '' : 'translate-x-1'}`
+                                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+                                }
               `}
-                            style={{ 
-                                backgroundColor: isActive(item.href) ? '#f0eaff' : 'transparent', 
+                            style={{
+                                backgroundColor: isActive(item.href) ? '#f0eaff' : 'transparent',
                                 color: isActive(item.href) ? '#8b5cf6' : 'inherit',
                                 transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
                             }}
@@ -89,7 +90,7 @@ function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean
 
             {/* Bottom Time Widget */}
             <div className={`mt-auto transition-all duration-500 ${collapsed ? 'opacity-0 scale-95 h-0 overflow-hidden p-0' : 'opacity-100 scale-100 p-6'}`}
-                 style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}>
                 <div className="flex flex-col items-center justify-center p-5 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md shadow-lg hover:bg-white/20 transition-all text-center">
                     <span className="text-3xl font-black text-white font-sans tracking-tight" dir="ltr">
                         {currentTime ? currentTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : '--:--'}
@@ -122,8 +123,8 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 
             {/* Search Bar - Center */}
             <div className="flex-1 max-w-md relative group">
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     placeholder="بحث في النظام..."
                     className="w-full h-12 bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
                 />
@@ -157,7 +158,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
                             <div className="p-3 border-b border-gray-200">
                                 <p className="text-sm font-medium text-gray-900">حسابي</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => {
                                     router.push('/profile');
                                     setDropdownOpen(false);
@@ -186,7 +187,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const [isCollapsed, setIsCollapsed] = useState(false)
 
     return (
-        <div className="flex h-screen overflow-hidden p-3 md:p-5 gap-4" style={{ backgroundColor: '#8b5cf6' }}>
+        <div className="flex h-screen overflow-hidden p-0.5 gap-1" style={{ backgroundColor: '#8b5cf6' }}>
             {/* Mobile Overlay */}
             {sidebarOpen && (
                 <div
@@ -196,15 +197,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
 
             {/* Sidebar */}
-            <Sidebar 
-                open={sidebarOpen} 
-                onClose={() => setSidebarOpen(false)} 
+            <Sidebar
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
                 collapsed={isCollapsed}
                 onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
             />
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col bg-white rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl relative border-4 border-white/30">
+            <div className="flex-1 flex flex-col bg-white rounded-[1rem] md:rounded-[1.4rem] overflow-hidden shadow-2xl relative border border-white/10">
                 {/* Top Bar */}
                 <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 

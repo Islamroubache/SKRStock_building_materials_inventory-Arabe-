@@ -352,7 +352,7 @@ export default function SuppliersPage() {
             `}</style>
 
             <div className="no-print">
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-8 pb-0">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-6 pb-0">
                     <PageHeader 
                         title="إدارة الموردين" 
                         subtitle="متابعة المشتريات والديون والتعامل مع الموردين" 
@@ -379,7 +379,7 @@ export default function SuppliersPage() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-8 pt-0 mt-[-8px]">
+            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-6 pt-0 mt-[-8px]">
                 {['ALL', 'DEBT', 'PAID', 'CREDIT', 'ARCHIVED'].map((tab) => (
                     <button
                         key={tab}
@@ -394,7 +394,7 @@ export default function SuppliersPage() {
                 ))}
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-8">
+            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-6">
                 <div className="flex flex-col lg:flex-row gap-3 items-center">
                     <div className="relative flex-1 min-w-[300px] group">
                         <input 
@@ -418,11 +418,11 @@ export default function SuppliersPage() {
             {loading ? (
                 <div className="flex-1 flex justify-center items-center text-gray-500 h-64">جاري التحميل...</div>
             ) : filteredSuppliers.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-8">
+                <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-6">
                     لا يوجد موردين مطابقون للبحث
                 </div>
             ) : (
-                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-8 mb-8">
+                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-6 mb-8">
                     <div className="overflow-x-auto">
                         <table className="w-full text-right border-collapse">
                             <thead>

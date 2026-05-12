@@ -402,7 +402,7 @@ export default function CustomersPage() {
 
             <div className="no-print">
                 {/* List Header */}
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-8 pb-0">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-6 pb-0">
                     <PageHeader 
                         title="إدارة العملاء" 
                         subtitle="إضافة وتعديل بيانات العملاء ومتابعة ديونهم" 
@@ -439,7 +439,7 @@ export default function CustomersPage() {
             </div>
 
             {/* Tabs Header */}
-            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-8 pt-0 mt-[-8px]">
+            <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-6 pt-0 mt-[-8px]">
                 <button
                     onClick={() => setBalanceFilter('ALL')}
                     className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 ${balanceFilter === 'ALL' ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
@@ -515,7 +515,7 @@ export default function CustomersPage() {
             </div>
 
             {/* Filters Box */}
-            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-8">
+            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-6">
                 <div className="flex flex-col lg:flex-row gap-3 items-center">
                     {/* Search */}
                     <div className="relative flex-1 min-w-[300px] group">
@@ -545,11 +545,11 @@ export default function CustomersPage() {
             {loading ? (
                 <div className="flex-1 flex justify-center items-center text-gray-500 h-64 font-medium italic">جاري التحميل...</div>
             ) : filteredCustomers.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-8">
+                <div className="flex-1 flex justify-center items-center text-gray-400 h-64 font-black border-2 border-dashed border-gray-100 rounded-[2rem] mx-4 md:mx-6">
                     لا يوجد عملاء مطابقون للبحث
                 </div>
             ) : (
-                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-8 mb-8">
+                <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-6 mb-8">
                     <div className="overflow-x-auto">
                         <table className="w-full text-right border-collapse">
                             <thead>

@@ -86,6 +86,7 @@ function ProductsContent() {
     // UI specific states for the panel
 
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; product: Product | null }>({ isOpen: false, product: null });
+    const [isManualCode, setIsManualCode] = useState(false);
     const [historyDialog, setHistoryDialog] = useState<{ isOpen: boolean; movements: StockMovement[], loading: boolean }>({ isOpen: false, movements: [], loading: false });
     const [batchesDialog, setBatchesDialog] = useState<{ isOpen: boolean; product: Product | null }>({ isOpen: false, product: null });
     const [toasts, setToasts] = useState<{ id: number; msg: string; type: 'success' | 'error' }[]>([]);
@@ -231,6 +232,7 @@ function ProductsContent() {
                 quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false
             });
         }
+        setIsManualCode(false);
         setIsPanelOpen(true);
     };
 
@@ -367,15 +369,21 @@ function ProductsContent() {
         );
     }; 
     
+    const isCodeDuplicate = useMemo(() => {
+        if (!formData.code) return false;
+        return products.some(p => p.code === formData.code && p.id !== editingProduct?.id);
+    }, [formData.code, products, editingProduct]);
+    
     const isSaveDisabled = !formData.name?.trim() || 
         !formData.purchasePrice || 
         !formData.sellPrice || 
         (formData.sellPrice < formData.purchasePrice) || 
         (formData.minQuantity === undefined || formData.minQuantity === null) ||
-        (formData.hasExpiryDate !== false && !formData.expiryDate);
+        (formData.hasExpiryDate !== false && !formData.expiryDate) ||
+        isCodeDuplicate;
 
     return (
-        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-8 print:p-0 print:bg-white pb-12" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white pb-12" dir="rtl">
             {/* Custom Print Styles */}
             <style dangerouslySetInnerHTML={{
                 __html: `
@@ -412,7 +420,7 @@ function ProductsContent() {
             </div>
 
             {/* Header */}
-            <div className="print-hide px-4 md:px-8 pt-6 pb-0 flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="print-hide px-4 md:px-6 pt-6 pb-0 flex flex-col lg:flex-row items-center justify-between gap-4">
                 <PageHeader 
                     title="إدارة المنتجات" 
                     subtitle="إضافة وتعديل المنتجات ومراقبة المخزون" 
@@ -444,7 +452,7 @@ function ProductsContent() {
             </div>
 
             {/* Tabs Header */}
-            <div className="flex items-center gap-6 no-print mb-[-16px] pb-1 px-4 md:px-10 pt-0">
+            <div className="flex items-center gap-6 no-print mb-[-8px] pb-1 px-4 md:px-6 pt-0">
                 <button
                     onClick={() => setViewArchived(false)}
                     className={`px-4 py-3 text-sm font-black transition-all border-b-2 ${!viewArchived ? 'text-[#8b5cf6] border-[#8b5cf6]' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
@@ -460,7 +468,7 @@ function ProductsContent() {
             </div>
 
             {/* Filter Bar */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-6 items-center justify-between print-hide mx-4 md:mx-8">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-6 items-center justify-between print-hide mx-4 md:mx-6">
                 {/* Search and Filters */}
                 <div className="flex flex-col lg:flex-row gap-3 items-center w-full flex-1">
                     {/* Search Bar */}
@@ -711,15 +719,30 @@ function ProductsContent() {
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center mr-1">
                                             <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter">كود المنتج (Barcode)</label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsManualCode(!isManualCode)}
+                                                className={`text-[10px] font-black px-2 py-1 rounded-lg border transition-all flex items-center gap-1
+                                                    ${isManualCode ? 'bg-violet-600 text-white border-violet-600' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                            >
+                                                <Edit size={10} />
+                                                {isManualCode ? 'إلغاء اليدوي' : 'تعديل يدوي'}
+                                            </button>
                                         </div>
                                         <input
                                             type="text"
-                                            placeholder={!editingProduct ? "سيتم التوليد تلقائياً (PRD-XXX)" : ""}
+                                            placeholder={!editingProduct && !isManualCode ? "سيتم التوليد تلقائياً (PRD-XXX)" : "أدخل الكود يدوياً..."}
                                             value={formData.code || ''}
                                             onChange={e => setFormData({ ...formData, code: e.target.value })}
-                                            disabled={true}
-                                            className="w-full bg-gray-50/50 disabled:bg-gray-100 disabled:text-gray-400 font-mono border-2 border-transparent rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white transition-all"
+                                            disabled={!isManualCode}
+                                            className={`w-full bg-gray-50/50 font-mono border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold focus:outline-none transition-all
+                                                ${isManualCode ? (isCodeDuplicate ? 'border-red-400 focus:ring-red-400/10' : 'border-violet-400 focus:ring-4 focus:ring-violet-400/10 focus:bg-white') : 'disabled:bg-gray-100 disabled:text-gray-400 border-transparent'}`}
                                         />
+                                        {isCodeDuplicate && (
+                                            <p className="text-[10px] text-red-500 font-black mt-1.5 animate-in slide-in-from-top-1">
+                                                ⚠️ هذا الكود مستخدم بالفعل لمنتج آخر
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="space-y-2">

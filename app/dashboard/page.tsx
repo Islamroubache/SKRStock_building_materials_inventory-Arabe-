@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { printDocument } from '@/lib/print-helper';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import PageHeader from '@/components/PageHeader';
-import { LayoutGrid, Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText, RotateCcw } from 'lucide-react';
+import { LayoutGrid, Package, TrendingUp, AlertTriangle, Users, Trash2, CreditCard, ArrowDownLeft, Clock, Printer, Download, ChevronDown, FileText, RotateCcw, DollarSign, Activity } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function Dashboard() {
@@ -95,10 +95,10 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="space-y-6 font-tajawal">
+        <div className="flex flex-col gap-6 font-tajawal p-4 md:p-6">
             <PageHeader 
                 title="لوحة التحكم" 
-                subtitle="نظرة عامة على أداء النظام والعمليات" 
+                subtitle="نظرة عامة على أداء المتجر والمخزون" 
                 Icon={LayoutGrid} 
             />
 

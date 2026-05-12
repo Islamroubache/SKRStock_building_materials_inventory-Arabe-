@@ -647,9 +647,9 @@ export default function InventoryPage() {
     };
 
     return (
-        <div className="font-tajawal min-h-screen bg-white text-gray-900 p-6 md:p-8 flex flex-col gap-6" dir="rtl">
+        <div className="font-tajawal min-h-screen bg-white text-gray-900 flex flex-col gap-4 print:p-0 print:bg-white" dir="rtl">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden px-4 md:px-6 pt-0">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-6 pb-0">
                 <PageHeader 
                     title="إدارة المخزون" 
                     subtitle="مراقبة حركة المخزون، التحويلات، والجرد الدوري" 
@@ -719,7 +719,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Unified Filters Box - Redesigned to match Fawatir style */}
-            <div className="bg-white border border-gray-200 rounded-[2rem] p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-6 mb-2">
+            <div className="bg-white border border-gray-200 rounded-[2rem] p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-6">
                 <div className="flex flex-col lg:flex-row gap-3 items-center">
                     {/* Search Field */}
                     <div className="relative flex-1 min-w-[300px] group">

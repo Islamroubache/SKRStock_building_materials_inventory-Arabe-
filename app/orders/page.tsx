@@ -243,7 +243,7 @@ export default function OrdersPage() {
 
             {!showList ? (
                 /* ===== HOME VIEW ===== */
-                <div className="flex-1 flex flex-col gap-8 p-4 md:p-8 animate-in fade-in duration-700">
+                <div className="flex-1 flex flex-col gap-4 p-4 md:p-6 animate-in fade-in duration-700">
                     <PageHeader 
                         title="إدارة الطلبيات" 
                         subtitle="تتبع المبيعات والمشتريات وإدارة المخزون" 
@@ -295,9 +295,9 @@ export default function OrdersPage() {
                 </div>
             ) : (
                 /* ===== LIST VIEW ===== */
-                <div className="flex flex-col min-h-screen p-4 md:p-6 gap-4 animate-in slide-in-from-bottom-4 duration-500 print:p-0">
+                <div className="flex flex-col min-h-screen p-0 md:p-0 gap-4 animate-in slide-in-from-bottom-4 duration-500 print:p-0">
                     {/* List Header */}
-                    <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden">
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-6 pb-0">
                         <div className="flex items-center gap-3 w-full lg:w-auto">
                             <button onClick={() => setShowList(false)} className="p-2.5 bg-white border border-gray-200 rounded-2xl hover:bg-gray-50 transition-all shadow-sm">
                                 <ChevronUp size={18} className="text-gray-600" />
@@ -330,7 +330,7 @@ export default function OrdersPage() {
                         </div>
                     </div>
                     {/* Tabs Header */}
-                    <div className="flex items-center gap-6 no-print mb-2">
+                    <div className="flex items-center gap-6 no-print mb-2 pb-1 px-4 md:px-6 pt-0 mt-[-8px]">
                         <button
                             onClick={() => { setTypeFilter('SALE'); setStatusFilter('ALL'); setCustomerTypeFilter('ALL'); }}
                             className={`px-4 py-3 text-sm font-black transition-all flex items-center gap-2 ${typeFilter === 'SALE' ? 'text-[#8b5cf6]' : 'text-gray-400 hover:text-gray-600'}`}
@@ -352,7 +352,7 @@ export default function OrdersPage() {
                     </div>
 
                     {/* Filters */}
-                    <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden">
+                    <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex flex-col gap-4 print:hidden mx-4 md:mx-6">
                         <div className="flex flex-col lg:flex-row gap-3 items-center">
                             {/* Search (Widest) */}
                             <div className="relative flex-1 min-w-[300px] group">
@@ -465,7 +465,7 @@ export default function OrdersPage() {
                     </div>
 
                         {/* Orders Table */}
-                    <div className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm flex-1 print:border-none">
+                    <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden mx-4 md:mx-6 mb-8 flex-1 flex flex-col print:border-none">
                         <table className="w-full text-right border-collapse">
                             <thead>
                                 <tr className="bg-gray-50/50 border-b border-gray-100">
