@@ -51,7 +51,8 @@ export default function CustomersPage() {
         rc: '', nif: '', ai: '', nis: '', address: '', activity: '',
         wilaya: "M'Sila",
         commune: "M'sila",
-        postCode: '28000'
+        postCode: '28000',
+        isTvaSubject: true
     };
 
     const [formData, setFormData] = useState(DEFAULT_FORM);
@@ -81,78 +82,52 @@ export default function CustomersPage() {
     };
 
     // --- Strict Algerian Business Number Validations ---
-    
+
     const validateNIF = (nif: string) => {
         if (!nif) return null;
         if (!/^\d+$/.test(nif)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
-        if (nif.length !== 15 && nif.length !== 20) return { valid: false, error: "يجب أن يكون 15 أو 20 رقماً بالضبط" };
-        const cat = parseInt(nif[0]);
-        if (cat > 8) return { valid: false, error: "رقم الفئة (أول رقم) يجب أن يكون بين 0 و 8" };
-        const wilCode = parseInt(nif.substring(4, 6));
-        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${nif.substring(4, 6)}) غير صحيح (01-58)` };
-        return { 
-            valid: true, 
-            breakdown: "صحيح" 
+        if (nif.length < 14 || nif.length > 20) return { valid: false, error: "يجب أن يكون بين 14 و 20 رقماً" };
+        return {
+            valid: true,
+            breakdown: "صحيح"
         };
     };
 
     const validateNIS = (nis: string) => {
         if (!nis) return null;
         if (!/^\d+$/.test(nis)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
-        if (nis.length !== 15 && nis.length !== 18) return { valid: false, error: "يجب أن يكون 15 أو 18 رقماً بالضبط" };
-        if (nis.substring(1, 4) === "000") return { valid: false, error: "سنة التأسيس (الخانة 2-4) لا يمكن أن تكون 000" };
+        if (nis.length < 15 || nis.length > 20) return { valid: false, error: "يجب أن يكون بين 15 و 20 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
     const validateRC = (rc: string) => {
         if (!rc) return null;
-        
-        // Pattern 1: Classical (WW/YY-NNNNNNN B)
-        const match1 = rc.match(/^(\d{2})\/(\d{2})-(\d{7})(?:\s([AB]))?$/i);
-        if (match1) {
-            const wilCode = parseInt(match1[1]);
-            if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${match1[1]}) غير صحيح (01-58)` };
+
+        // Format: WWXX-XX(A or B)XXXXXXX (where WW = wilaya 01-69)
+        const match = rc.match(/^(\d{2})(\d{2})-(\d{2})([AB])(\d{7})$/i);
+        if (match) {
+            const wilCode = parseInt(match[1]);
+            if (wilCode < 1 || wilCode > 69) return { valid: false, error: `كود الولاية (${match[1]}) غير صحيح (01-69)` };
             return { valid: true, breakdown: "صحيح" };
         }
 
-        // Pattern 2: Modern (YY [AB] NNNNNNN-WW) or (YY [AB] NNNNNNN)
-        const match2 = rc.match(/^(\d{2})\s?([AB])\s?(\d{7})(?:-(\d{2}))?$/i);
-        if (match2) {
-            const year = match2[1];
-            const type = match2[2].toUpperCase();
-            const sequence = match2[3];
-            const wilaya = match2[4];
-            
-            if (wilaya) {
-                const wilCode = parseInt(wilaya);
-                if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${wilaya}) غير صحيح (01-58)` };
-            }
-            
-            return { 
-                valid: true, 
-                breakdown: "صحيح" 
-            };
-        }
-
-        return { valid: false, error: "الصيغة غير صحيحة. أمثلة: 16/24-0012345 B أو 24 B 0012345-16" };
+        return { valid: false, error: "الصيغة غير صحيحة. مثال: 2821-51A4344821" };
     };
 
     const validateAI = (ai: string) => {
         if (!ai) return null;
         const cleanAI = ai.replace(/\s/g, '');
-        
-        if (!/^\d{11}$/.test(cleanAI)) {
-            return { valid: false, error: "رقم المادة يجب أن يتكون من 11 رقماً بالضبط (بدون حروف أو مسافات)" };
+
+        if (!/^\d+$/.test(cleanAI)) {
+            return { valid: false, error: "رقم المادة يجب أن يحتوي على أرقام فقط" };
+        }
+        if (cleanAI.length < 11 || cleanAI.length > 13) {
+            return { valid: false, error: "رقم المادة يجب أن يكون بين 11 و 13 رقماً" };
         }
 
-        const wilCode = parseInt(cleanAI.substring(0, 2));
-        if (wilCode < 1 || wilCode > 58) {
-            return { valid: false, error: `كود الولاية (${cleanAI.substring(0, 2)}) في بداية الرقم غير صحيح (01-58)` };
-        }
-
-        return { 
-            valid: true, 
-            breakdown: "صحيح" 
+        return {
+            valid: true,
+            breakdown: "صحيح"
         };
     };
 
@@ -163,10 +138,10 @@ export default function CustomersPage() {
 
     const emailValid = formData.email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
 
-    const isFormValid = 
-        validations.name && 
-        validations.phone && 
-        validations.commune && 
+    const isFormValid =
+        validations.name &&
+        validations.phone &&
+        validations.commune &&
         validations.wilaya &&
         emailValid &&
         (nifInfo === null || nifInfo.valid) &&
@@ -197,7 +172,7 @@ export default function CustomersPage() {
                 const data = await res.json();
                 if (data.activities) setActivities(data.activities.split(','));
             }
-        } catch (e) {}
+        } catch (e) { }
     };
 
     const searchParams = useSearchParams();
@@ -217,13 +192,13 @@ export default function CustomersPage() {
     const filteredCustomers = customers.filter(c => {
         const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || (c.phone && c.phone.includes(searchTerm));
         if (balanceFilter === 'ARCHIVED') return matchesSearch;
-        
+
         const matchesBalance =
             balanceFilter === 'ALL' ? true :
-            balanceFilter === 'DEBT' ? c.balanceDue > 0 :
-            balanceFilter === 'CREDIT' ? c.balanceDue < 0 :
-            balanceFilter === 'OVERDUE' ? c.hasOverdue :
-            c.balanceDue === 0;
+                balanceFilter === 'DEBT' ? c.balanceDue > 0 :
+                    balanceFilter === 'CREDIT' ? c.balanceDue < 0 :
+                        balanceFilter === 'OVERDUE' ? c.hasOverdue :
+                            c.balanceDue === 0;
         return matchesSearch && matchesBalance;
     });
 
@@ -248,6 +223,7 @@ export default function CustomersPage() {
                 activity: formData.activity || undefined,
                 commune: formData.commune || undefined,
                 wilaya: formData.wilaya || undefined,
+                isTvaSubject: formData.isTvaSubject,
             };
 
             if (formData.type === 'LOYAL' && formData.creditLimit) {
@@ -354,7 +330,7 @@ export default function CustomersPage() {
 
     const handleExportPDF = () => {
         const doc = new jsPDF({ orientation: 'landscape' });
-        
+
         // Add Title
         doc.setFontSize(20);
         doc.text("Liste des Clients et Créances", 14, 15);
@@ -412,32 +388,32 @@ export default function CustomersPage() {
             <div className="no-print">
                 {/* List Header */}
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-4 print:hidden p-4 md:p-6 pb-0">
-                    <PageHeader 
-                        title="إدارة العملاء" 
-                        subtitle="إضافة وتعديل بيانات العملاء ومتابعة ديونهم" 
-                        Icon={Users} 
+                    <PageHeader
+                        title="إدارة العملاء"
+                        subtitle="إضافة وتعديل بيانات العملاء ومتابعة ديونهم"
+                        Icon={Users}
                     />
                     <div className="flex gap-2 w-full lg:w-auto justify-end shrink-0">
                         <div className="relative group">
                             <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-black text-xs shadow-sm flex items-center gap-2 hover:bg-gray-50 transition-all">
-                                <Download size={14} className="text-blue-600"/> تصدير
+                                <Download size={14} className="text-blue-600" /> تصدير
                             </button>
                             <div className="absolute top-full right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                                <button 
-                                    onClick={handleExport} 
+                                <button
+                                    onClick={handleExport}
                                     className="w-full text-right px-4 py-3 hover:bg-emerald-50 text-xs font-bold text-gray-700 flex items-center gap-2 border-b border-gray-50 transition-colors"
                                 >
-                                    <FileSpreadsheet size={14} className="text-emerald-600"/> Excel (.xlsx)
+                                    <FileSpreadsheet size={14} className="text-emerald-600" /> Excel (.xlsx)
                                 </button>
-                                <button 
-                                    onClick={handleExportPDF} 
+                                <button
+                                    onClick={handleExportPDF}
                                     className="w-full text-right px-4 py-3 hover:bg-rose-50 text-xs font-bold text-gray-700 flex items-center gap-2 transition-colors"
                                 >
-                                    <FileText size={14} className="text-rose-600"/> PDF (.pdf)
+                                    <FileText size={14} className="text-rose-600" /> PDF (.pdf)
                                 </button>
                             </div>
                         </div>
-                        <button 
+                        <button
                             onClick={handlePrint}
                             className="bg-[#8b5cf6] text-white px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 hover:bg-[#7c3aed] transition-all shadow-lg active:scale-95"
                         >
@@ -489,23 +465,23 @@ export default function CustomersPage() {
                     const overdueCount = customers.filter(c => c.hasOverdue).length;
                     const isOverdueActive = balanceFilter === 'OVERDUE';
                     const hasAnyOverdue = overdueCount > 0;
-                    
+
                     return (
                         <button
                             onClick={() => setBalanceFilter('OVERDUE')}
                             className={`px-4 py-3 text-sm font-black transition-all border-b-2 flex items-center gap-2 
-                                ${isOverdueActive 
-                                    ? 'text-red-600 border-red-600 shadow-[0_4px_12px_-4px_rgba(220,38,38,0.2)]' 
-                                    : hasAnyOverdue 
-                                        ? 'text-red-500 border-transparent hover:text-red-600' 
+                                ${isOverdueActive
+                                    ? 'text-red-600 border-red-600 shadow-[0_4px_12px_-4px_rgba(220,38,38,0.2)]'
+                                    : hasAnyOverdue
+                                        ? 'text-red-500 border-transparent hover:text-red-600'
                                         : 'text-gray-400 border-transparent hover:text-gray-600'}`}
                         >
                             <span className={hasAnyOverdue && !isOverdueActive ? 'animate-pulse' : ''}>فواتير متجاوزة</span>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] transition-colors
-                                ${isOverdueActive 
-                                    ? 'bg-red-600 text-white' 
-                                    : hasAnyOverdue 
-                                        ? 'bg-red-100 text-red-600' 
+                                ${isOverdueActive
+                                    ? 'bg-red-600 text-white'
+                                    : hasAnyOverdue
+                                        ? 'bg-red-100 text-red-600'
                                         : 'bg-gray-100 text-gray-500'}`}>
                                 {overdueCount}
                             </span>
@@ -528,11 +504,11 @@ export default function CustomersPage() {
                 <div className="flex flex-col lg:flex-row gap-3 items-center">
                     {/* Search */}
                     <div className="relative flex-1 min-w-[300px] group">
-                        <input 
-                            type="text" 
-                            placeholder="بحث بالاسم أو الهاتف..." 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
+                        <input
+                            type="text"
+                            placeholder="بحث بالاسم أو الهاتف..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full h-[52px] bg-white border border-gray-200 focus:border-violet-300 focus:ring-4 focus:ring-violet-500/10 rounded-2xl pr-14 pl-4 text-sm font-bold transition-all outline-none shadow-sm"
                         />
                         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 h-11 w-11 bg-[#8b5cf6] rounded-xl flex items-center justify-center shadow-sm text-white pointer-events-none group-focus-within:scale-110 transition-transform">
@@ -572,124 +548,124 @@ export default function CustomersPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {filteredCustomers.map(customer => {
-                                    const rowClass = customer.hasOverdue 
-                                        ? "bg-amber-50/60 hover:bg-amber-100/80" 
-                                        : customer.balanceDue > 0 
+                                    const rowClass = customer.hasOverdue
+                                        ? "bg-amber-50/60 hover:bg-amber-100/80"
+                                        : customer.balanceDue > 0
                                             ? "bg-red-50/50 hover:bg-red-100/70"
-                                            : customer.balanceDue < 0 
+                                            : customer.balanceDue < 0
                                                 ? "bg-violet-50/50 hover:bg-violet-100/70"
                                                 : "bg-emerald-50/40 hover:bg-emerald-100/60";
 
                                     return (
-                                        <tr 
-                                            key={customer.id} 
+                                        <tr
+                                            key={customer.id}
                                             onClick={() => router.push(`/customers/${customer.id}`)}
                                             className={`${rowClass} transition-all group cursor-pointer`}
                                         >
                                             <td className="px-8 py-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-black text-gray-900 text-base mb-0.5">{customer.name}</span>
-                                                        {customer.hasOverdue && (
-                                                            <div className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-lg animate-pulse border border-red-200">
-                                                                <AlertTriangle size={12} strokeWidth={3} />
-                                                                <span className="text-[9px] font-black uppercase">متجاوزة</span>
-                                                            </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-black text-gray-900 text-base mb-0.5">{customer.name}</span>
+                                                            {customer.hasOverdue && (
+                                                                <div className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-lg animate-pulse border border-red-200">
+                                                                    <AlertTriangle size={12} strokeWidth={3} />
+                                                                    <span className="text-[9px] font-black uppercase">متجاوزة</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {customer.activity && (
+                                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{customer.activity}</span>
                                                         )}
                                                     </div>
-                                                    {customer.activity && (
-                                                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{customer.activity}</span>
-                                                    )}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            {customer.phone ? (
-                                                <span className="inline-flex bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-black font-sans tracking-tight border border-blue-100 shadow-sm" dir="ltr">
-                                                    {customer.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-300 font-bold text-xs italic">---</span>
-                                            )}
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex flex-col gap-1">
-                                                {customer.balanceDue > 0 ? (
-                                                    <span className="inline-flex items-center justify-center bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-red-100 shadow-sm">
-                                                        {customer.balanceDue.toLocaleString()} دج
-                                                    </span>
-                                                ) : customer.balanceDue < 0 ? (
-                                                    <span className="inline-flex items-center justify-center bg-violet-50 text-[#8b5cf6] px-3 py-1 rounded-lg text-xs font-black font-sans border border-violet-100 shadow-sm">
-                                                        {Math.abs(customer.balanceDue).toLocaleString()} دج-
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                {customer.phone ? (
+                                                    <span className="inline-flex bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-black font-sans tracking-tight border border-blue-100 shadow-sm" dir="ltr">
+                                                        {customer.phone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')}
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-emerald-100 shadow-sm">
-                                                        0 دج
-                                                    </span>
+                                                    <span className="text-gray-300 font-bold text-xs italic">---</span>
                                                 )}
-                                                
-                                                {customer.balanceDue !== 0 && (
-                                                    <span className={`text-[9px] font-black uppercase tracking-tighter text-center ${customer.balanceDue > 0 ? 'text-red-400' : 'text-violet-400'}`}>
-                                                        {customer.balanceDue > 0 ? 'مديون' : 'رصيد زائد'}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center justify-center gap-3">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xs font-black text-gray-900 font-sans">{customer._count?.projects || 0}</span>
-                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">مشاريع</span>
-                                                </div>
-                                                <div className="w-px h-6 bg-gray-100"></div>
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-xs font-black text-gray-900 font-sans">{customer._count?.orders || 0}</span>
-                                                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">طلبات</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                                 {(() => {
-                                                     const isArchivedMode = balanceFilter === 'ARCHIVED';
-                                                     
-                                                     if (isArchivedMode) {
-                                                         return (
-                                                             <button
-                                                                 onClick={() => handleRestore(customer.id)}
-                                                                 className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
-                                                                 title="استعادة العميل"
-                                                             >
-                                                                 <RefreshCcw size={18} />
-                                                             </button>
-                                                         );
-                                                     }
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col gap-1">
+                                                    {customer.balanceDue > 0 ? (
+                                                        <span className="inline-flex items-center justify-center bg-red-50 text-red-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-red-100 shadow-sm">
+                                                            {customer.balanceDue.toLocaleString()} دج
+                                                        </span>
+                                                    ) : customer.balanceDue < 0 ? (
+                                                        <span className="inline-flex items-center justify-center bg-violet-50 text-[#8b5cf6] px-3 py-1 rounded-lg text-xs font-black font-sans border border-violet-100 shadow-sm">
+                                                            {Math.abs(customer.balanceDue).toLocaleString()} دج-
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-black font-sans border border-emerald-100 shadow-sm">
+                                                            0 دج
+                                                        </span>
+                                                    )}
 
-                                                     const canArchive = customer.balanceDue === 0 && (customer._count?.projects || 0) === 0;
-                                                     return (
-                                                         <button
-                                                             onClick={() => { if (canArchive) handleArchive(customer.id); }}
-                                                             disabled={!canArchive}
-                                                             className={`p-2.5 rounded-xl transition-all ${canArchive 
-                                                                 ? 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white shadow-sm' 
-                                                                 : 'bg-gray-50/50 text-gray-200 cursor-not-allowed opacity-60'}`}
-                                                             title={canArchive ? "أرشفة العميل" : "لا يمكن الأرشفة: يوجد رصيد مالي أو مشاريع نشطة"}
-                                                         >
-                                                             <Archive size={18} />
-                                                         </button>
-                                                     );
-                                                 })()}
-                                             </div>
-                                         </td>
-                                         </tr>
-                                     );
-                                 })}
-                             </tbody>
-                         </table>
-                     </div>
-                 </div>
-             )}
+                                                    {customer.balanceDue !== 0 && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-tighter text-center ${customer.balanceDue > 0 ? 'text-red-400' : 'text-violet-400'}`}>
+                                                            {customer.balanceDue > 0 ? 'مديون' : 'رصيد زائد'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xs font-black text-gray-900 font-sans">{customer._count?.projects || 0}</span>
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">مشاريع</span>
+                                                    </div>
+                                                    <div className="w-px h-6 bg-gray-100"></div>
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-xs font-black text-gray-900 font-sans">{customer._count?.orders || 0}</span>
+                                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">طلبات</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                    {(() => {
+                                                        const isArchivedMode = balanceFilter === 'ARCHIVED';
+
+                                                        if (isArchivedMode) {
+                                                            return (
+                                                                <button
+                                                                    onClick={() => handleRestore(customer.id)}
+                                                                    className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
+                                                                    title="استعادة العميل"
+                                                                >
+                                                                    <RefreshCcw size={18} />
+                                                                </button>
+                                                            );
+                                                        }
+
+                                                        const canArchive = customer.balanceDue === 0 && (customer._count?.projects || 0) === 0;
+                                                        return (
+                                                            <button
+                                                                onClick={() => { if (canArchive) handleArchive(customer.id); }}
+                                                                disabled={!canArchive}
+                                                                className={`p-2.5 rounded-xl transition-all ${canArchive
+                                                                    ? 'bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white shadow-sm'
+                                                                    : 'bg-gray-50/50 text-gray-200 cursor-not-allowed opacity-60'}`}
+                                                                title={canArchive ? "أرشفة العميل" : "لا يمكن الأرشفة: يوجد رصيد مالي أو مشاريع نشطة"}
+                                                            >
+                                                                <Archive size={18} />
+                                                            </button>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* ADD CUSTOMER SHEET */}
             {isSheetOpen && (
@@ -710,7 +686,7 @@ export default function CustomersPage() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/30" onKeyDown={handleKeyDown}>
-                            
+
                             {/* Section 1: Basic Info - VIOLET */}
                             <div className="space-y-6 p-6 bg-white border-2 border-violet-100 rounded-[2rem] shadow-sm transition-all hover:shadow-md hover:border-violet-200">
                                 <div className="flex items-center gap-3">
@@ -798,7 +774,7 @@ export default function CustomersPage() {
                                 </div>
                                 <div className="grid grid-cols-1 gap-5">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <button 
+                                        <button
                                             onClick={() => setFormData({ ...formData, type: 'REGULAR', creditLimit: '' })}
                                             className={`p-5 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${formData.type === 'REGULAR' ? 'border-blue-500 bg-blue-50/50 shadow-inner scale-95' : 'border-gray-50 bg-gray-50/30 hover:border-blue-200 hover:bg-white'}`}
                                         >
@@ -807,7 +783,7 @@ export default function CustomersPage() {
                                             </div>
                                             <span className={`text-xs font-black ${formData.type === 'REGULAR' ? 'text-blue-700' : 'text-gray-500'}`}>بدون سقف ائتماني</span>
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => setFormData({ ...formData, type: 'LOYAL' })}
                                             className={`p-5 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${formData.type === 'LOYAL' ? 'border-blue-500 bg-blue-50/50 shadow-inner scale-95' : 'border-gray-50 bg-gray-50/30 hover:border-blue-200 hover:bg-white'}`}
                                         >
@@ -927,6 +903,21 @@ export default function CustomersPage() {
                                     <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest">المعلومات الجبائية والاتصال</h3>
                                 </div>
                                 <div className="grid grid-cols-1 gap-5">
+                                    {/* TVA Toggle */}
+                                    <div className="bg-amber-50/50 p-4 rounded-[1.2rem] border border-amber-100 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-sm font-black text-amber-900 mb-1">خاضع للضريبة (TVA)</h4>
+                                            <p className="text-[10px] text-amber-600 font-bold">تحديد ما إذا كان هذا العميل سيتم احتساب الـ TVA في فواتيره (النظام الحقيقي)</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, isTvaSubject: !formData.isTvaSubject })}
+                                            className={`relative w-14 h-8 rounded-full transition-colors ${formData.isTvaSubject ? 'bg-amber-500' : 'bg-gray-300'}`}
+                                        >
+                                            <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${formData.isTvaSubject ? 'left-1' : 'left-7'}`}></div>
+                                        </button>
+                                    </div>
+
                                     {/* RC Field */}
                                     <div className="space-y-2">
                                         <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم السجل التجاري (RC)</label>
@@ -934,7 +925,7 @@ export default function CustomersPage() {
                                             type="text"
                                             value={formData.rc}
                                             onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase() })}
-                                            placeholder="WW/YY-NNNNNNN B"
+                                            placeholder="WWXX-XXA/BXXXXXXX"
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${rcInfo ? (rcInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -953,7 +944,7 @@ export default function CustomersPage() {
                                             type="text"
                                             value={formData.nif}
                                             onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\s/g, '') })}
-                                            placeholder="15 أو 20 رقماً..."
+                                            placeholder="14 إلى 20 رقماً..."
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${nifInfo ? (nifInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -972,7 +963,7 @@ export default function CustomersPage() {
                                             type="text"
                                             value={formData.ai}
                                             onChange={e => setFormData({ ...formData, ai: e.target.value.toUpperCase() })}
-                                            placeholder="مثال: B 123456"
+                                            placeholder="11 إلى 13 رقماً..."
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${aiInfo ? (aiInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -991,7 +982,7 @@ export default function CustomersPage() {
                                             type="text"
                                             value={formData.nis}
                                             onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\s/g, '') })}
-                                            placeholder="15 أو 18 رقماً..."
+                                            placeholder="15 إلى 20 رقماً..."
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${nisInfo ? (nisInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -1018,8 +1009,8 @@ export default function CustomersPage() {
                                 onClick={handleSaveCustomer}
                                 disabled={!isFormValid}
                                 className={`flex-[2] py-4 rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
-                                    ${isFormValid 
-                                        ? 'bg-[#8b5cf6] text-white shadow-violet-200 hover:bg-[#7c3aed] hover:shadow-violet-300' 
+                                    ${isFormValid
+                                        ? 'bg-[#8b5cf6] text-white shadow-violet-200 hover:bg-[#7c3aed] hover:shadow-violet-300'
                                         : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}`}
                             >
                                 <Plus size={20} /> تسجيل العميل

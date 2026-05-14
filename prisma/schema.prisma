@@ -73,6 +73,7 @@ model Customer {
   postalCode        String?
   creditLimit       Float     @default(0)
   balanceDue        Float     @default(0)
+  isTvaSubject      Boolean   @default(true)
   isArchived        Boolean   @default(false)
   createdAt         DateTime  @default(now())
   lastPaymentAmount Float?    @default(0)

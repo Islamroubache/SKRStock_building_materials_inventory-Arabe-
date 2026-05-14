@@ -120,10 +120,10 @@ export async function POST(request: Request) {
                     isOfficial: !!isOfficial,
                     items: {
                         create: items.map((i: any) => ({
-                            productId: i.productId,
-                            quantity: i.quantity,
-                            unitPrice: i.unitPrice,
-                            total: i.quantity * i.unitPrice
+                            productId: Number(i.productId),
+                            quantity: Number(i.quantity),
+                            unitPrice: Number(i.unitPrice),
+                            total: Number(i.quantity) * Number(i.unitPrice)
                         }))
                     }
                 };
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
 
                 for (const item of items) {
                     const product = await tx.product.findUnique({
-                        where: { id: item.productId }
+                        where: { id: Number(item.productId) }
                     });
 
                     if (product) {
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
                         }
 
                         await tx.product.update({
-                            where: { id: item.productId },
+                            where: { id: Number(item.productId) },
                             data: updateData
                         });
 
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
 
                             await tx.productBatch.create({
                                 data: {
-                                    productId: item.productId,
+                                    productId: Number(item.productId),
                                     supplierId: body.supplierId || null,
                                     batchNumber,
                                     purchaseOrderId: order.id,
@@ -195,12 +195,12 @@ export async function POST(request: Request) {
                                     status: 'ACTIVE'
                                 }
                             });
-                            await updateNearestExpiry(item.productId, tx);
+                            await updateNearestExpiry(Number(item.productId), tx);
                         }
 
                         await tx.stockMovement.create({
                             data: {
-                                productId: item.productId,
+                                productId: Number(item.productId),
                                 orderId: order.id,
                                 movementType: 'IN',
                                 quantity: newQty,
@@ -264,11 +264,11 @@ export async function POST(request: Request) {
             customer = await prisma.customer.findUnique({ where: { id: customerId } });
         }
 
-        const productIds = items.map((i: any) => i.productId);
+        const productIds = items.map((i: any) => Number(i.productId));
         const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
 
         for (const item of items) {
-            const p = products.find(prod => prod.id === item.productId);
+            const p = products.find(prod => prod.id === Number(item.productId));
             if (!p) return NextResponse.json({ error: `المنتج غير موجود: ${item.productId}` }, { status: 400 });
             if (item.quantity > p.quantity) {
                 return NextResponse.json({ error: `الكمية المتوفرة من ${p.name} غير كافية (${p.quantity} متوفر)` }, { status: 400 });
@@ -306,10 +306,10 @@ export async function POST(request: Request) {
                 dueDate: body.dueDate ? new Date(body.dueDate) : null,
                 items: {
                     create: items.map((i: any) => ({
-                        productId: i.productId,
-                        quantity: i.quantity,
-                        unitPrice: i.unitPrice,
-                        total: i.quantity * i.unitPrice
+                        productId: Number(i.productId),
+                        quantity: Number(i.quantity),
+                        unitPrice: Number(i.unitPrice),
+                        total: Number(i.quantity) * Number(i.unitPrice)
                     }))
                 }
             };
@@ -338,7 +338,7 @@ export async function POST(request: Request) {
             });
 
             for (const item of items) {
-                const p = products.find((prod) => prod.id === item.productId)!;
+                const p = products.find((prod) => prod.id === Number(item.productId))!;
 
                 let batchNote = "";
                 if (p.hasBatches) {

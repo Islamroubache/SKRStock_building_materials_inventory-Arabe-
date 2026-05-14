@@ -191,48 +191,34 @@ export default function CustomerDetailPage() {
     const validateNIF = (nif: string) => {
         if (!nif) return null;
         if (!/^\d+$/.test(nif)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
-        if (nif.length !== 15 && nif.length !== 20) return { valid: false, error: "يجب أن يكون 15 أو 20 رقماً بالضبط" };
-        const cat = parseInt(nif[0]);
-        if (cat > 8) return { valid: false, error: "رقم الفئة (أول رقم) يجب أن يكون بين 0 و 8" };
-        const wilCode = parseInt(nif.substring(4, 6));
-        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${nif.substring(4, 6)}) غير صحيح (01-58)` };
+        if (nif.length < 14 || nif.length > 20) return { valid: false, error: "يجب أن يكون بين 14 و 20 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
     const validateNIS = (nis: string) => {
         if (!nis) return null;
         if (!/^\d+$/.test(nis)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
-        if (nis.length !== 15 && nis.length !== 18) return { valid: false, error: "يجب أن يكون 15 أو 18 رقماً بالضبط" };
-        if (nis.substring(1, 4) === "000") return { valid: false, error: "سنة التأسيس (الخانة 2-4) لا يمكن أن تكون 000" };
+        if (nis.length < 15 || nis.length > 20) return { valid: false, error: "يجب أن يكون بين 15 و 20 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
     const validateRC = (rc: string) => {
         if (!rc) return null;
-        const match1 = rc.match(/^(\d{2})\/(\d{2})-(\d{7})(?:\s([AB]))?$/i);
-        if (match1) {
-            const wilCode = parseInt(match1[1]);
-            if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${match1[1]}) غير صحيح (01-58)` };
+        // Format: WWXX-XX(A or B)XXXXXXX (where WW = wilaya 01-69)
+        const match = rc.match(/^(\d{2})(\d{2})-(\d{2})([AB])(\d{7})$/i);
+        if (match) {
+            const wilCode = parseInt(match[1]);
+            if (wilCode < 1 || wilCode > 69) return { valid: false, error: `كود الولاية (${match[1]}) غير صحيح (01-69)` };
             return { valid: true, breakdown: "صحيح" };
         }
-        const match2 = rc.match(/^(\d{2})\s?([AB])\s?(\d{7})(?:-(\d{2}))?$/i);
-        if (match2) {
-            const wilaya = match2[4];
-            if (wilaya) {
-                const wilCode = parseInt(wilaya);
-                if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${wilaya}) غير صحيح (01-58)` };
-            }
-            return { valid: true, breakdown: "صحيح" };
-        }
-        return { valid: false, error: "الصيغة غير صحيحة. أمثلة: 16/24-0012345 B أو 24 B 0012345-16" };
+        return { valid: false, error: "الصيغة غير صحيحة. مثال: 2821-51A4344821" };
     };
 
     const validateAI = (ai: string) => {
         if (!ai) return null;
         const cleanAI = ai.replace(/\s/g, '');
-        if (!/^\d{11}$/.test(cleanAI)) return { valid: false, error: "رقم المادة يجب أن يتكون من 11 رقماً بالضبط" };
-        const wilCode = parseInt(cleanAI.substring(0, 2));
-        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${cleanAI.substring(0, 2)}) غير صحيح (01-58)` };
+        if (!/^\d+$/.test(cleanAI)) return { valid: false, error: "رقم المادة يجب أن يحتوي على أرقام فقط" };
+        if (cleanAI.length < 11 || cleanAI.length > 13) return { valid: false, error: "رقم المادة يجب أن يكون بين 11 و 13 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
@@ -595,7 +581,8 @@ export default function CustomerDetailPage() {
                 commune: editData.commune,
                 wilaya: editData.wilaya,
                 postalCode: editData.postalCode,
-                creditLimit: parseFloat(String(editData.creditLimit)) || 0
+                creditLimit: parseFloat(String(editData.creditLimit)) || 0,
+                isTvaSubject: editData.isTvaSubject ?? true
             };
 
             const res = await fetch(`/api/customers/${id}`, {
@@ -2939,6 +2926,21 @@ export default function CustomerDetailPage() {
                                         <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest">المعلومات الجبائية والقانونية</h3>
                                     </div>
                                     <div className="grid grid-cols-1 gap-5">
+                                        {/* TVA Toggle */}
+                                        <div className="bg-amber-50/50 p-4 rounded-[1.2rem] border border-amber-100 flex items-center justify-between">
+                                            <div>
+                                                <h4 className="text-sm font-black text-amber-900 mb-1">خاضع للضريبة (TVA)</h4>
+                                                <p className="text-[10px] text-amber-600 font-bold">تحديد ما إذا كان هذا العميل سيتم احتساب الـ TVA في فواتيره (النظام الحقيقي)</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditData({ ...editData, isTvaSubject: editData.isTvaSubject !== undefined ? !editData.isTvaSubject : false })}
+                                                className={`relative w-14 h-8 rounded-full transition-colors ${(editData.isTvaSubject ?? true) ? 'bg-amber-500' : 'bg-gray-300'}`}
+                                            >
+                                                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${(editData.isTvaSubject ?? true) ? 'left-1' : 'left-7'}`}></div>
+                                            </button>
+                                        </div>
+
                                         {/* RC Field */}
                                         <div className="space-y-2">
                                             <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter mr-1">رقم السجل التجاري (RC)</label>
@@ -2947,7 +2949,7 @@ export default function CustomerDetailPage() {
                                                 value={editData.rc || ''}
                                                 onChange={e => setEditData({ ...editData, rc: e.target.value.toUpperCase() })}
                                                 onBlur={() => setFieldTouched('rc')}
-                                                placeholder="WW/YY-NNNNNNN B"
+                                                placeholder="WWXX-XXA/BXXXXXXX"
                                                 className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                     ${rcInfo ? (rcInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                             />
@@ -2967,7 +2969,7 @@ export default function CustomerDetailPage() {
                                                 value={editData.nif || ''}
                                                 onChange={e => setEditData({ ...editData, nif: e.target.value.replace(/\s/g, '') })}
                                                 onBlur={() => setFieldTouched('nif')}
-                                                placeholder="15 أو 20 رقماً..."
+                                                placeholder="14 إلى 20 رقماً..."
                                                 className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                     ${nifInfo ? (nifInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                             />
@@ -2987,7 +2989,7 @@ export default function CustomerDetailPage() {
                                                 value={editData.ai || ''}
                                                 onChange={e => setEditData({ ...editData, ai: e.target.value.toUpperCase() })}
                                                 onBlur={() => setFieldTouched('ai')}
-                                                placeholder="مثال: B 123456"
+                                                placeholder="11 إلى 13 رقماً..."
                                                 className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                     ${aiInfo ? (aiInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                             />
@@ -3007,7 +3009,7 @@ export default function CustomerDetailPage() {
                                                 value={editData.nis || ''}
                                                 onChange={e => setEditData({ ...editData, nis: e.target.value.replace(/\s/g, '') })}
                                                 onBlur={() => setFieldTouched('nis')}
-                                                placeholder="15 أو 18 رقماً..."
+                                                placeholder="15 إلى 20 رقماً..."
                                                 className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                     ${nisInfo ? (nisInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                             />

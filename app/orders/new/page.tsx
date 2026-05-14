@@ -45,6 +45,7 @@ interface Product {
     unit: string;
     hasBatches?: boolean;
     hasExpiryDate?: boolean;
+    tva?: number | null;
     nearestExpiryDate?: string | null;
     validQuantity: number;
 }
@@ -219,7 +220,15 @@ function NewOrderPage() {
     const [guestAddress, setGuestAddress] = useState('');
     const [guestCommune, setGuestCommune] = useState('المسيلة');
     const [guestWilaya, setGuestWilaya] = useState('المسيلة');
+    const [guestPostalCode, setGuestPostalCode] = useState('28000');
     const [guestIsOfficial, setGuestIsOfficial] = useState(false);
+    const [guestIsTvaSubject, setGuestIsTvaSubject] = useState(true);
+    const [guestActivity, setGuestActivity] = useState('');
+    const [fawtara, setFawtara] = useState(false);
+    
+    // Popup states
+    const [showPrintPopup, setShowPrintPopup] = useState(false);
+    const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
 
     // Payment states
     const [paymentMode, setPaymentMode] = useState<'FULL' | 'PARTIAL' | 'NONE'>('FULL');
@@ -341,16 +350,21 @@ function NewOrderPage() {
     }, [lines]);
 
     const taxTotal = useMemo(() => {
-        if (!isOfficial || !settings) return 0;
-        return subtotal * (settings.tvaRate / 100);
-    }, [isOfficial, settings, subtotal]);
+        if (!settings) return 0;
+        return lines.reduce((acc, line) => {
+            const p = products.find(prd => prd.id === Number(line.productId));
+            const lineHt = line.quantity * Math.max(0, line.unitPrice - line.discount);
+            const tvaRate = p?.tva !== undefined && p?.tva !== null ? p.tva : (settings?.tvaRate || 19);
+            return acc + (lineHt * (tvaRate / 100));
+        }, 0);
+    }, [lines, products, settings]);
 
     const timbreAmount = useMemo(() => {
-        if (!isOfficial || !settings || paymentMethod !== 'CASH') return 0;
+        if (!settings || paymentMethod !== 'CASH') return 0;
         return Math.min((subtotal + taxTotal) * (settings.timbreRate / 100), 10000);
-    }, [isOfficial, settings, subtotal, taxTotal, paymentMethod]);
+    }, [settings, subtotal, taxTotal, paymentMethod]);
 
-    const grandTotal = subtotal + taxTotal + timbreAmount;
+    const grandTotal = orderType === 'PURCHASE' ? subtotal : subtotal + taxTotal + timbreAmount;
 
     useEffect(() => {
         if (paymentMode === 'FULL') setInitialPayment(grandTotal);
@@ -386,23 +400,43 @@ function NewOrderPage() {
     }
 
     const canGoNext = () => {
-        if (currentStep === 1) return !!supplierType;
-        if (currentStep === 2) return (supplierType === 'REGISTERED' && supplierId) || (supplierType === 'GUEST' && guestSupplierName.trim().length >= 3);
-        if (currentStep === 3) return externalOrderNumber && externalOrderNumber.length > 5;
-        if (currentStep === 4) {
-            const productLines = lines.filter(l => l.productId);
-            return productLines.length > 0 && productLines.every(l => {
-                const p = products.find(prd => prd.id === Number(l.productId));
-                const needsExpiry = p?.hasExpiryDate;
-                const hasExpiry = !!l.expiryDate;
-                return l.quantity > 0 && l.unitPrice > 0 && (!needsExpiry || hasExpiry);
-            });
-        }
-        if (currentStep === 5) {
-            if (paymentMode === 'NONE') return true;
-            if (initialPayment <= 0) return false;
-            if (paymentMethod !== 'CASH' && (!chequeNumber || !bankName)) return false;
-            return true;
+        if (orderType === 'PURCHASE') {
+            if (currentStep === 1) return !!supplierType;
+            if (currentStep === 2) return (supplierType === 'REGISTERED' && supplierId) || (supplierType === 'GUEST' && guestSupplierName.trim().length >= 3);
+            if (currentStep === 3) return externalOrderNumber && externalOrderNumber.length > 5;
+            if (currentStep === 4) {
+                const productLines = lines.filter(l => l.productId);
+                return productLines.length > 0 && productLines.every(l => {
+                    const p = products.find(prd => prd.id === Number(l.productId));
+                    const needsExpiry = p?.hasExpiryDate;
+                    const hasExpiry = !!l.expiryDate;
+                    return l.quantity > 0 && l.unitPrice > 0 && (!needsExpiry || hasExpiry);
+                });
+            }
+            if (currentStep === 5) {
+                if (paymentMode === 'NONE') return true;
+                if (initialPayment <= 0) return false;
+                if (paymentMethod !== 'CASH' && (!chequeNumber || !bankName)) return false;
+                return true;
+            }
+        } else {
+            // SALE Logic
+            if (currentStep === 1) return !!customerType;
+            if (currentStep === 2) {
+                if (customerType === 'REGISTERED') return !!customerId && !!projectId;
+                if (customerType === 'GUEST') return guestName.trim().length >= 3;
+            }
+            if (currentStep === 3) {
+                const productLines = lines.filter(l => l.productId);
+                return productLines.length > 0 && productLines.every(l => l.quantity > 0 && l.unitPrice > 0);
+            }
+            if (currentStep === 4) {
+                if (customerType === 'GUEST') return true; // bypassed
+                if (paymentMode === 'NONE') return true;
+                if (initialPayment <= 0) return false;
+                if (paymentMethod !== 'CASH' && (!chequeNumber || !bankName)) return false;
+                return true;
+            }
         }
         return true;
     };
@@ -417,12 +451,23 @@ function NewOrderPage() {
             projectId: projectId || undefined,
             guestSupplierName: (orderType === 'PURCHASE' && supplierType === 'GUEST') ? guestSupplierName : undefined,
             externalNumber: orderType === 'PURCHASE' ? externalOrderNumber : undefined,
-            docType,
+            docType: orderType === 'SALE' && fawtara && customerType === 'GUEST' ? 'INVOICE' : docType,
             total: subtotal,
             grandTotal,
-            isOfficial,
-            initialPayment,
-            paymentMethod,
+            isOfficial: orderType === 'SALE' && customerType === 'GUEST' ? fawtara : isOfficial,
+            initialPayment: orderType === 'SALE' && customerType === 'GUEST' ? grandTotal : initialPayment,
+            paymentMethod: orderType === 'SALE' && customerType === 'GUEST' ? 'CASH' : paymentMethod,
+            notes,
+            // Guest Fields
+            customerName: orderType === 'SALE' && customerType === 'GUEST' ? guestName : undefined,
+            customerPhone: orderType === 'SALE' && customerType === 'GUEST' ? guestPhone : undefined,
+            customerRC: orderType === 'SALE' && customerType === 'GUEST' ? guestRC : undefined,
+            customerNIF: orderType === 'SALE' && customerType === 'GUEST' ? guestNIF : undefined,
+            customerAI: orderType === 'SALE' && customerType === 'GUEST' ? guestAI : undefined,
+            customerNIS: orderType === 'SALE' && customerType === 'GUEST' ? guestNIS : undefined,
+            customerAddress: orderType === 'SALE' && customerType === 'GUEST' ? guestAddress : undefined,
+            customerCommune: orderType === 'SALE' && customerType === 'GUEST' ? guestCommune : undefined,
+            customerWilaya: orderType === 'SALE' && customerType === 'GUEST' ? guestWilaya : undefined,
             items: lines.map(l => ({
                 productId: l.productId,
                 quantity: l.quantity,
@@ -464,7 +509,12 @@ function NewOrderPage() {
                 await Promise.all(updatePromises);
             }
 
-            setInvoiceData(result);
+            if (orderType === 'SALE') {
+                setCreatedOrderId(result.id);
+                setShowPrintPopup(true);
+            } else {
+                router.push('/orders');
+            }
         } catch (e: any) { 
             alert(e.message); 
         } finally { 
@@ -472,18 +522,27 @@ function NewOrderPage() {
         }
     };
 
-    // --- RENDER WIZARD (FOR PURCHASE) ---
-    if (orderType === 'PURCHASE') {
-        const steps = [
-            { id: 1, name: 'نوع المورد', icon: UserCircle2 },
-            { id: 2, name: 'بيانات المورد', icon: Building2 },
-            { id: 3, name: 'الفاتورة', icon: FileText },
-            { id: 4, name: 'المنتجات', icon: PackageOpen },
-            { id: 5, name: 'الدفع', icon: CreditCard },
-            { id: 6, name: 'المراجعة', icon: CheckCircle }
-        ];
+    const purchaseSteps = [
+        { id: 1, name: 'نوع المورد', icon: UserCircle2 },
+        { id: 2, name: 'بيانات المورد', icon: Building2 },
+        { id: 3, name: 'الفاتورة', icon: FileText },
+        { id: 4, name: 'المنتجات', icon: PackageOpen },
+        { id: 5, name: 'الدفع', icon: CreditCard },
+        { id: 6, name: 'المراجعة', icon: CheckCircle }
+    ];
 
-        return (
+    const saleSteps = [
+        { id: 1, name: 'نوع العميل', icon: UserCircle2 },
+        { id: 2, name: 'بيانات المشتري', icon: Store },
+        { id: 3, name: 'المنتجات', icon: PackageOpen },
+        { id: 4, name: 'الدفع', icon: CreditCard },
+        { id: 5, name: 'المراجعة', icon: CheckCircle }
+    ];
+
+    const steps = orderType === 'PURCHASE' ? purchaseSteps : saleSteps;
+
+    // --- RENDER WIZARD ---
+    return (
             <div className="font-tajawal h-screen bg-white text-gray-900 p-4 md:p-8 flex flex-col relative overflow-hidden" dir="rtl">
                 <div className="w-full flex flex-col h-full gap-4 animate-in fade-in duration-700">
                     
@@ -1345,7 +1404,7 @@ function NewOrderPage() {
                                                                 <td className="px-4 py-3 font-bold text-gray-500 text-center text-sm">{p?.unit || '—'}</td>
                                                                 <td className="px-4 py-3 font-black text-blue-600 text-center font-sans" dir="ltr">{formatWithSpaces(line.quantity)}</td>
                                                                 <td className="px-4 py-3 font-black text-gray-900 text-center font-sans" dir="ltr">{formatWithSpaces(line.unitPrice)}</td>
-                                                                <td className="px-4 py-3 font-bold text-gray-400 text-center font-sans" dir="ltr">{isOfficial ? `${settings?.tvaRate || 19}%` : '—'}</td>
+                                                                <td className="px-4 py-3 font-bold text-gray-400 text-center font-sans" dir="ltr">{`${p?.tva !== undefined && p?.tva !== null ? p.tva : (settings?.tvaRate || 19)}%`}</td>
                                                                 <td className="px-4 py-3 font-black text-emerald-600 text-center font-sans" dir="ltr">{formatWithSpaces(lineHt)}</td>
                                                             </tr>
                                                         );
@@ -1402,12 +1461,14 @@ function NewOrderPage() {
                                                         <span className="text-white/60 font-bold text-sm">المجموع الفردي (Total HT):</span>
                                                         <span className="font-black text-white font-sans" dir="ltr">{formatWithSpaces(subtotal)} دج</span>
                                                     </div>
-                                                    {isOfficial && (
-                                                        <div className="flex justify-between items-center pb-3 border-b border-white/10">
-                                                            <span className="text-white/60 font-bold text-sm">قيمة الضريبة (TVA):</span>
-                                                            <span className="font-black text-white font-sans" dir="ltr">{formatWithSpaces(taxTotal)} دج</span>
-                                                        </div>
-                                                    )}
+                                                    <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                                                        <span className="text-white/60 font-bold text-sm">قيمة الضريبة (TVA):</span>
+                                                        <span className="font-black text-white font-sans" dir="ltr">{formatWithSpaces(taxTotal)} دج</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                                                        <span className="text-white/60 font-bold text-sm">حقوق الطابع (Timbre):</span>
+                                                        <span className="font-black text-white font-sans" dir="ltr">{formatWithSpaces(timbreAmount)} دج</span>
+                                                    </div>
                                                     <div className="flex justify-between items-center pt-2">
                                                         <span className="text-white/80 font-black text-lg">المبلغ الإجمالي (TTC):</span>
                                                         <div className="text-right">
@@ -1440,13 +1501,4 @@ function NewOrderPage() {
                 </div>
             </div>
         );
-    }
-
-    // --- RENDER SALE (PREMIUM ORIGINAL UI) ---
-    return (
-        <div className="font-tajawal min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8 flex flex-col items-center relative" dir="rtl">
-            {/* SALE UI REMAINS INTACT AS PER ORIGINAL... */}
-            <div className="text-center p-20">صفحة البيع - قيد الانتظار</div>
-        </div>
-    );
 }

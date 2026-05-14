@@ -82,11 +82,7 @@ export default function SuppliersPage() {
         if (!nif) return null;
         const clean = nif.replace(/\s/g, '');
         if (!/^\d+$/.test(clean)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
-        if (clean.length !== 15 && clean.length !== 20) return { valid: false, error: "يجب أن يكون 15 أو 20 رقماً بالضبط" };
-        const cat = parseInt(clean[0]);
-        if (cat > 8) return { valid: false, error: "رقم الفئة (أول رقم) يجب أن يكون بين 0 و 8" };
-        const wilCode = parseInt(clean.substring(4, 6));
-        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${clean.substring(4, 6)}) غير صحيح (01-58)` };
+        if (clean.length < 14 || clean.length > 20) return { valid: false, error: "يجب أن يكون بين 14 و 20 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
@@ -94,38 +90,27 @@ export default function SuppliersPage() {
         if (!nis) return null;
         const clean = nis.replace(/\s/g, '');
         if (!/^\d+$/.test(clean)) return { valid: false, error: "يجب أن يحتوي على أرقام فقط بدون مسافات" };
-        if (clean.length !== 15 && clean.length !== 18) return { valid: false, error: "يجب أن يكون 15 أو 18 رقماً بالضبط" };
-        if (clean.substring(1, 4) === "000") return { valid: false, error: "سنة التأسيس (الخانة 2-4) لا يمكن أن تكون 000" };
+        if (clean.length < 15 || clean.length > 20) return { valid: false, error: "يجب أن يكون بين 15 و 20 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
     const validateRC = (rc: string) => {
         if (!rc) return null;
-        const match1 = rc.match(/^(\d{2})\/(\d{2})-(\d{7})(?:\s([AB]))?$/i);
-        if (match1) {
-            const wilCode = parseInt(match1[1]);
-            if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${match1[1]}) غير صحيح (01-58)` };
+        // Format: WWXX-XX(A or B)XXXXXXX (where WW = wilaya 01-69)
+        const match = rc.match(/^(\d{2})(\d{2})-(\d{2})([AB])(\d{7})$/i);
+        if (match) {
+            const wilCode = parseInt(match[1]);
+            if (wilCode < 1 || wilCode > 69) return { valid: false, error: `كود الولاية (${match[1]}) غير صحيح (01-69)` };
             return { valid: true, breakdown: "صحيح" };
         }
-        const match2 = rc.match(/^(\d{2})\s?([AB])\s?(\d{7})(?:-(\d{2}))?$/i);
-        if (match2) {
-            const wilaya = match2[4];
-            if (wilaya) {
-                const wilCode = parseInt(wilaya);
-                if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${wilaya}) غير صحيح (01-58)` };
-            }
-            return { valid: true, breakdown: "صحيح" };
-        }
-        if (/^\d{10}$/.test(rc)) return { valid: true, breakdown: "صحيح" };
-        return { valid: false, error: "الصيغة غير صحيحة. أمثلة: 16/24-0012345 B أو 10 أرقام" };
+        return { valid: false, error: "الصيغة غير صحيحة. مثال: 2821-51A4344821" };
     };
 
     const validateAI = (ai: string) => {
         if (!ai) return null;
         const cleanAI = ai.replace(/\s/g, '');
-        if (!/^\d{11}$/.test(cleanAI)) return { valid: false, error: "رقم المادة يجب أن يتكون من 11 رقماً بالضبط" };
-        const wilCode = parseInt(cleanAI.substring(0, 2));
-        if (wilCode < 1 || wilCode > 58) return { valid: false, error: `كود الولاية (${cleanAI.substring(0, 2)}) غير صحيح (01-58)` };
+        if (!/^\d+$/.test(cleanAI)) return { valid: false, error: "رقم المادة يجب أن يحتوي على أرقام فقط" };
+        if (cleanAI.length < 11 || cleanAI.length > 13) return { valid: false, error: "رقم المادة يجب أن يكون بين 11 و 13 رقماً" };
         return { valid: true, breakdown: "صحيح" };
     };
 
@@ -597,7 +582,7 @@ export default function SuppliersPage() {
                                             type="text"
                                             value={formData.rc}
                                             onChange={e => setFormData({ ...formData, rc: e.target.value.toUpperCase() })}
-                                            placeholder="10 أرقام..."
+                                            placeholder="WWXX-XXA/BXXXXXXX"
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${rcInfo ? (rcInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -615,7 +600,7 @@ export default function SuppliersPage() {
                                             type="text"
                                             value={formData.nif}
                                             onChange={e => setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '') })}
-                                            placeholder="15 رقماً..."
+                                            placeholder="14 إلى 20 رقماً..."
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${nifInfo ? (nifInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -633,7 +618,7 @@ export default function SuppliersPage() {
                                             type="text"
                                             value={formData.ai}
                                             onChange={e => setFormData({ ...formData, ai: e.target.value.replace(/\D/g, '') })}
-                                            placeholder="11 رقماً..."
+                                            placeholder="11 إلى 13 رقماً..."
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${aiInfo ? (aiInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
@@ -651,7 +636,7 @@ export default function SuppliersPage() {
                                             type="text"
                                             value={formData.nis}
                                             onChange={e => setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '') })}
-                                            placeholder="15 رقماً..."
+                                            placeholder="15 إلى 20 رقماً..."
                                             className={`w-full bg-gray-50/50 border-2 rounded-[1.2rem] px-5 py-3.5 text-gray-900 font-bold font-sans focus:outline-none transition-all
                                                 ${nisInfo ? (nisInfo.valid ? 'border-emerald-200 focus:border-emerald-400 bg-emerald-50/20' : 'border-red-200 focus:border-red-400 bg-red-50/20') : 'border-transparent focus:border-amber-400'}`}
                                         />
