@@ -12,6 +12,7 @@ import ExpiryAlertBanner from './ExpiryAlertBanner'
 
 function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean; onClose: () => void; collapsed: boolean; onToggleCollapse: () => void }) {
     const pathname = usePathname()
+    const isNewOrderPage = pathname === '/orders/new'
     const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
     useEffect(() => {
@@ -44,9 +45,9 @@ function Sidebar({ open, onClose, collapsed, onToggleCollapse }: { open: boolean
             style={{ backgroundColor: '#8b5cf6', transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
         >
             <div
-                className={`flex justify-center items-center cursor-pointer hover:opacity-80 active:scale-95 transition-all duration-500 ease-in-out ${collapsed ? 'p-2 py-6' : 'p-4'}`}
+                className={`flex justify-center items-center transition-all duration-500 ease-in-out ${isNewOrderPage ? 'cursor-default' : 'cursor-pointer hover:opacity-80 active:scale-95'} ${collapsed ? 'p-2 py-6' : 'p-4'}`}
                 style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
-                onClick={onToggleCollapse}
+                onClick={isNewOrderPage ? undefined : onToggleCollapse}
             >
                 <Logo
                     className={`transition-all duration-500 ease-in-out ${collapsed ? 'w-10 h-10' : 'w-40 h-20'}`}
@@ -195,6 +196,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const searchParams = useSearchParams()
     
     const isPurchaseMode = pathname === '/orders/new' && searchParams.get('type') === 'PURCHASE'
+    const isNewOrderPage = pathname === '/orders/new'
     
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [isCollapsed, setIsCollapsed] = useState(false)
@@ -252,14 +254,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Sidebar
                 open={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
-                collapsed={isCollapsed}
+                collapsed={isNewOrderPage ? true : isCollapsed}
                 onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
             />
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col bg-white rounded-[1rem] md:rounded-[1.4rem] overflow-hidden shadow-2xl relative border border-white/10">
                 {/* Top Bar */}
-                {!isPurchaseMode && <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} notificationCount={notifCount} />}
+                {!isNewOrderPage && <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} notificationCount={notifCount} />}
 
                 {/* Content Area */}
                 <main className="flex-1 overflow-auto">
