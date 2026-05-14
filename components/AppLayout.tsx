@@ -194,11 +194,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const searchParams = useSearchParams()
     
+    const isPurchaseMode = pathname === '/orders/new' && searchParams.get('type') === 'PURCHASE'
+    
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [notifCount, setNotifCount] = useState(0)
 
-    const isPurchaseMode = pathname === '/orders/new' && searchParams.get('type') === 'PURCHASE'
+    // Force collapse in purchase mode
+    useEffect(() => {
+        if (isPurchaseMode) setIsCollapsed(true);
+    }, [isPurchaseMode]);
 
     // Global Keyboard Shortcuts (F3/F4)
     useEffect(() => {

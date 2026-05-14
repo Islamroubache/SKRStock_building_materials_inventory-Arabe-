@@ -31,8 +31,9 @@ interface Product {
     supplier?: Supplier;
     expiryDate: string | null;
     hasBatches?: boolean;
-    nearestExpiryDate?: string | null;
+    hasBatches?: boolean;
     hasExpiryDate?: boolean;
+    tva?: number | null;
     _count?: {
         batches: number;
     };
@@ -65,6 +66,7 @@ function ProductsContent() {
     const [customExpiryDays, setCustomExpiryDays] = useState(14);
     const [viewArchived, setViewArchived] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const [globalTva, setGlobalTva] = useState<number>(19);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -80,13 +82,14 @@ function ProductsContent() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [formData, setFormData] = useState<Partial<Product>>({
         name: '', category: 'مواد بناء', purchasePrice: 0, sellPrice: 0,
-        quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false
+        quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false, tva: null
     });
 
     // UI specific states for the panel
 
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; product: Product | null }>({ isOpen: false, product: null });
     const [isManualCode, setIsManualCode] = useState(false);
+    const [isManualTva, setIsManualTva] = useState(false);
     const [historyDialog, setHistoryDialog] = useState<{ isOpen: boolean; movements: StockMovement[], loading: boolean }>({ isOpen: false, movements: [], loading: false });
     const [batchesDialog, setBatchesDialog] = useState<{ isOpen: boolean; product: Product | null }>({ isOpen: false, product: null });
     const [toasts, setToasts] = useState<{ id: number; msg: string; type: 'success' | 'error' }[]>([]);
@@ -130,6 +133,10 @@ function ProductsContent() {
                     const un = data.units.split(',');
                     setUnits(un);
                     if (!editingProduct) setFormData(prev => ({ ...prev, unit: un[0] }));
+                }
+                if (data.tvaRate !== undefined) {
+                    setGlobalTva(data.tvaRate);
+                    if (!editingProduct) setFormData(prev => ({ ...prev, tva: data.tvaRate }));
                 }
             }
         } catch (e) {}
@@ -223,16 +230,18 @@ function ProductsContent() {
                 code: product.code || '',
                 expiryDate: product.expiryDate ? new Date(product.expiryDate).toISOString().split('T')[0] : null,
                 hasBatches: true,
-                hasExpiryDate: product.hasExpiryDate !== false
+                hasExpiryDate: product.hasExpiryDate !== false,
+                tva: product.tva !== null ? product.tva : globalTva
             });
         } else {
             setEditingProduct(null);
             setFormData({
                 name: '', category: 'مواد بناء', purchasePrice: 0, sellPrice: 0,
-                quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false
+                quantity: 0, minQuantity: 5, unit: 'قطعة', supplierId: undefined, code: '', expiryDate: null, hasBatches: true, hasExpiryDate: false, tva: globalTva
             });
         }
         setIsManualCode(false);
+        setIsManualTva(false);
         setIsPanelOpen(true);
     };
 
@@ -380,6 +389,7 @@ function ProductsContent() {
         (formData.sellPrice < formData.purchasePrice) || 
         (formData.minQuantity === undefined || formData.minQuantity === null) ||
         (formData.hasExpiryDate !== false && !formData.expiryDate) ||
+        (isManualTva && (formData.tva === undefined || formData.tva === null || formData.tva < 0)) ||
         isCodeDuplicate;
 
     return (
@@ -785,6 +795,39 @@ function ProductsContent() {
                                                     ${(formData.sellPrice !== undefined && formData.purchasePrice !== undefined && formData.sellPrice < formData.purchasePrice) ? 'border-red-200 bg-red-50/50 focus:border-red-400 focus:ring-red-400/10' : 'border-transparent focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10 focus:bg-white transition-all'}`}
                                             />
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-[10px] uppercase pt-1">دج</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center mr-1">
+                                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-tighter">قيمة الضريبة (TVA) <span className="text-red-500">*</span></label>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsManualTva(!isManualTva)}
+                                                className={`text-[10px] font-black px-2 py-1 rounded-lg border transition-all flex items-center gap-1
+                                                    ${isManualTva ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                            >
+                                                <Edit size={10} />
+                                                {isManualTva ? 'إلغاء اليدوي' : 'تعديل يدوي'}
+                                            </button>
+                                        </div>
+                                        <div className="relative group">
+                                            <input
+                                                type="number"
+                                                value={isManualTva ? (formData.tva ?? '') : (formData.tva !== null && formData.tva !== undefined ? formData.tva : globalTva)}
+                                                onChange={e => {
+                                                    if (isManualTva) {
+                                                        const val = parseFloat(e.target.value);
+                                                        setFormData({ ...formData, tva: isNaN(val) ? null : val });
+                                                    }
+                                                }}
+                                                disabled={!isManualTva}
+                                                className={`w-full font-sans border-2 rounded-[1.2rem] pl-12 pr-5 py-3.5 font-bold transition-all
+                                                    ${isManualTva 
+                                                        ? (formData.tva === null || formData.tva === undefined || formData.tva < 0 ? 'border-red-400 bg-red-50/50 focus:outline-none focus:ring-4 focus:ring-red-400/10 text-gray-900' : 'bg-gray-50/50 text-gray-900 focus:outline-none border-blue-400 focus:ring-4 focus:ring-blue-400/10 focus:bg-white') 
+                                                        : 'disabled:bg-gray-100 disabled:text-gray-400 border-transparent text-gray-900'}`}
+                                            />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-[10px] uppercase pt-1">%</span>
                                         </div>
                                     </div>
                                 </div>

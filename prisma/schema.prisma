@@ -17,6 +17,7 @@ model Product {
   minQuantity       Int              @default(5)
   unit              String           @default("قطعة")
   avgPurchasePrice  Float?
+  tva               Float?
   hasBatches        Boolean          @default(false)
   hasExpiryDate     Boolean          @default(true)
   nearestExpiryDate DateTime?

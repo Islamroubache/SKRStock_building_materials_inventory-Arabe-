@@ -101,6 +101,7 @@ export async function POST(request: Request) {
                     nearestExpiryDate: body.hasExpiryDate !== false ? finalExpiry : null,
                     hasBatches: body.hasBatches || false,
                     hasExpiryDate: body.hasExpiryDate !== undefined ? body.hasExpiryDate : true,
+                    tva: body.tva !== undefined ? (body.tva === null ? null : parseFloat(String(body.tva))) : undefined,
                 }
             });
 

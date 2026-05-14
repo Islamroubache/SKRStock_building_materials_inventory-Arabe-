@@ -73,6 +73,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                     nearestExpiryDate: body.expiryDate !== undefined ? finalExpiry : currentProduct.nearestExpiryDate,
                     hasBatches: body.hasBatches !== undefined ? body.hasBatches : currentProduct.hasBatches,
                     hasExpiryDate: body.hasExpiryDate !== undefined ? body.hasExpiryDate : currentProduct.hasExpiryDate,
+                    tva: body.tva !== undefined ? (body.tva === null ? null : parseFloat(String(body.tva))) : currentProduct.tva,
                 }
             });
 
